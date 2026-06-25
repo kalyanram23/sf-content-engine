@@ -1,0 +1,8 @@
+dist
+coverage
+node_modules
+playground-output
+package-lock.json
+docs
+real-output
+.claude

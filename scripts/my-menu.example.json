@@ -1,0 +1,37 @@
+[
+  {
+    "id": "marg",
+    "name": "Margherita",
+    "category": "Pizzas",
+    "available": true,
+    "sizes": [
+      { "label": "10\"", "price": 11.99 },
+      { "label": "12\"", "price": 13.99 },
+      { "label": "14\"", "price": 15.99 }
+    ]
+  },
+  {
+    "id": "pep",
+    "name": "Pepperoni",
+    "category": "Pizzas",
+    "available": true,
+    "sizes": [
+      { "label": "10\"", "price": 12.99 },
+      { "label": "12\"", "price": 14.99 },
+      { "label": "14\"", "price": 16.99 }
+    ]
+  },
+  { "id": "garlic", "name": "Garlic Bread", "category": "Sides", "available": true, "price": 5.5 },
+  { "id": "wings", "name": "Buffalo Wings", "category": "Sides", "available": true, "price": 8.0 },
+  {
+    "id": "curry",
+    "name": "House Curry",
+    "category": "Curries",
+    "available": true,
+    "variants": [
+      { "label": "Veg", "price": 9 },
+      { "label": "Paneer", "price": 11 },
+      { "label": "Chicken", "price": 12 }
+    ]
+  }
+]

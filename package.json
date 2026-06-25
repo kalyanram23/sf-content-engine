@@ -1,0 +1,87 @@
+{
+  "name": "content-engine",
+  "version": "0.1.0",
+  "description": "Stateless content-generation engine that turns a normalized menu into finished digital-signage screens (free paint on rails + generator-critic QA loop).",
+  "type": "module",
+  "sideEffects": false,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:live": "vitest run --config vitest.live.config.ts",
+    "playground": "tsx src/playground/run.ts",
+    "try": "tsx scripts/try.ts",
+    "verify": "prettier --check . && eslint . && tsc --noEmit && vitest run"
+  },
+  "dependencies": {
+    "@langchain/core": "^1.2.1",
+    "@langchain/langgraph": "^1.4.5",
+    "node-html-parser": "^8.0.3",
+    "zod": "^4.4.3",
+    "zod-to-json-schema": "^3.25.2"
+  },
+  "peerDependencies": {
+    "@tailwindcss/node": "^4.3.1",
+    "openai": "^6.44.0",
+    "playwright-core": "^1.61.0",
+    "tailwindcss": "^4.3.1"
+  },
+  "peerDependenciesMeta": {
+    "@tailwindcss/node": {
+      "optional": true
+    },
+    "openai": {
+      "optional": true
+    },
+    "playwright-core": {
+      "optional": true
+    },
+    "tailwindcss": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@tailwindcss/node": "^4.3.1",
+    "@types/node": "^22.15.0",
+    "@vitest/coverage-v8": "^4.1.9",
+    "eslint": "^9.39.4",
+    "openai": "^6.44.0",
+    "playwright-core": "^1.61.0",
+    "prettier": "^3.8.4",
+    "tailwindcss": "^4.3.1",
+    "tsup": "^8.5.1",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.62.0",
+    "vitest": "^4.1.9"
+  }
+}

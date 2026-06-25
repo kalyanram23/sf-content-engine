@@ -1,0 +1,16 @@
+{
+  "screens": [
+    {
+      "id": "screen-1",
+      "sections": [{ "title": "PIZZAS", "representation": "matrix", "items": ["marg", "pep"] }]
+    },
+    {
+      "id": "screen-2",
+      "sections": [{ "title": "SIDES", "representation": "list", "items": ["garlic", "wings"] }]
+    },
+    {
+      "id": "screen-3",
+      "sections": [{ "title": "CURRIES", "representation": "variant-rows", "items": ["curry"] }]
+    }
+  ]
+}

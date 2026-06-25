@@ -1,0 +1,357 @@
+import { type HTMLElement, parse } from "node-html-parser";
+
+import type { QaConfig } from "../config/qa";
+import type { TokenLintRules } from "../config/token-lint";
+import type { CanonicalItem, PlanScreen, QaFinding, ResolvedTheme } from "../domain/types";
+import { FindingKind, makeFinding } from "./finding";
+import { checkCapacity, checkRepresentations } from "./representation";
+
+/**
+ * Pure structural checks over the LLM-authored / packaged HTML (D3). Parsed once with
+ * node-html-parser (tiny, pure-JS). Covers the §5.5/§5.6 binding contract, the §5.2
+ * token-lint + motion-vocab rails, and the §5.1 self-contained / no-baked-player contract.
+ * The rendered DOM (BrowserPort) is the spec-compliant backstop on the live path; these
+ * checks have adversarial malformed-HTML fixtures.
+ */
+
+export interface StructuralContext {
+  /** The packaged, self-contained artifact (what ships) — checked for bindings/motion/etc. */
+  html: string;
+  /**
+   * The raw, painter-authored markup (pre-compile). Token-lint runs HERE so raw hex/px in
+   * the painter's classes are caught, not the legitimate hex in compiled CSS (D3/S7). Falls
+   * back to `html` when omitted.
+   */
+  rawHtml?: string;
+  planScreen: PlanScreen;
+  items: CanonicalItem[];
+  theme: ResolvedTheme;
+  qa: QaConfig;
+  tokenLint: TokenLintRules;
+}
+
+const DATA_URI = /^(data:|#|blob:)/i;
+const HEX = /#[0-9a-fA-F]{3,8}\b/g;
+const PX = /(-?\d*\.?\d+)px\b/g;
+const URL_FN = /url\(\s*['"]?([^'")]+)['"]?\s*\)/gi;
+const BAKED_PLAYER = [
+  { re: /\blocation\.(href|assign|replace)\b/, what: "location navigation" },
+  { re: /\bwindow\.location\b/, what: "window.location" },
+  { re: /\bhistory\.(push|replace)State\b/, what: "history navigation" },
+  { re: /\bwindow\.open\s*\(/, what: "window.open" },
+];
+
+function plannedSectionItemIds(plan: PlanScreen): string[] {
+  const ids = new Set<string>();
+  for (const section of plan.sections) for (const id of section.items) ids.add(id);
+  return [...ids];
+}
+
+function numbersIn(text: string): number[] {
+  return (text.match(/\d+(?:\.\d+)?/g) ?? []).map(Number);
+}
+
+/** The price values that should appear bound somewhere inside an item node, if any. */
+function expectedPrices(item: CanonicalItem): number[] {
+  const prices: number[] = [];
+  if (item.price !== undefined) prices.push(item.price);
+  for (const size of item.sizes ?? []) prices.push(size.price);
+  for (const variant of item.variants ?? [])
+    if (variant.price !== undefined) prices.push(variant.price);
+  return prices;
+}
+
+function approxIncludes(haystack: number[], needle: number): boolean {
+  return haystack.some((n) => Math.abs(n - needle) < 0.005);
+}
+
+/** §5.5/§5.6 binding contract: every planned item present + unique, required hooks exist, prices match. */
+export function checkBindings(root: HTMLElement, ctx: StructuralContext): QaFinding[] {
+  const findings: QaFinding[] = [];
+  const itemsById = new Map(ctx.items.map((i) => [i.id, i]));
+  const nodesById = new Map<string, HTMLElement[]>();
+  for (const el of root.querySelectorAll("[data-item-id]")) {
+    const id = el.getAttribute("data-item-id");
+    if (!id) continue;
+    const list = nodesById.get(id) ?? [];
+    list.push(el);
+    nodesById.set(id, list);
+  }
+
+  for (const id of plannedSectionItemIds(ctx.planScreen)) {
+    const nodes = nodesById.get(id) ?? [];
+    if (nodes.length === 0) {
+      findings.push(
+        makeFinding({
+          kind: FindingKind.BindingMissing,
+          source: "deterministic",
+          severity: "critical",
+          tag: "content",
+          itemId: id,
+          message: `Planned item "${id}" has no element with data-item-id="${id}".`,
+        }),
+      );
+      continue;
+    }
+    if (nodes.length > 1) {
+      findings.push(
+        makeFinding({
+          kind: FindingKind.BindingDuplicate,
+          source: "deterministic",
+          severity: "major",
+          tag: "content",
+          itemId: id,
+          message: `Item "${id}" appears ${nodes.length} times; data-item-id must be unique.`,
+          data: { count: nodes.length },
+        }),
+      );
+    }
+
+    const node = nodes[0]!;
+    const item = itemsById.get(id);
+    const prices = item ? expectedPrices(item) : [];
+
+    for (const binding of ctx.qa.requiredBindings) {
+      // "price" is only required for items that actually carry price data.
+      if (binding === "price" && prices.length === 0) continue;
+      const hooks = node.querySelectorAll(`[data-bind="${binding}"]`);
+      if (hooks.length === 0) {
+        findings.push(
+          makeFinding({
+            kind: FindingKind.BindingHookMissing,
+            source: "deterministic",
+            severity: "critical",
+            tag: "content",
+            itemId: id,
+            message: `Item "${id}" is missing a data-bind="${binding}" hook (patcher contract).`,
+            data: { binding },
+          }),
+        );
+        continue;
+      }
+      if (binding === "price") {
+        const bound = numbersIn(hooks.map((h) => h.text).join(" "));
+        const missing = prices.filter((p) => !approxIncludes(bound, p));
+        if (missing.length > 0) {
+          findings.push(
+            makeFinding({
+              kind: FindingKind.BindingMismatch,
+              source: "deterministic",
+              severity: "major",
+              tag: "content",
+              itemId: id,
+              message: `Item "${id}" price binding does not match source (missing ${missing.join(", ")}).`,
+              data: { expected: prices, bound, missing },
+            }),
+          );
+        }
+      }
+    }
+  }
+  return findings;
+}
+
+function lintCss(text: string, where: string, rules: TokenLintRules): QaFinding[] {
+  const findings: QaFinding[] = [];
+  if (!rules.allowRawHex) {
+    for (const m of text.matchAll(HEX)) {
+      findings.push(
+        makeFinding({
+          kind: FindingKind.TokenLint,
+          source: "deterministic",
+          severity: "major",
+          tag: "mechanical",
+          region: where,
+          message: `Raw hex colour "${m[0]}" in ${where}; use a theme token.`,
+          data: { value: m[0], where },
+        }),
+      );
+    }
+  }
+  if (!rules.allowRawPx) {
+    for (const m of text.matchAll(PX)) {
+      const value = Number(m[1]);
+      if (rules.allowedPxValues.includes(value)) continue;
+      findings.push(
+        makeFinding({
+          kind: FindingKind.TokenLint,
+          source: "deterministic",
+          severity: "major",
+          tag: "mechanical",
+          region: where,
+          message: `Raw px value "${m[0]}" in ${where}; use a spacing/size token.`,
+          data: { value: m[0], where },
+        }),
+      );
+    }
+  }
+  return findings;
+}
+
+/** §5.2 token-lint rail: reject raw hex/px in class arbitrary-values, inline style, and <style>. */
+export function checkTokenLint(root: HTMLElement, ctx: StructuralContext): QaFinding[] {
+  const findings: QaFinding[] = [];
+
+  // Arbitrary-value Tailwind utilities: text-[#fff], p-[7px], etc.
+  for (const el of root.querySelectorAll("[class]")) {
+    const className = el.getAttribute("class") ?? "";
+    for (const m of className.matchAll(/\[([^\]]+)\]/g)) {
+      const inner = m[1] ?? "";
+      findings.push(...lintCss(inner, `class "${m[0]}"`, ctx.tokenLint));
+    }
+  }
+  // Inline style attributes.
+  for (const el of root.querySelectorAll("[style]")) {
+    findings.push(...lintCss(el.getAttribute("style") ?? "", "inline style", ctx.tokenLint));
+  }
+  // <style> blocks.
+  for (const el of root.querySelectorAll("style")) {
+    findings.push(...lintCss(el.text, "<style> block", ctx.tokenLint));
+  }
+
+  // Dedupe identical (value, where) findings to avoid flooding the loop.
+  const seen = new Set<string>();
+  return findings.filter((f) => {
+    const key = `${String(f.data?.["value"])}@${String(f.data?.["where"])}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/** §5.2 motion rail: every data-motion value is in the theme vocab; runtime motion is inlined (D14). */
+export function checkMotion(root: HTMLElement, ctx: StructuralContext): QaFinding[] {
+  const findings: QaFinding[] = [];
+  const vocab = new Map(ctx.theme.motion.map((m) => [m.name, m]));
+  let usesRuntime = false;
+
+  for (const el of root.querySelectorAll("[data-motion]")) {
+    const name = el.getAttribute("data-motion") ?? "";
+    const preset = vocab.get(name);
+    if (!preset) {
+      findings.push(
+        makeFinding({
+          kind: FindingKind.MotionVocab,
+          source: "deterministic",
+          severity: "major",
+          tag: "mechanical",
+          message: `Unknown data-motion="${name}"; not in the theme's motion vocabulary.`,
+          data: { name, vocab: [...vocab.keys()] },
+        }),
+      );
+      continue;
+    }
+    if (preset.kind === "runtime") usesRuntime = true;
+  }
+
+  // Orchestrated motion requires the inlined Motion runtime + glue to be self-contained (§5.1).
+  if (usesRuntime && !root.querySelector("[data-motion-runtime]")) {
+    findings.push(
+      makeFinding({
+        kind: FindingKind.MotionVocab,
+        source: "deterministic",
+        severity: "major",
+        tag: "structural",
+        message:
+          "Runtime motion is used but the inlined Motion runtime/glue is missing (offline-unsafe).",
+      }),
+    );
+  }
+  return findings;
+}
+
+/** §5.1 self-contained + no-baked-player contract. */
+export function checkSelfContained(root: HTMLElement, _ctx?: StructuralContext): QaFinding[] {
+  const findings: QaFinding[] = [];
+
+  for (const el of root.querySelectorAll("[src], [href], [srcset]")) {
+    for (const attr of ["src", "href", "srcset"]) {
+      const value = el.getAttribute(attr);
+      if (value && value.trim() !== "" && !DATA_URI.test(value.trim())) {
+        findings.push(
+          makeFinding({
+            kind: FindingKind.SelfContained,
+            source: "deterministic",
+            severity: "major",
+            tag: "structural",
+            message: `External reference ${attr}="${value}" breaks offline-safety; inline as a data-URI.`,
+            data: { attr, value },
+          }),
+        );
+      }
+    }
+  }
+
+  // url() in inline styles + <style> blocks.
+  const cssTexts = [
+    ...root.querySelectorAll("[style]").map((el) => el.getAttribute("style") ?? ""),
+    ...root.querySelectorAll("style").map((el) => el.text),
+  ];
+  for (const css of cssTexts) {
+    for (const m of css.matchAll(URL_FN)) {
+      const ref = (m[1] ?? "").trim();
+      if (ref !== "" && !DATA_URI.test(ref)) {
+        findings.push(
+          makeFinding({
+            kind: FindingKind.SelfContained,
+            source: "deterministic",
+            severity: "major",
+            tag: "structural",
+            message: `External url(${ref}) breaks offline-safety; inline as a data-URI.`,
+            data: { value: ref },
+          }),
+        );
+      }
+    }
+  }
+
+  // No baked-in player / cross-screen navigation (§5.1).
+  const hasMetaRefresh = root
+    .querySelectorAll("meta")
+    .some((m) => (m.getAttribute("http-equiv") ?? "").toLowerCase() === "refresh");
+  if (hasMetaRefresh) {
+    findings.push(
+      makeFinding({
+        kind: FindingKind.BakedPlayer,
+        source: "deterministic",
+        severity: "major",
+        tag: "structural",
+        message:
+          "Screen contains a <meta refresh>; the engine never bakes in navigation/auto-advance.",
+      }),
+    );
+  }
+  const scriptText = root
+    .querySelectorAll("script")
+    .map((s) => s.text)
+    .join("\n");
+  for (const { re, what } of BAKED_PLAYER) {
+    if (re.test(scriptText)) {
+      findings.push(
+        makeFinding({
+          kind: FindingKind.BakedPlayer,
+          source: "deterministic",
+          severity: "major",
+          tag: "structural",
+          message: `Screen script uses ${what}; the engine never bakes in navigation/auto-advance.`,
+          data: { what },
+        }),
+      );
+    }
+  }
+  return findings;
+}
+
+/** Run every structural check: token-lint on the raw markup, the rest on the packaged artifact. */
+export function runStructuralChecks(ctx: StructuralContext): QaFinding[] {
+  const pkgRoot = parse(ctx.html);
+  const rawRoot = ctx.rawHtml !== undefined ? parse(ctx.rawHtml) : pkgRoot;
+  return [
+    ...checkCapacity(ctx.planScreen, ctx.qa),
+    ...checkBindings(pkgRoot, ctx),
+    ...checkRepresentations(pkgRoot, ctx.planScreen, ctx.items),
+    ...checkTokenLint(rawRoot, ctx),
+    ...checkMotion(pkgRoot, ctx),
+    ...checkSelfContained(pkgRoot, ctx),
+  ];
+}
