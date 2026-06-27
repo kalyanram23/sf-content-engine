@@ -19,7 +19,7 @@ describe("loadEngineConfig", () => {
     expect(config.qa.overflowTolerancePx).toBe(4);
     // untouched sibling fields keep their defaults
     expect(config.qa.viewport.width).toBe(1920);
-    expect(config.qa.density.maxFill).toBe(0.85);
+    expect(config.qa.density.maxFill).toBe(0.9);
   });
 
   it("freezes the result so consumers cannot mutate shared config", () => {
@@ -46,8 +46,9 @@ describe("loadEngineConfig", () => {
         critique: "some/new-model",
         structuredOutputAllowlist: [
           "some/new-model",
-          "anthropic/claude-sonnet-4.5",
-          "openai/gpt-4o-mini",
+          // the other structured-output roles (plan, repair) must remain covered
+          "anthropic/claude-sonnet-4.6",
+          "openai/gpt-5.4-nano",
         ],
       },
     });

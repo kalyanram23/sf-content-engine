@@ -85,15 +85,15 @@ describe("createEngine — end-to-end pipeline (fakes)", () => {
       observations: [cleanObservation()],
       critiques: [
         {
-          findings: [
-            {
-              dimension: "balance",
-              severity: "major",
-              tag: "layout",
-              region: "whole",
-              message: "still off",
-            },
-          ],
+          // Enough failed rubric dimensions to keep the screen below the pass threshold forever
+          // (a single vision nit is graded by the rubric and would not block — D-scoring).
+          findings: ["balance", "hierarchy", "representation-clarity"].map((dimension) => ({
+            dimension,
+            severity: "major" as const,
+            tag: "layout" as const,
+            region: "whole",
+            message: "still off",
+          })),
         },
       ],
     });
@@ -142,6 +142,52 @@ describe("createEngine — end-to-end pipeline (fakes)", () => {
     expect(out.screens[1]!.itemIds).toEqual(expect.arrayContaining(["s-garlic-bread", "c-curry"]));
     expect(out.screens[0]!.html).toContain('data-item-id="p-margherita"');
     expect(out.screens[0]!.html).not.toContain('data-item-id="c-curry"');
+  });
+
+  it("inlines remote item photos and renders an offline-safe gallery-fade carousel", async () => {
+    // Items carry REMOTE photo URLs; the fetchImages node + FakeImageFetcher must resolve them
+    // to data-URIs before paint, and the carousel must ship with no surviving http(s) src.
+    const input = {
+      items: [
+        {
+          id: "a",
+          name: "Veg Noodles",
+          category: "indo",
+          available: true,
+          price: 13.99,
+          images: ["https://cdn.example.com/a.jpg"],
+        },
+        {
+          id: "b",
+          name: "Chicken Noodles",
+          category: "indo",
+          available: true,
+          price: 15.49,
+          images: ["https://cdn.example.com/b.jpg"],
+        },
+      ],
+      brief: { presetId: "botanical" },
+      constraints: { aspect: "16:9", screens: 1 },
+      plan: {
+        screens: [
+          {
+            id: "screen-1",
+            imageSlot: { categoryId: "indo", items: ["a", "b"] },
+            sections: [{ title: "INDO-CHINESE", representation: "grid", items: ["a", "b"] }],
+          },
+        ],
+      },
+    };
+    const engine = createFakeEngine({ observations: [cleanObservation()] });
+    const out = await engine.generate(input);
+    const html = out.screens[0]!.html;
+
+    expect(out.qaReport.screens[0]!.passed).toBe(true);
+    expect(html).toContain('data-motion="gallery-fade"');
+    expect(html).toContain("data-motion-runtime");
+    // Remote URLs were inlined: a data-URI ships, and no http(s) src survives (offline-safe).
+    expect(html).toContain('src="data:image');
+    expect(html).not.toMatch(/src="https?:\/\//);
   });
 
   it("rejects a screens count that disagrees with the plan", async () => {

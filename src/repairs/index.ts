@@ -46,6 +46,43 @@ export function chooseAccessibleColor(bg: Rgba, theme: ResolvedTheme): string {
   return best?.name ?? "text";
 }
 
+/** The best contrast any theme colour token achieves over `bg`. */
+function bestTokenRatio(bg: Rgba, theme: ResolvedTheme): number {
+  let best = 0;
+  for (const value of Object.values(theme.tokens.colors)) {
+    const rgba = parseColor(value);
+    if (!rgba) continue;
+    const ratio = contrastRatio(rgba, bg);
+    if (ratio > best) best = ratio;
+  }
+  return best;
+}
+
+/**
+ * A selector we can SAFELY scope a colour override to: anchored by a class, id, or attribute
+ * (e.g. `[data-item-id=…] [data-bind=price]`, `.price`), NOT a bare tag like `span`/`div`.
+ * Recolouring a bare tag with `!important` would repaint every such element on the page and
+ * wreck contrast everywhere — exactly the failure that motivated this guard.
+ */
+function isScopableSelector(selector: string): boolean {
+  return /[.#[]/.test(selector);
+}
+
+/**
+ * Whether a contrast finding can actually be fixed by a deterministic token swap: the region
+ * must be safely scopable AND some theme colour token must clear the required ratio over the
+ * sampled background. When the text sits on a busy photo (mid-tone bg) no token reaches 4.5:1,
+ * so a colour swap is futile — such findings must re-paint (add a scrim), not loop on repair.
+ */
+export function contrastIsFixable(finding: QaFinding, theme: ResolvedTheme): boolean {
+  if (finding.kind !== FindingKind.Contrast) return false;
+  if (!finding.region || !isScopableSelector(finding.region)) return false;
+  const bg = rgbaFromData(finding.data?.["bg"]);
+  if (!bg) return false;
+  const required = typeof finding.data?.["required"] === "number" ? finding.data["required"] : 4.5;
+  return bestTokenRatio(bg, theme) >= required;
+}
+
 function escapeForStyle(selector: string): string {
   // Selectors come from the browser as CSS; strip anything that could break out of the rule.
   return selector.replace(/[{}<>]/g, "");
@@ -64,19 +101,29 @@ export function applyDeterministicRepairs(
   findings: readonly QaFinding[],
   theme: ResolvedTheme,
 ): DeterministicRepairResult {
-  const contrastFindings = findings.filter(
-    (f) => f.kind === FindingKind.Contrast && f.deterministicallyFixable && f.region,
-  );
+  // Only act on findings a token swap can genuinely fix on a safely-scopable selector. Generic
+  // selectors (bare `span`) or text on a photo (no token clears the ratio) are NOT fixed here —
+  // they route to re-paint instead (a global `!important` recolour would wreck the board).
+  const contrastFindings = findings.filter((f) => contrastIsFixable(f, theme));
   if (contrastFindings.length === 0) {
     return { html, note: "no deterministic repair applicable", applied: false };
   }
 
   const rules: string[] = [];
+  const seen = new Set<string>();
   for (const finding of contrastFindings) {
     const bg = rgbaFromData(finding.data?.["bg"]);
     if (!bg) continue;
+    const sel = escapeForStyle(finding.region!);
     const tokenName = chooseAccessibleColor(bg, theme);
-    rules.push(`${escapeForStyle(finding.region!)}{color:var(--color-${tokenName}) !important;}`);
+    const key = `${sel}|${tokenName}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    // Cover the region AND its descendants: when the finding's region is a container (an item
+    // card whose failing text is a child with its own colour utility), a rule on the container
+    // alone won't reach the child — a parent's `!important` colour does not override a child's
+    // own `color` declaration via inheritance. The `<sel> *` arm forces it on descendants too.
+    rules.push(`${sel},${sel} *{color:var(--color-${tokenName}) !important;}`);
   }
 
   if (rules.length === 0) {
@@ -93,6 +140,10 @@ export function applyDeterministicRepairs(
 /** Whether any finding can be fixed deterministically (used by the repair node, D13). */
 export function hasDeterministicRepair(findings: readonly QaFinding[]): boolean {
   return findings.some(
-    (f) => f.kind === FindingKind.Contrast && f.deterministicallyFixable && Boolean(f.region),
+    (f) =>
+      f.kind === FindingKind.Contrast &&
+      f.deterministicallyFixable &&
+      Boolean(f.region) &&
+      isScopableSelector(f.region ?? ""),
   );
 }

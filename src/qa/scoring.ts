@@ -51,7 +51,15 @@ export function scoreScreen(
   const penalty = findings.reduce((sum, f) => sum + SEVERITY_PENALTY[f.severity], 0);
   const hardGateFailures = findings.filter((f) => f.hardGate).length;
   const rubric01 = rubricScore(findings, rubric);
-  const blocking = findings.some((f) => severityAtLeast(f.severity, blockingSeverity));
+  // Deterministic findings (overflow/density/binding/token-lint) and hard gates (contrast) hard-
+  // block a pass. VISION (critic) quality is graded by the weighted rubric instead — a single
+  // reflexive critic nit ("balance: some dead space") must not hard-block an otherwise-good screen;
+  // a genuinely poor screen still fails because enough rubric dimensions drop it below threshold.
+  const blocking =
+    hardGateFailures > 0 ||
+    findings.some(
+      (f) => f.source === "deterministic" && severityAtLeast(f.severity, blockingSeverity),
+    );
   const passed = !blocking && rubric01 >= rubric.passThreshold;
   // Ordering: hard gates dominate, then total penalty, then rubric score as the tiebreak.
   const total = -hardGateFailures * 1_000_000 - penalty * 1_000 + rubric01;

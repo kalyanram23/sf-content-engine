@@ -12,6 +12,8 @@ export interface RouteInput {
   findings: readonly QaFinding[];
   /** Number of paint/repair cycles already performed for this screen. */
   iteration: number;
+  /** Whether this candidate already passes QA — a passing screen needs no more work. */
+  passed?: boolean;
 }
 
 function matches(finding: QaFinding, when: RoutingMatch): boolean {
@@ -41,5 +43,8 @@ function selectRoute(findings: readonly QaFinding[], routing: RoutingRules): Rou
 export function route(input: RouteInput, routing: RoutingRules, loop: LoopConfig): Route {
   // Budget is enforced here, before any re-entry into paint/repair (spec §5.6, D12).
   if (input.iteration >= loop.maxIterations) return "freeze";
+  // A candidate that already passes QA is done — don't spend remaining budget chasing
+  // non-blocking critic nits (vision findings are graded by the rubric, not hard blocks).
+  if (input.passed === true) return "freeze";
   return selectRoute(input.findings, routing) ?? "freeze";
 }

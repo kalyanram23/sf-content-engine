@@ -2,6 +2,7 @@ import { END, MemorySaver, START, StateGraph } from "@langchain/langgraph";
 
 import {
   deterministicQaNode,
+  fetchImagesNode,
   freezeNode,
   packageNode,
   paintNode,
@@ -30,6 +31,7 @@ export function compileGraph(ctx: NodeContext) {
   const builder = new StateGraph(engineStateSchema)
     .addNode("planContent", bind(planNode))
     .addNode("resolveTheme", bind(resolveThemeNode))
+    .addNode("fetchImages", bind(fetchImagesNode))
     .addNode("paint", bind(paintNode))
     .addNode("package", bind(packageNode))
     .addNode("deterministicQA", bind(deterministicQaNode))
@@ -39,7 +41,8 @@ export function compileGraph(ctx: NodeContext) {
     .addNode("freeze", bind(freezeNode))
     .addEdge(START, "planContent")
     .addEdge("planContent", "resolveTheme")
-    .addEdge("resolveTheme", "paint")
+    .addEdge("resolveTheme", "fetchImages")
+    .addEdge("fetchImages", "paint")
     .addEdge("paint", "package")
     .addEdge("repair", "package")
     .addEdge("package", "deterministicQA")
@@ -59,6 +62,6 @@ export function compileGraph(ctx: NodeContext) {
 
 /** A safe `recursionLimit` derived from the budget — a pure safety net, not the budget (D12). */
 export function recursionLimitFor(maxIterations: number): number {
-  // ~6 node transitions per QA cycle + setup/freeze slack.
-  return maxIterations * 6 + 12;
+  // ~6 node transitions per QA cycle + setup/freeze slack (incl. the one-time fetchImages hop).
+  return maxIterations * 6 + 14;
 }

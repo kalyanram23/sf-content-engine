@@ -5,6 +5,7 @@ import type { BrowserPort, RenderObservation } from "../../ports/browser";
 import type { EnginePorts } from "../../ports/index";
 import { createDefaultThemeRepository } from "../../theme/presets/index";
 import { cleanObservation, ScriptedBrowser } from "./browser";
+import { FakeImageFetcher } from "./image-fetcher";
 import { FakePackager } from "./packager";
 import { FakePainter } from "./painter";
 import { FakePlanner } from "./planner";
@@ -15,6 +16,7 @@ export { FakeClock, FakeIdGenerator, ArrayLogger, noopLogger } from "./services"
 export { FakePlanner } from "./planner";
 export { FakePainter } from "./painter";
 export { FakePackager } from "./packager";
+export { FakeImageFetcher } from "./image-fetcher";
 export {
   ScriptedBrowser,
   cleanObservation,
@@ -51,6 +53,7 @@ export function createFakeEngine(options: FakeEngineOptions = {}): ContentEngine
     visionCritic:
       options.ports?.visionCritic ??
       new ScriptedVisionCritic(options.critiques ?? [{ findings: [] }]),
+    imageFetcher: options.ports?.imageFetcher ?? new FakeImageFetcher(),
     clock: options.ports?.clock ?? new FakeClock(),
     idGenerator: options.ports?.idGenerator ?? new FakeIdGenerator(),
     ...(options.ports?.logger ? { logger: options.ports.logger } : {}),

@@ -4,7 +4,9 @@ import { critiqueResponseSchema, type CritiqueResponse } from "../../domain/cont
 import type { CritiqueRequest, VisionCritic } from "../../ports/vision-critic";
 import { requestStructured } from "./client";
 
-const SYSTEM = `You are a strict design critic for digital-signage screens. You are given a screenshot and the plan describing what SHOULD be on the screen. Score the screen against the rubric and report ONLY genuine problems as structured findings. Use the layout/content tag as a hint about how to fix it. Be terse and specific; cite a region.`;
+const SYSTEM = `You are a fair, experienced design critic for digital-signage screens. You are given a screenshot and the plan describing what SHOULD be on the screen.
+Judge it the way a real viewer would from across a room — most professional menu boards are perfectly acceptable. Report a finding for a rubric dimension ONLY when there is a real, noticeable problem; if a dimension is acceptable, DO NOT invent a finding for it (an empty findings list is the correct answer for a good screen).
+Calibrate severity honestly: "major" = a genuine problem most viewers would notice (e.g. text hard to read, clearly unbalanced, items missing); "minor" = a small nitpick; never report "major" for subjective polish. Use the layout/content tag as a fix hint. Be terse and specific; cite a region.`;
 
 function rubricText(request: CritiqueRequest): string {
   const dims = request.rubric.dimensions

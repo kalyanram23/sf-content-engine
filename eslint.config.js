@@ -2,7 +2,15 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "node_modules", "coverage", "playground-output"] },
+  {
+    ignores: [
+      "dist",
+      "node_modules",
+      "coverage",
+      "playground-output",
+      "src/adapters/tailwind/motion-bundle.generated.ts",
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -38,6 +46,11 @@ export default tseslint.config(
         {
           paths: [
             { name: "openai", message: "Import LLM SDKs only in src/adapters/** (hermetic core)." },
+            {
+              name: "motion",
+              message:
+                "Import motion only in the build script; the core uses the generated bundle.",
+            },
             {
               name: "playwright",
               message: "Import the browser only in src/adapters/** (hermetic core).",

@@ -2,129 +2,82 @@
   "screens": [
     {
       "id": "screen-1",
+      "imageSlot": {
+        "categoryId": "INDO - CHINESE",
+        "items": [
+          "c9e1ffc1-62ed-4a30-91c5-06e857789b5f",
+          "989d0195-e0fe-43a5-bf9a-6bd1194d3d14",
+          "3e7e8ff5-76e7-4ffd-b926-0d3956928c86",
+          "b0fb36db-daa9-4828-ae58-e56301dcdabb",
+          "0c92d011-e6f4-4926-8b5d-5cd1ff68278c",
+          "33af87b1-fc66-48cf-bf0f-dce1f4f90a66",
+          "8ebf97e4-3609-4390-ad61-d67a4ac99b79"
+        ]
+      },
       "sections": [
         {
-          "title": "MANDI HOUSE",
+          "title": "Indo-Chinese",
           "representation": "grid",
           "items": [
-            "6a531c68-6b64-4ff8-a141-d4d1538f4abb",
-            "126a307e-8b92-41d2-aa99-630be8c9ea24",
-            "afbcaa79-2863-407b-817c-40c30de93a5d",
-            "24d943d2-3ff9-42fe-acc3-76c2e19e9f75",
-            "2af1fbce-73a5-4eb4-b8e7-4c13d94d38e7",
-            "d1e2190c-d597-4458-9e0c-e9bca60b4f9d",
-            "c820ff39-a903-4e83-8ff2-e4360253bd39",
-            "3ba801fd-93d2-4a9e-9422-830bd8be156c"
+            "c9e1ffc1-62ed-4a30-91c5-06e857789b5f",
+            "989d0195-e0fe-43a5-bf9a-6bd1194d3d14",
+            "3e7e8ff5-76e7-4ffd-b926-0d3956928c86",
+            "b0fb36db-daa9-4828-ae58-e56301dcdabb",
+            "0c92d011-e6f4-4926-8b5d-5cd1ff68278c",
+            "33af87b1-fc66-48cf-bf0f-dce1f4f90a66",
+            "8ebf97e4-3609-4390-ad61-d67a4ac99b79"
           ]
         }
       ]
     },
     {
       "id": "screen-2",
+      "imageSlot": {
+        "categoryId": "NON VEG APPETIZERS",
+        "items": [
+          "1778ffe1-b21b-41ee-a262-3d652bacae06",
+          "421828a1-7a47-468b-b019-a1cb09b5b30b",
+          "aefc940e-a453-46f3-916d-57808369aba2",
+          "6ae1e54f-0505-41d3-ba18-6a92550552c3",
+          "573b9f8b-a30f-47a6-87f1-6df7d0dc20da",
+          "b5d5f5ec-6c6a-4a20-a12a-3ffee92dba1c"
+        ]
+      },
       "sections": [
         {
-          "title": "BIRYANI",
-          "representation": "list",
-          "items": ["b999e271-0586-4b71-bb35-2ce22a2d7199", "da2f86d5-e34a-4e97-b236-7aa9352162ec"]
-        },
-        {
-          "title": "PULAVS",
+          "title": "Non-Veg Appetizers",
           "representation": "grid",
           "items": [
-            "7fc2c698-6920-48bf-9213-0af89164094c",
-            "1f4e0b1d-3f03-4981-a9af-4dfb46f33b2a",
-            "ec7f1b9e-b0bb-4e24-880d-4ad60f2fbc62",
-            "f6166ab0-9951-47d9-a5e0-c8b57defd70c",
-            "60742774-eca4-4734-b3eb-fe116603fb04",
-            "2c66a704-02cd-4cfb-8db9-a80a5c73b553"
+            "1778ffe1-b21b-41ee-a262-3d652bacae06",
+            "421828a1-7a47-468b-b019-a1cb09b5b30b",
+            "aefc940e-a453-46f3-916d-57808369aba2",
+            "6ae1e54f-0505-41d3-ba18-6a92550552c3",
+            "573b9f8b-a30f-47a6-87f1-6df7d0dc20da",
+            "b5d5f5ec-6c6a-4a20-a12a-3ffee92dba1c"
           ]
         }
       ]
     },
     {
       "id": "screen-3",
+      "imageSlot": {
+        "categoryId": "CHATS",
+        "items": [
+          "940cb6fe-168e-4988-a016-3d5774a1a465",
+          "89a5fe8c-6430-42ec-9450-5adba903fa5b",
+          "a5d18a64-1cc1-4a27-a6b6-548217a3b66f",
+          "a7d63e39-17eb-453a-bf7a-2c01646e00c6"
+        ]
+      },
       "sections": [
         {
-          "title": "NON-VEG CURRIES",
+          "title": "Chaats",
           "representation": "grid",
           "items": [
-            "c8655ddf-d370-40d9-8b09-8bf28f69bfe4",
-            "f2f7f6c6-33b5-4be0-89cd-0b9846d3abb5",
-            "8c20b5f8-c4d0-4bdf-9ef6-281ab03ef541",
-            "550fc2a6-9686-4c98-9127-618ecdc23ad3",
-            "32596dc8-9714-4be3-a99d-d1278bdfaa7c",
-            "699122b1-dcd0-478a-ac4f-91180226b652",
-            "d7b9d55c-1b9f-42c7-8192-082110de7868",
-            "1857ce11-3c95-430e-a061-89bb392971ea"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "screen-4",
-      "sections": [
-        {
-          "title": "VEG CURRIES",
-          "representation": "grid",
-          "items": [
-            "82f2d52d-1d3d-40c0-b973-32418b11630d",
-            "5474a87c-465c-4ec3-b7ff-59ba488320d8",
-            "2cc103f4-b7b5-4a40-a20b-0166484d4d34",
-            "1cb39111-2fb9-4dd5-a75b-1144150e33aa",
-            "ef123aa1-8e6d-435a-b49b-43d7715fc1c6",
-            "87aa0d27-985d-4be0-9324-baeaa87ba1ec",
-            "05a27c5b-a17f-4dac-a43d-0dfdac225cb4",
-            "8865b688-7ac6-4ec3-97f9-a8026ded8a0e"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "screen-5",
-      "sections": [
-        {
-          "title": "VEG APPETIZERS",
-          "representation": "grid",
-          "items": [
-            "b039bd3a-caa4-4567-8aec-65dc575694cf",
-            "5394e2c9-dee1-49c0-a86e-2d3ca80b0d28",
-            "5279ae0a-579e-4cd2-b101-a9efcb31f2d5",
-            "4ad6f6a3-6d92-4bb1-9f47-7d08035eb413"
-          ]
-        },
-        {
-          "title": "NON-VEG APPETIZERS",
-          "representation": "grid",
-          "items": [
-            "421828a1-7a47-468b-b019-a1cb09b5b30b",
-            "dce5f29a-9aee-4db9-85ba-cb49be309298",
-            "aefc940e-a453-46f3-916d-57808369aba2",
-            "573b9f8b-a30f-47a6-87f1-6df7d0dc20da"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "screen-6",
-      "sections": [
-        {
-          "title": "FALOODA'S",
-          "representation": "list",
-          "items": [
-            "c627d794-c035-4d7b-8561-654b81cf4adc",
-            "e9c07d26-017c-4456-859c-b9d601422ae9",
-            "200fdc94-cc4e-4da1-9083-97d0eba48d3b"
-          ]
-        },
-        {
-          "title": "DESSERTS",
-          "representation": "grid",
-          "items": [
-            "f77ff0d2-9bdd-4313-bc65-4a572a038c00",
-            "5308aced-12d0-4dd4-812b-488858db72e0",
-            "1083e9ca-7247-4c69-9379-4ebe6f112719",
-            "d0e4be7a-cda6-4212-80a4-0b61905529aa",
-            "95c009dc-bd74-44d6-bb2c-811581dacaf2"
+            "940cb6fe-168e-4988-a016-3d5774a1a465",
+            "89a5fe8c-6430-42ec-9450-5adba903fa5b",
+            "a5d18a64-1cc1-4a27-a6b6-548217a3b66f",
+            "a7d63e39-17eb-453a-bf7a-2c01646e00c6"
           ]
         }
       ]

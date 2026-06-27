@@ -99,9 +99,10 @@ export const motionPresetSchema = z.object({
 export const themeTokensSchema = z.object({
   colors: z.record(z.string(), z.string()),
   fontFamilies: z.record(z.string(), z.string()),
-  fontSizes: z.record(z.string(), z.string()),
-  spacing: z.record(z.string(), z.string()),
   radius: z.record(z.string(), z.string()),
+  // No fontSizes/spacing scale: this is a free-paint engine — type/spacing FEEL is directed by
+  // the theme's `prompt` (e.g. "large type, generous margins"), not a fixed token scale, which
+  // either inverts Tailwind's scale or makes the painter over-cram.
 });
 
 export const themeAssetSchema = z.object({
@@ -124,6 +125,14 @@ export const themeAssetsSchema = z.object({
 export const themePresetSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
+  /**
+   * The theme's base painter prompt — its creative + design direction (voice, layout posture,
+   * visual identity). Externalized per-theme (e.g. `themes/<id>.theme.json`) so authoring a
+   * theme is editing one file. The engine appends a non-negotiable technical contract
+   * (bindings, offline-safety, motion vocab, the photo-placeholder scheme) the painter must
+   * always honour, so a theme controls the look/voice but can't break the rails.
+   */
+  prompt: z.string().optional(),
   tokens: themeTokensSchema,
   /** The motion vocabulary — single source of truth for the motion-vocab lint (D14). */
   motion: z.array(motionPresetSchema).min(1),

@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { EngineConfig } from "../config/index";
 import { routeSchema } from "../config/index";
 import {
+  canonicalItemSchema,
   generateInputSchema,
   posterSchema,
   qaFindingSchema,
@@ -44,6 +45,12 @@ export const engineStateSchema = z.object({
   screenIndex: z.number().int().nonnegative().default(0),
   plan: thinPlanSchema.optional(),
   theme: resolvedThemeSchema.optional(),
+  /**
+   * The current screen's items with every image reference resolved to an offline-safe
+   * data-URI (set once by `fetchImages` before paint). Downstream nodes prefer this over
+   * `input.items` so paint/QA/package never see a remote URL. Scoped to the screen's items.
+   */
+  resolvedItems: z.array(canonicalItemSchema).optional(),
   /** Current raw painter output (pre-package). */
   html: z.string().optional(),
   /** Current self-contained, packaged artifact (what QA renders). */

@@ -15,7 +15,7 @@ describe.skipIf(!KEY)("OpenRouter structured output (live)", () => {
     const client = createOpenRouterClient({ apiKey: KEY as string });
     const schema = z.object({ city: z.string() });
     const result = await requestStructured(client, {
-      model: "openai/gpt-4o-mini",
+      model: "openai/gpt-5.4-nano",
       schema,
       schemaName: "city",
       system: "You answer with structured JSON only.",

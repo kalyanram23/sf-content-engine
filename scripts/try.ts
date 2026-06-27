@@ -12,11 +12,17 @@
  * own plan.json for full control (see samples/plan.json); otherwise a transparent default is
  * built: each category becomes a board (split into chunks of 6 to fit 16:9).
  */
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { createNodeEngine } from "../src/node";
-import type { CanonicalItem, PlanSection, Representation, ThinPlan } from "../src/index";
+import type {
+  CanonicalItem,
+  DebugCapture,
+  PlanSection,
+  Representation,
+  ThinPlan,
+} from "../src/index";
 
 // Load credentials from .env (cwd = project root) so real runs need no manual `export`.
 // Falls back to the ambient environment (e.g. exported vars / CI) when there is no .env.
@@ -49,6 +55,42 @@ const logger = {
   },
   error(message: string, meta?: Record<string, unknown>): void {
     console.error(`  ${stamp()}  ✖ ${message}`, meta ?? "");
+  },
+};
+
+// `--boards N` renders only the first N plan screens — cheap iteration while debugging.
+const boardsFlag = flags.find((f) => f.startsWith("--boards="));
+const BOARD_LIMIT = boardsFlag ? Number(boardsFlag.split("=")[1]) : undefined;
+
+// Debug dump: every scored candidate (each paint/repair attempt) is written under debug/<screen>/
+// as raw HTML, packaged HTML, a PNG, and a findings+score JSON — so you can watch each version
+// converge. On by default for `try`; pass `--no-debug` to skip.
+const DEBUG_ON = !flags.includes("--no-debug");
+const debugDir = join(process.cwd(), "debug");
+const debug = {
+  capture(c: DebugCapture): void {
+    const dir = join(debugDir, c.screenId);
+    mkdirSync(dir, { recursive: true });
+    const base = `attempt-${c.iteration}`;
+    writeFileSync(join(dir, `${base}.raw.html`), c.rawHtml, "utf8");
+    writeFileSync(join(dir, `${base}.packaged.html`), c.packagedHtml, "utf8");
+    writeFileSync(join(dir, `${base}.png`), Buffer.from(c.screenshotBase64, "base64"));
+    writeFileSync(
+      join(dir, `${base}.findings.json`),
+      JSON.stringify(
+        {
+          screenId: c.screenId,
+          iteration: c.iteration,
+          route: c.route,
+          score: c.score,
+          passed: c.passed,
+          findings: c.findings,
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
   },
 };
 
@@ -94,28 +136,41 @@ async function main(): Promise<void> {
   }
 
   const items: CanonicalItem[] = JSON.parse(readFileSync(MENU_PATH, "utf8"));
-  const plan: ThinPlan = PLAN_PATH
+  const fullPlan: ThinPlan = PLAN_PATH
     ? JSON.parse(readFileSync(PLAN_PATH, "utf8"))
     : defaultPlan(items);
+  // `--boards N` clips to the first N screens for a cheap, fast debugging run.
+  const plan: ThinPlan =
+    BOARD_LIMIT !== undefined ? { screens: fullPlan.screens.slice(0, BOARD_LIMIT) } : fullPlan;
   const boards = plan.screens.length;
   console.log(
-    `Menu: ${items.length} items → ${boards} board(s) [${PLAN_PATH ? "your plan" : "default: one per category"}]\n`,
+    `Menu: ${items.length} items → ${boards} board(s) [${PLAN_PATH ? "your plan" : "default: one per category"}]` +
+      `${BOARD_LIMIT !== undefined ? ` (clipped to ${BOARD_LIMIT})` : ""}${DEBUG_ON ? " · debug→debug/" : ""}\n`,
   );
+
+  if (DEBUG_ON) rmSync(debugDir, { recursive: true, force: true });
 
   const appUrl = process.env["OPENROUTER_APP_URL"];
   const engine = createNodeEngine({
     openRouterApiKey: apiKey,
     plan,
+    // Load externalized theme files from ./themes (e.g. themes/botanical.theme.json); bundled
+    // presets remain available as a fallback for ids not on disk.
+    themesDir: "themes",
     logger,
+    ...(DEBUG_ON ? { debug } : {}),
     appName: process.env["OPENROUTER_APP_NAME"] ?? "content-engine try",
     ...(appUrl !== undefined ? { appUrl } : {}),
     config: {
       // Swap any role — must be an OpenRouter model id on the structured-output allowlist for
       // `critique`/`repair` (the critic also needs vision). Override the allowlist if needed.
       models: {
-        paint: "anthropic/claude-sonnet-4.5",
-        critique: "openai/gpt-4o-mini",
-        repair: "openai/gpt-4o-mini",
+        // Latest models (checked against the live OpenRouter list). Bump paint to
+        // anthropic/claude-opus-4.8 for the strongest layouts at higher cost.
+        paint: "anthropic/claude-sonnet-4.6",
+        // A capable, fair vision critic — a weak critic over-flags good screens.
+        critique: "openai/gpt-5.4",
+        repair: "openai/gpt-5.4-mini",
       },
       loop: { maxIterations: 3 },
       // Resolution/DPR each board is rendered + postered at (all 16:9):

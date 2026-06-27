@@ -3,12 +3,13 @@ import { PackagingError, PaintError, RenderError, ThemeNotFoundError } from "../
 import { parseOrThrow } from "../../domain/parse";
 import { thinPlanSchema } from "../../domain/schemas";
 import type { QaFinding } from "../../domain/types";
-import { applyDeterministicRepairs } from "../../repairs/index";
-import { makeFinding } from "../../qa/finding";
+import { applyDeterministicRepairs, contrastIsFixable } from "../../repairs/index";
+import { FindingKind, makeFinding } from "../../qa/finding";
 import { runRenderedChecks, checkViewport } from "../../qa/rendered-checks";
 import { runStructuralChecks } from "../../qa/structural-checks";
 import { scoreScreen } from "../../qa/scoring";
 import { resolveTheme } from "../../theme/resolve";
+import { isInlineImageRef, PLACEHOLDER_IMAGE_DATA_URI } from "../../util/placeholder-image";
 import { route } from "../router";
 import type { NodeContext, EngineState } from "../state";
 import { currentScreen, plannedSectionItemIds, resolveScreenItems } from "./shared";
@@ -40,6 +41,42 @@ export async function resolveThemeNode(
   return { theme: resolveTheme(preset, state.input.brief) };
 }
 
+/**
+ * fetchImages: resolve this screen's item photos to offline-safe data-URIs BEFORE paint, so
+ * paint/QA/package/render only ever see `data:` URIs (spec §5.1, S9). Scoped to the current
+ * screen's items (the graph runs once per board) — never the whole menu. Runs once before the
+ * QA loop; data-URIs pass through untouched, so re-paint iterations pay no extra network.
+ */
+export async function fetchImagesNode(
+  ctx: NodeContext,
+  state: EngineState,
+): Promise<Partial<EngineState>> {
+  if (!state.plan) return {};
+  const screen = currentScreen(state.plan, state.screenIndex);
+  const items = resolveScreenItems(screen, state.input.items);
+
+  const remote = new Set<string>();
+  for (const item of items)
+    for (const ref of item.images ?? []) if (!isInlineImageRef(ref)) remote.add(ref);
+
+  const resolvedByUrl =
+    remote.size > 0 ? await ctx.ports.imageFetcher.fetch([...remote]) : new Map<string, string>();
+  if (remote.size > 0) {
+    ctx.ports.logger?.info(
+      `board ${state.screenIndex + 1}/${state.plan.screens.length} "${screen.id}": inlined ${resolvedByUrl.size}/${remote.size} photo(s)`,
+    );
+  }
+
+  const resolvedItems = items.map((item) => {
+    if (!item.images || item.images.length === 0) return item;
+    const images = item.images.map((ref) =>
+      isInlineImageRef(ref) ? ref : (resolvedByUrl.get(ref) ?? PLACEHOLDER_IMAGE_DATA_URI),
+    );
+    return { ...item, images };
+  });
+  return { resolvedItems };
+}
+
 /** paint: free-paint the screen on rails; minimal-change on a re-paint (spec §5.2, §10.6). */
 export async function paintNode(
   ctx: NodeContext,
@@ -48,7 +85,7 @@ export async function paintNode(
   if (!state.plan || !state.theme)
     throw new PaintError("paint requires a resolved plan and theme.");
   const screen = currentScreen(state.plan, state.screenIndex);
-  const items = resolveScreenItems(screen, state.input.items);
+  const items = state.resolvedItems ?? resolveScreenItems(screen, state.input.items);
   ctx.ports.logger?.info(
     `board ${state.screenIndex + 1}/${state.plan.screens.length} "${screen.id}": painting (attempt ${state.iteration + 1})`,
   );
@@ -70,9 +107,15 @@ export async function packageNode(
   ctx: NodeContext,
   state: EngineState,
 ): Promise<Partial<EngineState>> {
-  if (!state.html || !state.theme)
-    throw new PackagingError("package requires painted HTML and a theme.");
-  const packagedHtml = await ctx.ports.packager.package({ html: state.html, theme: state.theme });
+  if (!state.html || !state.theme || !state.plan)
+    throw new PackagingError("package requires painted HTML, a plan, and a theme.");
+  const screen = currentScreen(state.plan, state.screenIndex);
+  const items = state.resolvedItems ?? resolveScreenItems(screen, state.input.items);
+  const packagedHtml = await ctx.ports.packager.package({
+    html: state.html,
+    theme: state.theme,
+    items,
+  });
   if (!packagedHtml || packagedHtml.trim() === "")
     throw new PackagingError("packager returned empty HTML.");
   return { packagedHtml };
@@ -87,7 +130,8 @@ export async function deterministicQaNode(
     throw new RenderError("deterministicQA requires a packaged screen, plan, and theme.");
   }
   const screen = currentScreen(state.plan, state.screenIndex);
-  const items = resolveScreenItems(screen, state.input.items);
+  const theme = state.theme;
+  const items = state.resolvedItems ?? resolveScreenItems(screen, state.input.items);
   const { width, height } = ctx.config.qa.viewport;
   ctx.ports.logger?.info(
     `board ${state.screenIndex + 1}/${state.plan.screens.length} "${screen.id}": rendering ${width}×${height} + QA checks`,
@@ -118,7 +162,14 @@ export async function deterministicQaNode(
       tokenLint: ctx.config.tokenLint,
     }),
     ...runRenderedChecks(observation, ctx.config.qa),
-  ];
+  ].map((f) =>
+    // Re-mark contrast: a token swap only helps on a scopable selector over a solid bg. Contrast
+    // over a photo (or a bare-tag selector) is NOT deterministically fixable → it routes to
+    // re-paint (the painter adds a scrim) instead of looping on a futile/destructive repair.
+    f.kind === FindingKind.Contrast
+      ? { ...f, deterministicallyFixable: contrastIsFixable(f, theme) }
+      : f,
+  );
   ctx.ports.logger?.debug(
     `board ${state.screenIndex + 1} "${screen.id}": ${findings.length} deterministic finding(s)`,
     { findings: findings.map((f) => f.kind) },
@@ -192,13 +243,30 @@ export async function scoreNode(
   const best = !state.best || candidate.score > state.best.score ? candidate : state.best;
 
   const decision = route(
-    { findings: state.findings, iteration: state.iteration },
+    { findings: state.findings, iteration: state.iteration, passed: score.passed },
     ctx.config.routing,
     ctx.config.loop,
   );
   ctx.ports.logger?.info(
     `board ${state.screenIndex + 1}: score ${score.total.toFixed(3)} → ${decision}${score.passed ? " ✓" : ""}`,
   );
+
+  if (ctx.ports.debug) {
+    await ctx.ports.debug.capture({
+      screenIndex: state.screenIndex,
+      screenId: state.plan
+        ? currentScreen(state.plan, state.screenIndex).id
+        : `${state.screenIndex}`,
+      iteration: state.iteration,
+      route: decision,
+      score: score.total,
+      passed: score.passed,
+      rawHtml: state.html,
+      packagedHtml: state.packagedHtml,
+      screenshotBase64: state.screenshotBase64,
+      findings: state.findings,
+    });
+  }
 
   return { best, route: decision, routeHistory: [...state.routeHistory, decision] };
 }

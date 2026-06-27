@@ -56,6 +56,35 @@ function renderItem(item: CanonicalItem, representation: Representation): string
   );
 }
 
+/**
+ * A per-category cross-fade carousel: stacked `<img>` slides with NO src (the packager inlines
+ * the data-URI from `data-img-item`/`data-img-index`), `data-motion="gallery-fade"` (a
+ * runtime preset → the packager injects the motion runtime + [data-motion-runtime] marker),
+ * first slide visible so a static render still shows a photo.
+ */
+function renderCarousel(screen: PlanScreen, byId: Map<string, CanonicalItem>): string {
+  const slot = screen.imageSlot;
+  if (!slot) return "";
+  const categoryId = slot.categoryId ?? screen.id;
+  const slides = slot.items
+    .map((id) => byId.get(id))
+    .filter((i): i is CanonicalItem => i !== undefined && (i.images?.length ?? 0) > 0)
+    .map((item, n) => {
+      const visibility = n === 0 ? "opacity-100" : "opacity-0";
+      return (
+        `<img class="absolute inset-0 w-full h-full object-cover ${visibility}" ` +
+        `data-img-item="${item.id}" data-img-index="0" data-ref="${categoryId}-carousel-${n}" ` +
+        `alt="${escapeHtml(item.name)}">`
+      );
+    })
+    .join("");
+  if (slides === "") return "";
+  return (
+    `<div class="carousel relative w-full h-full" data-motion="gallery-fade" ` +
+    `data-motion-params="interval:5000;fade:800">${slides}</div>`
+  );
+}
+
 function renderScreen(screen: PlanScreen, items: readonly CanonicalItem[]): string {
   const byId = new Map(items.map((i) => [i.id, i]));
   const sections = screen.sections
@@ -73,5 +102,6 @@ function renderScreen(screen: PlanScreen, items: readonly CanonicalItem[]): stri
     })
     .join("");
 
-  return `<main class="screen grid gap-4 p-6">${sections}</main>`;
+  const carousel = renderCarousel(screen, byId);
+  return `<main class="screen grid gap-4 p-6">${carousel}${sections}</main>`;
 }

@@ -25,3 +25,8 @@ export { OpenRouterRepairer } from "./adapters/openrouter/repairer";
 export { PlaywrightBrowser, type PlaywrightBrowserOptions } from "./adapters/playwright/browser";
 export { TailwindPackager } from "./adapters/tailwind/packager";
 export { StaticPlanner } from "./adapters/planner/static-planner";
+export { NodeImageFetcher, type NodeImageFetcherOptions } from "./adapters/image/image-fetcher";
+export {
+  FileThemeRepository,
+  createFileThemeRepository,
+} from "./adapters/theme/file-theme-repository";

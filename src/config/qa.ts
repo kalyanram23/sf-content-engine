@@ -23,7 +23,7 @@ export const contrastConfigSchema = z.object({
 /** Density bounds — flag too-empty (dead space) or too-crammed screens (§5.6). */
 export const densityConfigSchema = z.object({
   minFill: z.number().min(0).max(1).default(0.4),
-  maxFill: z.number().min(0).max(1).default(0.85),
+  maxFill: z.number().min(0).max(1).default(0.9),
 });
 
 export const qaConfigSchema = z.object({

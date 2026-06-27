@@ -5,9 +5,11 @@ import type { ThinPlan } from "../domain/types";
 import { createEngine, type ContentEngine } from "../pipeline/engine";
 import type { EnginePorts } from "../ports/index";
 import type { Planner } from "../ports/planner";
-import type { Clock, IdGenerator, Logger } from "../ports/services";
+import type { Clock, DebugSink, IdGenerator, Logger } from "../ports/services";
 import type { ThemeRepository } from "../ports/theme-repository";
 import { createDefaultThemeRepository } from "../theme/presets/index";
+import { NodeImageFetcher } from "./image/image-fetcher";
+import { createFileThemeRepository } from "./theme/file-theme-repository";
 import { createOpenRouterClient, type OpenRouterClientOptions } from "./openrouter/client";
 import { OpenRouterPainter } from "./openrouter/painter";
 import { OpenRouterRepairer } from "./openrouter/repairer";
@@ -37,11 +39,19 @@ export interface NodeEngineOptions {
   plan?: ThinPlan;
   planner?: Planner;
   themeRepository?: ThemeRepository;
+  /**
+   * Directory of externalized theme files (`<id>.theme.json`) to load at runtime. Loaded themes
+   * override the bundled presets by id; ids not found on disk fall back to the bundled defaults.
+   * Ignored if an explicit `themeRepository` is given.
+   */
+  themesDir?: string;
   browser?: PlaywrightBrowserOptions;
   /** OpenRouter attribution headers. */
   appUrl?: string;
   appName?: string;
   logger?: Logger;
+  /** Optional per-iteration artifact capture (HTML/screenshot/findings) for debugging. */
+  debug?: DebugSink;
 }
 
 /**
@@ -57,17 +67,25 @@ export function createNodeEngine(options: NodeEngineOptions): ContentEngine {
   if (options.appName) clientOptions.appName = options.appName;
   const client = createOpenRouterClient(clientOptions);
 
+  const themeRepository =
+    options.themeRepository ??
+    (options.themesDir !== undefined
+      ? createFileThemeRepository(options.themesDir, createDefaultThemeRepository())
+      : createDefaultThemeRepository());
+
   const ports: EnginePorts = {
     planner: options.planner ?? new StaticPlanner(options.plan),
-    themeRepository: options.themeRepository ?? createDefaultThemeRepository(),
+    themeRepository,
     painter: new OpenRouterPainter(client, config.models.paint),
     packager: new TailwindPackager(),
     browser: new PlaywrightBrowser(options.browser ?? {}),
     visionCritic: new OpenRouterVisionCritic(client, config.models.critique),
+    imageFetcher: new NodeImageFetcher(),
     llmRepairer: new OpenRouterRepairer(client, config.models.repair),
     clock: new SystemClock(),
     idGenerator: new SystemIdGenerator(),
     ...(options.logger ? { logger: options.logger } : {}),
+    ...(options.debug ? { debug: options.debug } : {}),
   };
 
   return createEngine(ports, options.config);

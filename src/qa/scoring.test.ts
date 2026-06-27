@@ -39,22 +39,30 @@ describe("scoreScreen", () => {
     expect(score.hardGateFailures).toBe(0);
   });
 
-  it("fails on a blocking (major+) finding", () => {
+  it("fails on a blocking (major+) deterministic finding", () => {
     expect(scoreScreen([densityFinding], rubric).passed).toBe(false);
   });
 
-  it("honours a configurable blocking severity (rules-as-data)", () => {
-    // With the threshold raised to critical, a major finding no longer blocks a pass.
+  it("honours a configurable blocking severity for deterministic findings (rules-as-data)", () => {
+    // With the threshold raised to critical, a major deterministic finding no longer blocks.
     expect(scoreScreen([densityFinding], rubric, "critical").passed).toBe(true);
-    // ...but a critical finding still blocks.
-    const critical = makeFinding({
+    // ...but a critical deterministic finding still blocks.
+    const criticalDeterministic = makeFinding({
       kind: "x",
-      source: "vision",
+      source: "deterministic",
       severity: "critical",
       tag: "content",
       message: "c",
     });
-    expect(scoreScreen([critical], rubric, "critical").passed).toBe(false);
+    expect(scoreScreen([criticalDeterministic], rubric, "critical").passed).toBe(false);
+  });
+
+  it("grades vision findings by the rubric — a lone critic nit never hard-blocks a good screen", () => {
+    // One reflexive vision "major" must not block a pass (weighted rubric stays above threshold).
+    expect(scoreScreen([visionMajor("balance")], rubric).passed).toBe(true);
+    // ...but enough failed dimensions drop the rubric below threshold and the screen fails.
+    const many = ["balance", "hierarchy", "representation-clarity"].map(visionMajor);
+    expect(scoreScreen(many, rubric).passed).toBe(false);
   });
 
   it("tolerates info/minor findings", () => {

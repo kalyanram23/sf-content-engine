@@ -107,6 +107,8 @@ export type {
   Clock,
   IdGenerator,
   Logger,
+  DebugSink,
+  DebugCapture,
 } from "./ports/index";
 
 /* ----------------------------------------------------------------- themes + engine */

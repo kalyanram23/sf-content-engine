@@ -58,7 +58,7 @@ export const visionRubricConfigSchema = z.object({
         failAtSeverity: "minor",
       },
     ]),
-  passThreshold: z.number().min(0).max(1).default(0.8),
+  passThreshold: z.number().min(0).max(1).default(0.6),
 });
 
 export type RubricDimension = z.infer<typeof rubricDimensionSchema>;

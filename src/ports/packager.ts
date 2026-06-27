@@ -1,9 +1,15 @@
-import type { ResolvedTheme } from "../domain/types";
+import type { CanonicalItem, ResolvedTheme } from "../domain/types";
 
 export interface PackageRequest {
   /** Raw, painter-authored HTML (Tailwind classes, data-motion, bindings). */
   html: string;
   theme: ResolvedTheme;
+  /**
+   * The screen's items with images already resolved to data-URIs. The packager fills each
+   * carousel `<img data-img-item data-img-index>` placeholder with the matching data-URI, so
+   * the painter never emits a (remote) src and the artifact stays offline-safe (§5.1).
+   */
+  items: CanonicalItem[];
 }
 
 /**

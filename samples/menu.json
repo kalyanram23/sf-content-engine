@@ -3,1205 +3,1548 @@
     "id": "b999e271-0586-4b71-bb35-2ce22a2d7199",
     "name": "Mutton Dum Biryani*",
     "price": 16.99,
-    "category": "BIRYANIS"
+    "category": "BIRYANIS",
+    "available": true
   },
   {
     "id": "88d6dc72-ced4-4e17-a522-ee990ac76432",
     "name": "Paneer Tikka Burger",
     "price": 9.99,
-    "category": "BURGERS"
+    "category": "BURGERS",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/67538577-0eb9-4951-9ac0-9fa2fdb2ce2e.jpg"
+    ]
   },
   {
     "id": "8c0d557d-2fbe-4dbf-9f5d-a0cba025dfa0",
     "name": "Paneer Frankie",
     "price": 11.49,
-    "category": "FRANKIES"
+    "category": "FRANKIES",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/bd6d5917-1699-4952-8d0d-183c65f59995.jpg"
+    ]
   },
   {
     "id": "bbaed0b8-6e1a-4613-9656-ac61a2a54bca",
     "name": "Egg Frankie",
     "price": 10.99,
-    "category": "FRANKIES"
+    "category": "FRANKIES",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/e7fa9b77-b0ac-4d90-acb0-561c9a3faec3.jpg"
+    ]
   },
   {
     "id": "c5d02510-f131-4b6a-96b4-1366af5d8323",
     "name": "Goat Kheema Frankie",
     "price": 13.49,
-    "category": "FRANKIES"
+    "category": "FRANKIES",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/b09a66ac-c73e-4a9c-836e-e0da02191401.jpg"
+    ]
   },
   {
     "id": "c9e1ffc1-62ed-4a30-91c5-06e857789b5f",
     "name": "Street Style Veg Noodles",
     "price": 13.99,
-    "category": "INDO - CHINESE"
+    "category": "INDO - CHINESE",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/305e1b4d-9cac-4216-9a6e-b08cea3120b8.jpg"
+    ]
   },
   {
     "id": "989d0195-e0fe-43a5-bf9a-6bd1194d3d14",
     "name": "Street Style Paneer Noodles",
     "price": 14.99,
-    "category": "INDO - CHINESE"
+    "category": "INDO - CHINESE",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/a2c5b393-2c14-4c33-a6ac-382e84e7babc.jpg"
+    ]
   },
   {
     "id": "3e7e8ff5-76e7-4ffd-b926-0d3956928c86",
     "name": "Street Style Egg Noodles",
     "price": 14.49,
-    "category": "INDO - CHINESE"
+    "category": "INDO - CHINESE",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/17e1483b-519e-4f34-b5db-d4ad34b9e2f6.jpg"
+    ]
   },
   {
     "id": "b0fb36db-daa9-4828-ae58-e56301dcdabb",
     "name": "Street Style Chicken Noodles",
     "price": 15.49,
-    "category": "INDO - CHINESE"
+    "category": "INDO - CHINESE",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/a01914f8-264f-4fe1-9580-40efdea932bf.jpg"
+    ]
   },
   {
     "id": "3d25072b-d6c8-4b16-a5d7-414a9f75d732",
     "name": "Street Style Veg Fried Rice",
     "price": 13.99,
-    "category": "INDO - CHINESE"
+    "category": "INDO - CHINESE",
+    "available": true
   },
   {
     "id": "0c92d011-e6f4-4926-8b5d-5cd1ff68278c",
     "name": "Street Style Paneer Fried Rice",
     "price": 14.99,
-    "category": "INDO - CHINESE"
+    "category": "INDO - CHINESE",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/f3380ded-b06f-45c3-840b-a9dd0ecbbe0c.jpg"
+    ]
   },
   {
     "id": "33af87b1-fc66-48cf-bf0f-dce1f4f90a66",
     "name": "Street Style Egg Fried Rice",
     "price": 14.49,
-    "category": "INDO - CHINESE"
+    "category": "INDO - CHINESE",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/29c9e975-6714-4b74-88f1-278eac1bd93f.jpg"
+    ]
   },
   {
     "id": "8ebf97e4-3609-4390-ad61-d67a4ac99b79",
     "name": "Street Style Chicken Fried Rice",
     "price": 15.49,
-    "category": "INDO - CHINESE"
+    "category": "INDO - CHINESE",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/763d513b-c2b1-4982-90e7-f2f41f08e057.jpg"
+    ]
   },
   {
     "id": "d60fc65a-8be3-4b9e-bfdd-a7405b24de47",
     "name": "Street Style Veg Noodles (Schezwan)",
     "price": 14.49,
-    "category": "INDO - CHINESE"
+    "category": "INDO - CHINESE",
+    "available": true
   },
   {
     "id": "9b58a71e-6311-4da1-adb3-93edc550e2c7",
     "name": "Street Style Paneer Noodles (Schezwan)",
     "price": 15.49,
-    "category": "INDO - CHINESE"
+    "category": "INDO - CHINESE",
+    "available": true
   },
   {
     "id": "b0ef57be-a353-478b-b54d-e98c5fab6e97",
     "name": "Street Style Egg Noodles (Schezwan)",
     "price": 14.99,
-    "category": "INDO - CHINESE"
+    "category": "INDO - CHINESE",
+    "available": true
   },
   {
     "id": "a8ea736d-404f-4666-bcb8-9a778501083e",
     "name": "Street Style Chicken Noodles (Schezwan)",
     "price": 15.99,
-    "category": "INDO - CHINESE"
+    "category": "INDO - CHINESE",
+    "available": true
   },
   {
     "id": "b17f6185-dece-44b2-a437-cb54069a45c0",
     "name": "Street Style Veg Fried Rice (Schezwan)",
     "price": 14.49,
-    "category": "INDO - CHINESE"
+    "category": "INDO - CHINESE",
+    "available": true
   },
   {
     "id": "78661a20-3b4e-40cf-ad18-5a121657bdbe",
     "name": "Street Style Paneer Fried Rice (Schezwan)",
     "price": 15.49,
-    "category": "INDO - CHINESE"
+    "category": "INDO - CHINESE",
+    "available": true
   },
   {
     "id": "714a1de0-9b48-4f7f-b1f2-04ad3f079435",
     "name": "Street Style Egg Fried Rice (Schezwan)",
     "price": 14.99,
-    "category": "INDO - CHINESE"
+    "category": "INDO - CHINESE",
+    "available": true
   },
   {
     "id": "d42c5791-71e3-4e49-aad2-29cd6a850d6b",
     "name": "Street Style Chicken Fried Rice (Schezwan)",
     "price": 15.99,
-    "category": "INDO - CHINESE"
+    "category": "INDO - CHINESE",
+    "available": true
   },
   {
     "id": "126a307e-8b92-41d2-aa99-630be8c9ea24",
     "name": "Gutthi Vankaya Mandi",
     "price": 20.99,
-    "category": "MANDI HOUSE"
+    "category": "MANDI HOUSE",
+    "available": true
   },
   {
     "id": "afbcaa79-2863-407b-817c-40c30de93a5d",
     "name": "Gobi Mandi",
     "price": 20.49,
-    "category": "MANDI HOUSE"
+    "category": "MANDI HOUSE",
+    "available": true
   },
   {
     "id": "6a531c68-6b64-4ff8-a141-d4d1538f4abb",
     "name": "Paneer Mandi",
     "price": 22.99,
-    "category": "MANDI HOUSE"
+    "category": "MANDI HOUSE",
+    "available": true
   },
   {
     "id": "24d943d2-3ff9-42fe-acc3-76c2e19e9f75",
     "name": "Egg Juicy Mandi",
     "price": 20.49,
-    "category": "MANDI HOUSE"
+    "category": "MANDI HOUSE",
+    "available": true
   },
   {
     "id": "69a03bdb-c013-4f9d-beb0-88631848ba01",
     "name": "Grill Chicken Mandi",
-    "category": "MANDI HOUSE"
+    "category": "MANDI HOUSE",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/8358da47-813c-4520-8288-bb819e585308.jpg"
+    ]
   },
   {
     "id": "84f38714-d279-4c35-943a-9107a1e1fd66",
     "name": "Chicken Fry Piece Mandi",
-    "category": "MANDI HOUSE"
+    "category": "MANDI HOUSE",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/d2a48150-1c99-4dbc-b58a-dcb36d00dee2.jpg"
+    ]
   },
   {
     "id": "130f3b67-fac3-441a-a96d-b3970cfbbe6c",
     "name": "Chicken Lollipop Mandi",
     "price": 22.49,
-    "category": "MANDI HOUSE"
+    "category": "MANDI HOUSE",
+    "available": true
   },
   {
     "id": "2af1fbce-73a5-4eb4-b8e7-4c13d94d38e7",
     "name": "Juicy Chicken Mandi",
     "price": 21.99,
-    "category": "MANDI HOUSE"
+    "category": "MANDI HOUSE",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/83f1ba9e-ecd7-4239-b309-dd5255d0bd52.png"
+    ]
   },
   {
     "id": "a9265640-fe83-4eff-8cce-28ea91d97e6d",
     "name": "Spicy Chicken Mandi",
-    "category": "MANDI HOUSE"
+    "category": "MANDI HOUSE",
+    "available": true
   },
   {
     "id": "d1e2190c-d597-4458-9e0c-e9bca60b4f9d",
     "name": "Hashtag Spl Chicken Mandi",
     "price": 22.99,
-    "category": "MANDI HOUSE"
+    "category": "MANDI HOUSE",
+    "available": true
   },
   {
     "id": "2e0f1375-099b-47c3-ad9f-f61925ea6bf8",
     "name": "Afghani Chicken Mandi",
-    "category": "MANDI HOUSE"
+    "category": "MANDI HOUSE",
+    "available": true
   },
   {
     "id": "a88064ee-0981-4b0c-820a-edaf6c3c3d68",
     "name": "Mutton Ghee Roast Mandi",
-    "category": "MANDI HOUSE"
+    "category": "MANDI HOUSE",
+    "available": true
   },
   {
     "id": "b5e5c990-9202-46e5-a96f-6b06e95308eb",
     "name": "Spicy Mutton Mandi",
-    "category": "MANDI HOUSE"
+    "category": "MANDI HOUSE",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/8c7e4687-578f-433a-b78b-86eff21cf92e.jpg"
+    ]
   },
   {
     "id": "c820ff39-a903-4e83-8ff2-e4360253bd39",
     "name": "Juicy Mutton Mandi",
     "price": 23.99,
-    "category": "MANDI HOUSE"
+    "category": "MANDI HOUSE",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/a9af698d-a1f5-4b82-950a-4129b94986d6.jpg"
+    ]
   },
   {
     "id": "4c2eeb2d-87b0-4bd6-80bb-88ec2099381a",
     "name": "Nalli Gosht Mutton Mandi",
-    "category": "MANDI HOUSE"
+    "category": "MANDI HOUSE",
+    "available": true
   },
   {
     "id": "8a5af5e0-9ed4-42af-a431-6bcbfda7ff4d",
     "name": "Shrimp Mandi",
     "price": 22.99,
-    "category": "MANDI HOUSE"
+    "category": "MANDI HOUSE",
+    "available": true
   },
   {
     "id": "3ba801fd-93d2-4a9e-9422-830bd8be156c",
     "name": "Grill Fish Mandi",
     "price": 24.99,
-    "category": "MANDI HOUSE"
+    "category": "MANDI HOUSE",
+    "available": true
   },
   {
     "id": "ec11d835-758a-4520-a37d-73f2fb6ed5e2",
     "name": "Veg Bahubali Mandi",
     "price": 94.99,
-    "category": "MANDI HOUSE"
+    "category": "MANDI HOUSE",
+    "available": true
   },
   {
     "id": "02161857-0029-4864-96b6-b94015746c6f",
     "name": "Non-Veg Bahubali Mandi",
     "price": 99.99,
-    "category": "MANDI HOUSE"
+    "category": "MANDI HOUSE",
+    "available": true
   },
   {
     "id": "ebc39104-ddb3-4420-8003-5075450d2412",
     "name": "Non-Veg Mega Bahubali Mandi",
     "price": 124.99,
-    "category": "MANDI HOUSE"
+    "category": "MANDI HOUSE",
+    "available": true
   },
   {
     "id": "4dfdfedd-aa97-4ed6-88c8-776bcf279c0c",
     "name": "Extra Mandi Rice (28 oz)",
     "price": 10.99,
-    "category": "MANDI HOUSE"
+    "category": "MANDI HOUSE",
+    "available": true
   },
   {
     "id": "4371c3ad-e705-47a2-9da4-adda2a1c7525",
     "name": "Veg Butter Momo *",
     "price": 12.49,
-    "category": "MOMOS"
+    "category": "MOMOS",
+    "available": true
   },
   {
     "id": "d0b880ec-d87c-469c-8175-469b9fa68cbb",
     "name": "Veg Chilli Momo *",
     "price": 12.49,
-    "category": "MOMOS"
+    "category": "MOMOS",
+    "available": true
   },
   {
     "id": "1a85f088-152f-4cd3-a61c-907d8ea0704b",
     "name": "Butter Chicken Momos",
     "price": 13.49,
-    "category": "MOMOS"
+    "category": "MOMOS",
+    "available": true
   },
   {
     "id": "ecedcc23-19ef-4172-9357-c64fa0a595c0",
     "name": "Chilli Chicken Momos",
     "price": 13.49,
-    "category": "MOMOS"
+    "category": "MOMOS",
+    "available": true
   },
   {
     "id": "8705d639-04ee-4882-ab58-09d07a6d756c",
     "name": "Plain Naan",
     "price": 2.49,
-    "category": "NAANS / BREADS"
+    "category": "NAANS / BREADS",
+    "available": true
   },
   {
     "id": "edcc01df-d8ff-423b-a990-3d776c90fe62",
     "name": "Butter Naan",
     "price": 3.49,
-    "category": "NAANS / BREADS"
+    "category": "NAANS / BREADS",
+    "available": true
   },
   {
     "id": "ebffba33-8bd9-4f7e-a226-42e6629ea19f",
     "name": "Garlic Naan",
     "price": 3.99,
-    "category": "NAANS / BREADS"
+    "category": "NAANS / BREADS",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/ffc48ba5-f34e-4dea-95d3-ec947af9ae09.jpg"
+    ]
   },
   {
     "id": "02fb3a04-dfb6-47f4-92b3-a67f2a04a60e",
     "name": "Fire Naan",
     "price": 4.49,
-    "category": "NAANS / BREADS"
+    "category": "NAANS / BREADS",
+    "available": true
   },
   {
     "id": "8c20b5f8-c4d0-4bdf-9ef6-281ab03ef541",
     "name": "Andhra Chicken Curry (Bone In)",
     "price": 15.49,
-    "category": "NON VEG CURRIES"
+    "category": "NON VEG CURRIES",
+    "available": true
   },
   {
     "id": "58f03484-09ad-4790-9a68-fe6205dc00f2",
     "name": "Chicken Korma (Bone In)",
     "price": 15.49,
-    "category": "NON VEG CURRIES"
+    "category": "NON VEG CURRIES",
+    "available": true
   },
   {
     "id": "550fc2a6-9686-4c98-9127-618ecdc23ad3",
     "name": "Chettinad Chicken Curry (Bone In)",
     "price": 15.49,
-    "category": "NON VEG CURRIES"
+    "category": "NON VEG CURRIES",
+    "available": true
   },
   {
     "id": "32596dc8-9714-4be3-a99d-d1278bdfaa7c",
     "name": "Kadai Chicken Curry (Bone In)",
     "price": 15.49,
-    "category": "NON VEG CURRIES"
+    "category": "NON VEG CURRIES",
+    "available": true
   },
   {
     "id": "c8655ddf-d370-40d9-8b09-8bf28f69bfe4",
     "name": "Butter Chicken",
     "price": 15.49,
-    "category": "NON VEG CURRIES"
+    "category": "NON VEG CURRIES",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/1c20d3a5-2f93-44bc-b663-7c3e7ab9359a.jpg"
+    ]
   },
   {
     "id": "f2f7f6c6-33b5-4be0-89cd-0b9846d3abb5",
     "name": "Chicken Tikka Masala",
     "price": 15.99,
-    "category": "NON VEG CURRIES"
+    "category": "NON VEG CURRIES",
+    "available": true
   },
   {
     "id": "827e7ca8-0a18-4213-bed9-db0c98dacda0",
     "name": "Chicken Mandakini",
     "price": 15.49,
-    "category": "NON VEG CURRIES"
+    "category": "NON VEG CURRIES",
+    "available": true
   },
   {
     "id": "3935bee9-cd44-4212-8e16-1e6afc66d140",
     "name": "Hashtag Spl Chicken Curry *",
     "price": 17.99,
-    "category": "NON VEG CURRIES"
+    "category": "NON VEG CURRIES",
+    "available": true
   },
   {
     "id": "699122b1-dcd0-478a-ac4f-91180226b652",
     "name": "Hyderabadi Mutton Curry",
     "price": 17.49,
-    "category": "NON VEG CURRIES"
+    "category": "NON VEG CURRIES",
+    "available": true
   },
   {
     "id": "d7b9d55c-1b9f-42c7-8192-082110de7868",
     "name": "Goat Rara Curry",
     "price": 17.99,
-    "category": "NON VEG CURRIES"
+    "category": "NON VEG CURRIES",
+    "available": true
   },
   {
     "id": "19279bc6-1e2a-4260-992a-f034a06bde97",
     "name": "Shrimp Tikka Masala",
     "price": 16.49,
-    "category": "NON VEG CURRIES"
+    "category": "NON VEG CURRIES",
+    "available": true
   },
   {
     "id": "fc762bd3-97f4-46bd-9523-6c06025ed46f",
     "name": "Andhra Royyala Iguru",
     "price": 16.49,
-    "category": "NON VEG CURRIES"
+    "category": "NON VEG CURRIES",
+    "available": true
   },
   {
     "id": "c81db14d-6506-44e7-a160-00f5fdacf114",
     "name": "Peddamma Keema Koora",
     "price": 17.49,
-    "category": "NON VEG CURRIES"
+    "category": "NON VEG CURRIES",
+    "available": true
   },
   {
     "id": "1857ce11-3c95-430e-a061-89bb392971ea",
     "name": "Gongura Mutton Curry *",
     "price": 17.49,
-    "category": "NON VEG CURRIES"
+    "category": "NON VEG CURRIES",
+    "available": true
   },
   {
     "id": "687eb02f-4d77-4182-84fb-7cc2b487daac",
     "name": "Egg Chilli",
     "price": 13.49,
-    "category": "NON VEG APPETIZERS"
+    "category": "NON VEG APPETIZERS",
+    "available": true
   },
   {
     "id": "1778ffe1-b21b-41ee-a262-3d652bacae06",
     "name": "Jalapeno Chicken *",
     "price": 13.49,
-    "category": "NON VEG APPETIZERS"
+    "category": "NON VEG APPETIZERS",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/203703bd-c32f-46d8-ba63-7aae47601954.jpg"
+    ]
   },
   {
     "id": "421828a1-7a47-468b-b019-a1cb09b5b30b",
     "name": "Chicken 65",
     "price": 13.49,
-    "category": "NON VEG APPETIZERS"
+    "category": "NON VEG APPETIZERS",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/a18ab085-e12d-4969-93ec-8a2de5033c18.jpg"
+    ]
   },
   {
     "id": "aefc940e-a453-46f3-916d-57808369aba2",
     "name": "Hashtag Fried Chicken",
     "price": 13.49,
-    "category": "NON VEG APPETIZERS"
+    "category": "NON VEG APPETIZERS",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/9ed8136a-7bc0-491e-83b6-86019bd3e158.jpg"
+    ]
   },
   {
     "id": "dce5f29a-9aee-4db9-85ba-cb49be309298",
     "name": "Chicken Majestic",
     "price": 13.49,
-    "category": "NON VEG APPETIZERS"
+    "category": "NON VEG APPETIZERS",
+    "available": true
   },
   {
     "id": "283c09ad-735e-4dd0-a5df-3a50ffda6fae",
     "name": "Chicken 555",
     "price": 13.49,
-    "category": "NON VEG APPETIZERS"
+    "category": "NON VEG APPETIZERS",
+    "available": true
   },
   {
     "id": "41d4089c-ca34-46e9-97b1-db23ab11cafa",
     "name": "Raja Rani Chicken",
     "price": 13.49,
-    "category": "NON VEG APPETIZERS"
+    "category": "NON VEG APPETIZERS",
+    "available": true
   },
   {
     "id": "6ae1e54f-0505-41d3-ba18-6a92550552c3",
     "name": "Karivepaku Chicken",
     "price": 13.49,
-    "category": "NON VEG APPETIZERS"
+    "category": "NON VEG APPETIZERS",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/32d6cd48-1afe-462a-b3e4-3d263c99e4b0.jpg"
+    ]
   },
   {
     "id": "222521df-7765-4645-8aef-e21f30850dd9",
     "name": "Pachi Mirchi Chicken *",
     "price": 14.49,
-    "category": "NON VEG APPETIZERS"
+    "category": "NON VEG APPETIZERS",
+    "available": true
   },
   {
     "id": "02b58d40-93a3-420f-9bdd-495b666eaffc",
     "name": "Guntur Kodi Vepudu",
     "price": 13.99,
-    "category": "NON VEG APPETIZERS"
+    "category": "NON VEG APPETIZERS",
+    "available": true
   },
   {
     "id": "fd809f5d-14e0-428f-8127-ce666f46b0b7",
     "name": "Chicken Lollipop",
     "price": 14.99,
-    "category": "NON VEG APPETIZERS"
+    "category": "NON VEG APPETIZERS",
+    "available": true
   },
   {
     "id": "573b9f8b-a30f-47a6-87f1-6df7d0dc20da",
     "name": "Garlic Shrimp",
     "price": 15.99,
-    "category": "NON VEG APPETIZERS"
+    "category": "NON VEG APPETIZERS",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/f1c88434-3ddf-45ea-9458-4dc896c4890b.jpg"
+    ]
   },
   {
     "id": "9879e361-e639-4adb-a9cb-56e08538884f",
     "name": "Chilli Fish",
     "price": 15.99,
-    "category": "NON VEG APPETIZERS"
+    "category": "NON VEG APPETIZERS",
+    "available": true
   },
   {
     "id": "01143a68-38fd-4629-9264-6791e6ba495f",
     "name": "Lamb Pepper Fry",
     "price": 15.99,
-    "category": "NON VEG APPETIZERS"
+    "category": "NON VEG APPETIZERS",
+    "available": true
   },
   {
     "id": "b5d5f5ec-6c6a-4a20-a12a-3ffee92dba1c",
     "name": "Miryala Mamsam Vepudu (Goat)",
     "price": 15.99,
-    "category": "NON VEG APPETIZERS"
+    "category": "NON VEG APPETIZERS",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/1cfa3062-181c-4726-b89a-d2d2c3e9ba7b.jpg"
+    ]
   },
   {
     "id": "9f71842b-144e-482c-91df-07cedf7f4514",
     "name": "Gongura Mutton Fry *",
     "price": 15.99,
-    "category": "NON VEG APPETIZERS"
+    "category": "NON VEG APPETIZERS",
+    "available": true
   },
   {
     "id": "9e20836e-7d24-4319-9bc1-bb2312153efe",
     "name": "Panner Tikka Pasta",
     "price": 13.49,
-    "category": "PASTAS"
+    "category": "PASTAS",
+    "available": true
   },
   {
     "id": "fe47d74f-8379-4d03-a359-b7160e222cd8",
     "name": "Chicken Tikka Pasta",
     "price": 14.49,
-    "category": "PASTAS"
+    "category": "PASTAS",
+    "available": true
   },
   {
     "id": "4f4d99a0-2c4a-499a-904f-e9a1f69e1194",
     "name": "Pachi Mirchi Mamsam Pulav",
     "price": 18.99,
-    "category": "PULAVS"
+    "category": "PULAVS",
+    "available": true
   },
   {
     "id": "7fc2c698-6920-48bf-9213-0af89164094c",
     "name": "Hashtag Spl Mutton Pulav",
     "price": 16.99,
-    "category": "PULAVS"
+    "category": "PULAVS",
+    "available": true
   },
   {
     "id": "1f4e0b1d-3f03-4981-a9af-4dfb46f33b2a",
     "name": "Mutton Ghee Roast Pulav *",
     "price": 17.99,
-    "category": "PULAVS"
+    "category": "PULAVS",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/e63afb70-0ac9-4e2a-b75e-4c566fa14438.jpg"
+    ]
   },
   {
     "id": "5817b88c-6575-465b-a23e-329eecd6f54a",
     "name": "Srikakulam Royyala Pulav *",
     "price": 17.99,
-    "category": "PULAVS"
+    "category": "PULAVS",
+    "available": true
   },
   {
     "id": "ec7f1b9e-b0bb-4e24-880d-4ad60f2fbc62",
     "name": "Hashtag Special Chicken Pulav",
     "price": 15.99,
-    "category": "PULAVS"
+    "category": "PULAVS",
+    "available": true
   },
   {
     "id": "5c6d84ce-2f6f-4863-a312-b8381add0595",
     "name": "Chicken Fry Piece Pulav *",
     "price": 16.49,
-    "category": "PULAVS"
+    "category": "PULAVS",
+    "available": true
   },
   {
     "id": "6e30b24b-1fb4-42ed-9040-df034be84300",
     "name": "Pachi Mirchi Chicken Pulav *",
     "price": 16.49,
-    "category": "PULAVS"
+    "category": "PULAVS",
+    "available": true
   },
   {
     "id": "a4f4f4e5-dd32-4459-8f12-aa63813d1d07",
     "name": "Pachi Mirchi Paneer Pulav",
     "price": 14.99,
-    "category": "PULAVS"
+    "category": "PULAVS",
+    "available": true
   },
   {
     "id": "2c66a704-02cd-4cfb-8db9-a80a5c73b553",
     "name": "Gutthi Vankaya Pulav",
     "price": 13.99,
-    "category": "PULAVS"
+    "category": "PULAVS",
+    "available": true
   },
   {
     "id": "c5dbbd36-e704-4927-a4d1-2877965207c1",
     "name": "Vijayawada Paneer Pulav",
     "price": 13.99,
-    "category": "PULAVS"
+    "category": "PULAVS",
+    "available": true
   },
   {
     "id": "8c3d7a0c-6405-453c-8d4f-a2bc27f44d13",
     "name": "Shastri Gari Veg Pulav",
     "price": 14.49,
-    "category": "PULAVS"
+    "category": "PULAVS",
+    "available": true
   },
   {
     "id": "60742774-eca4-4734-b3eb-fe116603fb04",
     "name": "Paneer Pulav",
     "price": 14.49,
-    "category": "PULAVS"
+    "category": "PULAVS",
+    "available": true
   },
   {
     "id": "aa7869d6-1879-42d3-bc9b-73d4d92aa6b4",
     "name": "Gundamma Gari Gongura Chicken Pulav",
     "price": 16.49,
-    "category": "PULAVS"
+    "category": "PULAVS",
+    "available": true
   },
   {
     "id": "f6166ab0-9951-47d9-a5e0-c8b57defd70c",
     "name": "Goat Keema Pulav",
     "price": 17.99,
-    "category": "PULAVS"
+    "category": "PULAVS",
+    "available": true
   },
   {
     "id": "d0999a3a-da99-4551-a59b-6ecc5791b17c",
     "name": "Paneer Sandwich",
     "price": 11.49,
-    "category": "SANDWICHES"
+    "category": "SANDWICHES",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/46a86893-6117-4fae-b5b5-69014973477f.jpg"
+    ]
   },
   {
     "id": "fdd33f21-955a-4ae6-9344-c4a988fe4634",
     "name": "Goat Keema Sandwich",
     "price": 13.49,
-    "category": "SANDWICHES"
+    "category": "SANDWICHES",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/5a80c1bd-8ead-4042-81e6-43e49d656b20.jpg"
+    ]
   },
   {
     "id": "b770a494-d043-49ad-aebd-579b68d5fdbb",
     "name": "Dhaba Style Jeera Rice",
     "price": 12.49,
-    "category": "SPECIAL RICE"
+    "category": "SPECIAL RICE",
+    "available": true
   },
   {
     "id": "5bd1a71c-41ef-4744-8d98-6aac8d842b9f",
     "name": "Kodi Pappu Chaaru",
     "price": 14.49,
-    "category": "SPECIAL RICE"
+    "category": "SPECIAL RICE",
+    "available": true
   },
   {
     "id": "19066022-f8ae-4a02-a7ff-301884fd919a",
     "name": "Mamsam Pappu Chaaru",
     "price": 15.49,
-    "category": "SPECIAL RICE"
+    "category": "SPECIAL RICE",
+    "available": true
   },
   {
     "id": "090f28bb-b325-45c3-a759-371b46967351",
     "name": "Pulav Rice (28oz)",
     "price": 8.99,
-    "category": "SPECIAL RICE"
+    "category": "SPECIAL RICE",
+    "available": true
   },
   {
     "id": "fc5ea33a-4205-468a-ba8c-62b6c0da4baf",
     "name": "Pulav Rice (16oz)",
     "price": 5.99,
-    "category": "SPECIAL RICE"
+    "category": "SPECIAL RICE",
+    "available": true
   },
   {
     "id": "dfcfcf09-88db-4b89-b7a9-a04a005edb13",
     "name": "Gundamma Gari Gongura Rice",
     "price": 13.49,
-    "category": "SPECIAL RICE"
+    "category": "SPECIAL RICE",
+    "available": true
   },
   {
     "id": "ee6d7859-1e96-4e74-9aed-f6f83e3ed44f",
     "name": "Paneer Tikka Kebab",
     "price": 14.49,
-    "category": "TANDOORI (KEBABS)"
+    "category": "TANDOORI (KEBABS)",
+    "available": true
   },
   {
     "id": "a403f84f-3683-4333-a796-2cf586576981",
     "name": "Grilled Fish *",
     "price": 21.49,
-    "category": "TANDOORI (KEBABS)"
+    "category": "TANDOORI (KEBABS)",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/16c5e2cb-66e4-49a7-bf42-961de2b45ac0.jpg"
+    ]
   },
   {
     "id": "f14a9f6e-7cd6-4baa-addd-14adf123ed05",
     "name": "Chilli Baby Corn",
     "price": 12.99,
-    "category": "VEG APPETIZERS"
+    "category": "VEG APPETIZERS",
+    "available": true
   },
   {
     "id": "5394e2c9-dee1-49c0-a86e-2d3ca80b0d28",
     "name": "Gobi Machurian",
     "price": 12.99,
-    "category": "VEG APPETIZERS"
+    "category": "VEG APPETIZERS",
+    "available": true
   },
   {
     "id": "4ad6f6a3-6d92-4bb1-9f47-7d08035eb413",
     "name": "Jalapeno Paneer *",
     "price": 13.49,
-    "category": "VEG APPETIZERS"
+    "category": "VEG APPETIZERS",
+    "available": true
   },
   {
     "id": "5279ae0a-579e-4cd2-b101-a9efcb31f2d5",
     "name": "Paneer 65",
     "price": 13.49,
-    "category": "VEG APPETIZERS"
+    "category": "VEG APPETIZERS",
+    "available": true
   },
   {
     "id": "56881b6a-addb-4a21-9c3b-fbca42b12145",
     "name": "Pachi Mirchi Paneer *",
     "price": 13.49,
-    "category": "VEG APPETIZERS"
+    "category": "VEG APPETIZERS",
+    "available": true
   },
   {
     "id": "1b3a20eb-8c55-48c4-975a-7c200530c3f6",
     "name": "Veg Manchurian (Dry / Wet)",
     "price": 12.99,
-    "category": "VEG APPETIZERS"
+    "category": "VEG APPETIZERS",
+    "available": true
   },
   {
     "id": "a3819843-78ae-48a9-a4be-012785a2c703",
     "name": "Baby Corn Manchuria",
     "price": 12.99,
-    "category": "VEG APPETIZERS"
+    "category": "VEG APPETIZERS",
+    "available": true
   },
   {
     "id": "b039bd3a-caa4-4567-8aec-65dc575694cf",
     "name": "Chilli Gobi",
     "price": 12.99,
-    "category": "VEG APPETIZERS"
+    "category": "VEG APPETIZERS",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/2294a8f8-db38-4631-b127-b43177641442.jpg"
+    ]
   },
   {
     "id": "1fc0867a-ce95-4cc0-9a26-5d25f208aa4e",
     "name": "Garlic Gobi",
     "price": 12.99,
-    "category": "VEG APPETIZERS"
+    "category": "VEG APPETIZERS",
+    "available": true
   },
   {
     "id": "0acfd9a8-1f23-411b-9932-715c9a9e5fdb",
     "name": "Methi Garlic Gobi",
     "price": 12.99,
-    "category": "VEG APPETIZERS"
+    "category": "VEG APPETIZERS",
+    "available": true
   },
   {
     "id": "21995184-1a5a-4e1e-8316-756da48ec765",
     "name": "Chow Chow Fries",
     "price": 7.99,
-    "category": "VEG APPETIZERS"
+    "category": "VEG APPETIZERS",
+    "available": true
   },
   {
     "id": "72e7a713-c614-4346-a37b-daebdf5202ce",
     "name": "Dhaba Style Mixed Veg *",
     "price": 14.49,
-    "category": "VEG CURRIES"
+    "category": "VEG CURRIES",
+    "available": true
   },
   {
     "id": "87aa0d27-985d-4be0-9324-baeaa87ba1ec",
     "name": "Navaratan Korma",
     "price": 14.49,
-    "category": "VEG CURRIES"
+    "category": "VEG CURRIES",
+    "available": true
   },
   {
     "id": "8865b688-7ac6-4ec3-97f9-a8026ded8a0e",
     "name": "Gutti Vankaya *",
     "price": 14.49,
-    "category": "VEG CURRIES"
+    "category": "VEG CURRIES",
+    "available": true
   },
   {
     "id": "5a91ee14-ec38-4c28-8837-c8265a49ef0b",
     "name": "Hashtag Special Veg",
     "price": 14.99,
-    "category": "VEG CURRIES"
+    "category": "VEG CURRIES",
+    "available": true
   },
   {
     "id": "2cc103f4-b7b5-4a40-a20b-0166484d4d34",
     "name": "Lababdar Paneer",
     "price": 14.49,
-    "category": "VEG CURRIES"
+    "category": "VEG CURRIES",
+    "available": true
   },
   {
     "id": "82f2d52d-1d3d-40c0-b973-32418b11630d",
     "name": "Paneer Tikka Masala",
     "price": 14.99,
-    "category": "VEG CURRIES"
+    "category": "VEG CURRIES",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/f0250431-ee16-4b76-bab3-a8ae914c05b3.jpg"
+    ]
   },
   {
     "id": "99d33acc-a02e-4392-82de-ed81078a07e6",
     "name": "Egg Masala",
     "price": 14.49,
-    "category": "VEG CURRIES"
+    "category": "VEG CURRIES",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/d77b251f-6388-4aa0-a6a6-10290ec48c5e.jpg"
+    ]
   },
   {
     "id": "05a27c5b-a17f-4dac-a43d-0dfdac225cb4",
     "name": "Dabha Style Chole",
     "price": 14.49,
-    "category": "VEG CURRIES"
+    "category": "VEG CURRIES",
+    "available": true
   },
   {
     "id": "5474a87c-465c-4ec3-b7ff-59ba488320d8",
     "name": "Kadai Paneer",
     "price": 14.49,
-    "category": "VEG CURRIES"
+    "category": "VEG CURRIES",
+    "available": true
   },
   {
     "id": "1cb39111-2fb9-4dd5-a75b-1144150e33aa",
     "name": "Saag Paneer",
     "price": 14.49,
-    "category": "VEG CURRIES"
+    "category": "VEG CURRIES",
+    "available": true
   },
   {
     "id": "ef123aa1-8e6d-435a-b49b-43d7715fc1c6",
     "name": "Malai Methi Paneer",
     "price": 14.99,
-    "category": "VEG CURRIES"
+    "category": "VEG CURRIES",
+    "available": true
   },
   {
     "id": "5e1ddb67-7842-43a3-8d44-28d48b46cfab",
     "name": "Onion Samosa (6 pcs)",
     "price": 5.49,
-    "category": "QUICK BITES"
+    "category": "QUICK BITES",
+    "available": true
   },
   {
     "id": "c93c521d-988f-4bc7-9424-0ba14f6488f8",
     "name": "Aloo Samosa (2 pcs)",
     "price": 4.49,
-    "category": "QUICK BITES"
+    "category": "QUICK BITES",
+    "available": true
   },
   {
     "id": "5bc5e81e-dfd1-4d9c-bb5d-43ff91e1b0c5",
     "name": "Poori with Aloo Curry",
     "price": 10.49,
-    "category": "TIFFINS"
+    "category": "TIFFINS",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/c11e6f89-5c11-4e83-ab52-4e0f891863c1.jpg"
+    ]
   },
   {
     "id": "e7460916-3b7f-47ab-9a25-d6c33661b370",
     "name": "Poori with Chicken Curry",
     "price": 12.99,
-    "category": "TIFFINS"
+    "category": "TIFFINS",
+    "available": true
   },
   {
     "id": "dc6818df-7b89-404f-bdbf-23c8a419572c",
     "name": "Poori with Goat Curry",
     "price": 14.99,
-    "category": "TIFFINS"
+    "category": "TIFFINS",
+    "available": true
   },
   {
     "id": "65aa51f0-5682-46c6-8fcd-5544b259defd",
     "name": "Punugulu (10 pcs)",
     "price": 7.49,
-    "category": "TIFFINS"
+    "category": "TIFFINS",
+    "available": true
   },
   {
     "id": "9e0654d9-cb74-45ca-b9fb-971f486f54fa",
     "name": "Egg Bonda (2 pcs)",
     "price": 5.99,
-    "category": "TIFFINS"
+    "category": "TIFFINS",
+    "available": true
   },
   {
     "id": "46c24433-1abf-48c3-aef0-7b1a612af19a",
     "name": "Poori (1pc)",
     "price": 3.49,
-    "category": "TIFFINS"
+    "category": "TIFFINS",
+    "available": true
   },
   {
     "id": "ed79583d-db1a-41c7-a343-17f63a94ccb5",
     "name": "Aloo Curry",
     "price": 7.49,
-    "category": "TIFFINS"
+    "category": "TIFFINS",
+    "available": true
   },
   {
     "id": "d5566bb6-a34e-47d2-8659-89445c709c0d",
     "name": "Plain Dosa",
     "price": 9.99,
-    "category": "Dosa"
+    "category": "Dosa",
+    "available": true
   },
   {
     "id": "f51e1595-5e6a-4c31-81f7-fad9314048f3",
     "name": "Onion Dosa",
     "price": 10.99,
-    "category": "Dosa"
+    "category": "Dosa",
+    "available": true
   },
   {
     "id": "709cc301-c9dc-4151-af8b-10dc02c6bdf8",
     "name": "Masala Dosa",
     "price": 10.99,
-    "category": "Dosa"
+    "category": "Dosa",
+    "available": true
   },
   {
     "id": "5f6027aa-4a0d-47ec-9514-945e2625a976",
     "name": "Mysore Masala Dosa",
     "price": 12.99,
-    "category": "Dosa"
+    "category": "Dosa",
+    "available": true
   },
   {
     "id": "d705aa47-76af-491a-b55c-67cc78de4e2b",
     "name": "Egg Dosa",
     "price": 13.49,
-    "category": "Dosa"
+    "category": "Dosa",
+    "available": true
   },
   {
     "id": "f12274f3-4adb-4c72-a06e-797433f2f9c0",
     "name": "Ghee Karam Dosa",
     "price": 11.99,
-    "category": "Dosa"
+    "category": "Dosa",
+    "available": true
   },
   {
     "id": "7929485d-9a9e-4187-ad97-26f1f7be34f6",
     "name": "Hashtag Spl Dosa",
     "price": 12.99,
-    "category": "Dosa"
+    "category": "Dosa",
+    "available": true
   },
   {
     "id": "a2c6f022-1ecd-4f18-881b-3608c7c455a6",
     "name": "Mirchi Bajji (4 Pcs)",
     "price": 7.49,
-    "category": "Snack Box"
+    "category": "Snack Box",
+    "available": true
   },
   {
     "id": "a48994c7-62b6-43dd-8ce6-3e7cb0f1ab43",
     "name": "Cut Mirchi",
     "price": 6.99,
-    "category": "Snack Box"
+    "category": "Snack Box",
+    "available": true
   },
   {
     "id": "60717ebd-587a-4722-880d-f4e4f169c947",
     "name": "Mirchi Bajji (Stuffed) (3 Pcs)",
     "price": 7.49,
-    "category": "Snack Box"
+    "category": "Snack Box",
+    "available": true
   },
   {
     "id": "9a08918b-1671-4c89-8b39-67d60eee442e",
     "name": "Aloo Bajji",
     "price": 6.49,
-    "category": "Snack Box"
+    "category": "Snack Box",
+    "available": true
   },
   {
     "id": "a2c03c93-9032-41ab-8271-1ae56e30bac7",
     "name": "WaterBottle",
     "price": 0.49,
-    "category": "WaterBottle"
+    "category": "WaterBottle",
+    "available": true
   },
   {
     "id": "f77ff0d2-9bdd-4313-bc65-4a572a038c00",
     "name": "Gulab Jamun",
     "price": 4.99,
-    "category": "Desserts"
+    "category": "Desserts",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/95d024fe-f9b4-4285-9272-d600be26e57d.jpg"
+    ]
   },
   {
     "id": "5308aced-12d0-4dd4-812b-488858db72e0",
     "name": "Rasmalai",
     "price": 4.99,
-    "category": "Desserts"
+    "category": "Desserts",
+    "available": true
   },
   {
     "id": "0e565b89-1b18-473a-a753-4874517a6224",
     "name": "Sweet Paan *",
     "price": 2.99,
-    "category": "Desserts"
+    "category": "Desserts",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/e667adb1-bf90-4076-a22e-ab21f6851747.jpg"
+    ]
   },
   {
     "id": "42036a54-6f19-481e-a66a-d51dd2ec5bf7",
     "name": "Ice Cream (1 scoop)",
     "price": 3.49,
-    "category": "Desserts"
+    "category": "Desserts",
+    "available": true
   },
   {
     "id": "28eaa178-6dee-4894-9825-8a9d444f40ff",
     "name": "1ce Cream (2 scoops)",
     "price": 4.49,
-    "category": "Desserts"
+    "category": "Desserts",
+    "available": true
   },
   {
     "id": "2884bb4a-f2fd-41e3-8a20-a94bea3000e5",
     "name": "Ice cream (3 scoops)",
     "price": 5.49,
-    "category": "Desserts"
+    "category": "Desserts",
+    "available": true
   },
   {
     "id": "d0e4be7a-cda6-4212-80a4-0b61905529aa",
     "name": "Double ka Meeta",
     "price": 5.49,
-    "category": "Desserts"
+    "category": "Desserts",
+    "available": true
   },
   {
     "id": "d5e753da-9e31-4994-86ad-5e57cb764d0a",
     "name": "Ravva Laddu ",
     "price": 6.49,
-    "category": "Desserts"
+    "category": "Desserts",
+    "available": true
   },
   {
     "id": "b4a7e250-17b9-4180-8e34-8bb390b8300d",
     "name": "Minapa Sunnundalu ",
     "price": 6.49,
-    "category": "Desserts"
+    "category": "Desserts",
+    "available": true
   },
   {
     "id": "f371250c-2f68-4969-ba79-622de4018faa",
     "name": "Malpuri (2 pcs)",
     "price": 5.99,
-    "category": "Desserts"
+    "category": "Desserts",
+    "available": true
   },
   {
     "id": "ae69d291-dbb6-4821-8dca-d680a9e8a2c7",
     "name": "Sanna Pusa",
     "price": 4.99,
-    "category": "Desserts"
+    "category": "Desserts",
+    "available": true
   },
   {
     "id": "95c009dc-bd74-44d6-bb2c-811581dacaf2",
     "name": "Boondi Laddu",
     "price": 4.99,
-    "category": "Desserts"
+    "category": "Desserts",
+    "available": true
   },
   {
     "id": "5b87299b-6eea-469b-b2f3-6f96cdbc7ee7",
     "name": "Boondi",
     "price": 4.99,
-    "category": "Desserts"
+    "category": "Desserts",
+    "available": true
   },
   {
     "id": "1083e9ca-7247-4c69-9379-4ebe6f112719",
     "name": "Carrot Halwa",
     "price": 4.99,
-    "category": "Desserts"
+    "category": "Desserts",
+    "available": true
   },
   {
     "id": "c3488e8e-21d5-4ee8-bf44-3d307982e434",
     "name": "Chikoo Shake",
     "price": 6.99,
-    "category": "DRINKS (COLD) / BEVERAGES"
+    "category": "DRINKS (COLD) / BEVERAGES",
+    "available": true
   },
   {
     "id": "9b40fce3-7fc4-4799-b413-d695e3e221a6",
     "name": "Coke",
     "price": 2.49,
-    "category": "DRINKS (COLD) / BEVERAGES"
+    "category": "DRINKS (COLD) / BEVERAGES",
+    "available": true
   },
   {
     "id": "06662ea3-f125-455f-b352-f0c112f8af84",
     "name": "Diet Coke",
     "price": 2.49,
-    "category": "DRINKS (COLD) / BEVERAGES"
+    "category": "DRINKS (COLD) / BEVERAGES",
+    "available": true
   },
   {
     "id": "d6fb7114-80df-4a7c-b4e8-cc20181db8fd",
     "name": "Goli Soda Mint Mojito",
     "price": 4.49,
-    "category": "DRINKS (COLD) / BEVERAGES"
+    "category": "DRINKS (COLD) / BEVERAGES",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/fcec252a-9933-44ac-8414-76dc70cbff6d.jpg"
+    ]
   },
   {
     "id": "4731aa5a-cfed-4188-810d-dc1671ae0566",
     "name": "Goli Soda Orange Burst",
     "price": 4.49,
-    "category": "DRINKS (COLD) / BEVERAGES"
+    "category": "DRINKS (COLD) / BEVERAGES",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/b4b334e7-ad74-4488-80c5-624bfb874020.jpg"
+    ]
   },
   {
     "id": "b015be45-b920-4048-a669-ddff3bd6b628",
     "name": "Mango Lassi",
     "price": 5.99,
-    "category": "DRINKS (COLD) / BEVERAGES"
+    "category": "DRINKS (COLD) / BEVERAGES",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/ed477273-0405-471f-8db3-0e146a8b9e4a.jpg"
+    ]
   },
   {
     "id": "cf404a76-017d-4015-a09c-854ce53ee418",
     "name": "Pepsi",
     "price": 2.49,
-    "category": "DRINKS (COLD) / BEVERAGES"
+    "category": "DRINKS (COLD) / BEVERAGES",
+    "available": true
   },
   {
     "id": "4c13f7cc-920d-40e0-adba-f0494dbf2bb8",
     "name": "Sprite",
     "price": 2.49,
-    "category": "DRINKS (COLD) / BEVERAGES"
+    "category": "DRINKS (COLD) / BEVERAGES",
+    "available": true
   },
   {
     "id": "5a438862-a3f1-47b1-a34a-aac368849e11",
     "name": "Thums Up",
     "price": 3.49,
-    "category": "DRINKS (COLD) / BEVERAGES"
+    "category": "DRINKS (COLD) / BEVERAGES",
+    "available": true
   },
   {
     "id": "c78f3f2b-a2e9-49aa-ab8e-72bbdad1afe3",
     "name": "Coke Zero",
     "price": 2.49,
-    "category": "DRINKS (COLD) / BEVERAGES"
+    "category": "DRINKS (COLD) / BEVERAGES",
+    "available": true
   },
   {
     "id": "5fe72fb1-f5de-48e2-b262-a46ee65dab7b",
     "name": "Sweet Lassi",
     "price": 6.5,
-    "category": "DRINKS (COLD) / BEVERAGES"
+    "category": "DRINKS (COLD) / BEVERAGES",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/d1ff8893-86aa-450c-944c-1ea04612d8e8.jpg"
+    ]
   },
   {
     "id": "2b95c439-e750-4605-9fac-545e817be724",
     "name": "Goli Soda Jeera Masala",
     "price": 4.49,
-    "category": "DRINKS (COLD) / BEVERAGES"
+    "category": "DRINKS (COLD) / BEVERAGES",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/6a51b53a-0b6d-4439-bf01-e63cf4e9b082.jpg"
+    ]
   },
   {
     "id": "84fee8b3-02e4-4bc7-9028-4fb224ce7de8",
     "name": "Sitaphal shake",
     "price": 6.99,
-    "category": "DRINKS (COLD) / BEVERAGES"
+    "category": "DRINKS (COLD) / BEVERAGES",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/c9e8b021-f1c6-4f4f-815d-177a5a91e991.jpg"
+    ]
   },
   {
     "id": "d6a5156e-e808-4689-b8ee-40b11e5c820c",
     "name": "Goli Soda Zesty Masala",
     "price": 4.49,
-    "category": "DRINKS (COLD) / BEVERAGES"
+    "category": "DRINKS (COLD) / BEVERAGES",
+    "available": true
   },
   {
     "id": "18b6e65a-79ed-4d1b-85e9-92a48bfa9026",
     "name": "Fanta Strawberry",
     "price": 2.49,
-    "category": "DRINKS (COLD) / BEVERAGES"
+    "category": "DRINKS (COLD) / BEVERAGES",
+    "available": true
   },
   {
     "id": "a6eff850-b883-4b78-9c14-1e7714c7f873",
     "name": "Canada Dry Ginger Ale",
     "price": 2.49,
-    "category": "DRINKS (COLD) / BEVERAGES"
+    "category": "DRINKS (COLD) / BEVERAGES",
+    "available": true
   },
   {
     "id": "455c275a-8fc5-4eb7-a793-4bc3af4caeb1",
     "name": "rootbeer",
     "price": 2.49,
-    "category": "DRINKS (COLD) / BEVERAGES"
+    "category": "DRINKS (COLD) / BEVERAGES",
+    "available": true
   },
   {
     "id": "a07e7caa-4bf4-405b-ba57-c3c92e859a85",
     "name": "Irani Chai (Small)",
     "price": 1.25,
-    "category": "DRINKS (HOT)"
+    "category": "DRINKS (HOT)",
+    "available": true
   },
   {
     "id": "1e7ac992-475e-4ba5-821e-04b1f71ef45c",
     "name": "Irani Chai (Large)",
     "price": 2.75,
-    "category": "DRINKS (HOT)"
+    "category": "DRINKS (HOT)",
+    "available": true
   },
   {
     "id": "47b1d39c-b8b3-42b9-a74f-97df148bd90f",
     "name": "Maska Bun",
     "price": 2.49,
-    "category": "DRINKS (HOT)"
+    "category": "DRINKS (HOT)",
+    "available": true
   },
   {
     "id": "b3a4f749-5a09-42ef-8dc7-44044a5fd8b5",
     "name": "Irani Chai with Maska Bun",
     "price": 4.49,
-    "category": "DRINKS (HOT)"
+    "category": "DRINKS (HOT)",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/e7b9946a-b71d-421f-ae59-a8a09c3babe3.jpg"
+    ]
   },
   {
     "id": "c627d794-c035-4d7b-8561-654b81cf4adc",
     "name": "Royal Falooda",
     "price": 9.99,
-    "category": "FALOODA'S"
+    "category": "FALOODA'S",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/a7e4fe5d-0f24-4d08-a550-25c70ad7ef32.jpg"
+    ]
   },
   {
     "id": "e9c07d26-017c-4456-859c-b9d601422ae9",
     "name": "Mango Masti (FALOODA)",
     "price": 8.99,
-    "category": "FALOODA'S"
+    "category": "FALOODA'S",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/278ad9df-eb2d-4233-8e62-5ff6253c4104.jpg"
+    ]
   },
   {
     "id": "200fdc94-cc4e-4da1-9083-97d0eba48d3b",
     "name": "Spl. Falooda",
     "price": 8.99,
-    "category": "FALOODA'S"
+    "category": "FALOODA'S",
+    "available": true
   },
   {
     "id": "940cb6fe-168e-4988-a016-3d5774a1a465",
     "name": "Pani Puri (8 Pcs)",
     "price": 7.99,
-    "category": "CHATS"
+    "category": "CHATS",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/012db4e6-484c-4b6e-812e-2467b0f78fb4.jpg"
+    ]
   },
   {
     "id": "89a5fe8c-6430-42ec-9450-5adba903fa5b",
     "name": "Dahi Puri (5 Pcs)",
     "price": 8.99,
-    "category": "CHATS"
+    "category": "CHATS",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/28658ed3-0a18-48de-a167-f6324c9dd664.jpg"
+    ]
   },
   {
     "id": "a5d18a64-1cc1-4a27-a6b6-548217a3b66f",
     "name": "Samosa Chaat (2 Pcs)",
     "price": 7.99,
-    "category": "CHATS"
+    "category": "CHATS",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/0dfe75d2-8274-4155-aebf-417077042ea9.jpg"
+    ]
   },
   {
     "id": "a7d63e39-17eb-453a-bf7a-2c01646e00c6",
     "name": "Papdi Chaat",
     "price": 8.49,
-    "category": "CHATS"
+    "category": "CHATS",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/201d4a8d-de81-4d3e-a707-f41a61bb936f.jpg"
+    ]
   },
   {
     "id": "6c53ce44-abd0-4b4d-a40b-1d083360a8f0",
     "name": "Apricot Delight",
     "price": 6.49,
-    "category": "Pastries"
+    "category": "Pastries",
+    "available": true
   },
   {
     "id": "ceadacd4-a43b-4dad-bc68-d82d36b24fee",
     "name": "Gulab Jamun Mousse",
     "price": 4.99,
-    "category": "Pastries"
+    "category": "Pastries",
+    "available": true
   },
   {
     "id": "da2f86d5-e34a-4e97-b236-7aa9352162ec",
     "name": "Kaju Paneer Biryani",
     "price": 15.99,
-    "category": "Weekend Special's"
+    "category": "Weekend Special's",
+    "available": true
   },
   {
     "id": "f2322331-302d-481f-9bd4-0552a29bb4a3",
     "name": "Idly and chai combo",
     "price": 0,
-    "category": "Morning Chai Combo"
+    "category": "Morning Chai Combo",
+    "available": true
   },
   {
     "id": "42dca4b8-6712-49e6-99b6-60a46541eb3b",
     "name": "Upma (16oz)",
     "price": 9.49,
-    "category": "TIFFINS_UNTIL_2PM"
+    "category": "TIFFINS_UNTIL_2PM",
+    "available": true
   },
   {
     "id": "0ecd6c6c-e0b8-43a4-b52d-d07e3e03b072",
     "name": "Pongal (16oz)",
     "price": 9.49,
-    "category": "TIFFINS_UNTIL_2PM"
+    "category": "TIFFINS_UNTIL_2PM",
+    "available": true
   },
   {
     "id": "b72af05b-bab3-4649-ba6b-260eb9e98d28",
     "name": "Veg Combo",
     "price": 15.99,
-    "category": "Veg Combo"
+    "category": "Veg Combo",
+    "available": true
   },
   {
     "id": "dbf728a9-6962-42f8-b2dd-b9f3aeb67696",
     "name": "Non Veg Combo",
     "price": 18.99,
-    "category": "Non Veg Combo"
+    "category": "Non Veg Combo",
+    "available": true
   },
   {
     "id": "ac423ade-5f24-4be3-bab2-2f47bb8d7a16",
     "name": "Mini Breakfast Combo",
     "price": 7.99,
-    "category": "Breakfast Combos"
+    "category": "Breakfast Combos",
+    "available": true
   },
   {
     "id": "763029e0-b9e0-48c0-99b5-de057ef6a4e7",
     "name": "Classic Breakfast Combo",
     "price": 11.49,
-    "category": "Breakfast Combos"
+    "category": "Breakfast Combos",
+    "available": true
   },
   {
     "id": "ecd041bf-54b1-4345-a67c-b0e542694caa",
     "name": "Signature Breakfast Combo",
     "price": 12.99,
-    "category": "Breakfast Combos"
+    "category": "Breakfast Combos",
+    "available": true
   }
 ]

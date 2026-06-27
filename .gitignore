@@ -7,3 +7,4 @@ playground-output
 .env.*
 .DS_Store
 real-output
+debug

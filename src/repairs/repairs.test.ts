@@ -5,7 +5,12 @@ import type { Rgba } from "../ports/browser";
 import { contrastRatio } from "../qa/contrast";
 import { parseColor } from "../qa/colors";
 import { makeFinding } from "../qa/finding";
-import { applyDeterministicRepairs, chooseAccessibleColor, hasDeterministicRepair } from "./index";
+import {
+  applyDeterministicRepairs,
+  chooseAccessibleColor,
+  contrastIsFixable,
+  hasDeterministicRepair,
+} from "./index";
 
 const theme: ResolvedTheme = {
   id: "t",
@@ -13,8 +18,6 @@ const theme: ResolvedTheme = {
   tokens: {
     colors: { bg: "#1f2a24", text: "#f3efe6", accent: "#8a9a5b", price: "#f0d9a7" },
     fontFamilies: {},
-    fontSizes: {},
-    spacing: {},
     radius: {},
   },
   motion: [{ name: "fade-in", kind: "css" }],
@@ -67,6 +70,25 @@ describe("applyDeterministicRepairs", () => {
     expect(result.html).not.toMatch(/\{color:#[0-9a-f]/i);
   });
 
+  it("covers descendants when the region is a container (child has its own colour utility)", () => {
+    // Failing text is a CHILD of the region (a card label), so the override must reach descendants.
+    const cardFinding = makeFinding({
+      kind: "contrast",
+      source: "deterministic",
+      severity: "critical",
+      tag: "mechanical",
+      hardGate: true,
+      deterministicallyFixable: true,
+      region: '[data-item-id="card1"]',
+      message: "low contrast",
+      data: { bg: { r: 53, g: 70, b: 59, a: 1 }, fg: { r: 138, g: 154, b: 91, a: 1 } },
+    });
+    const result = applyDeterministicRepairs("<head></head><body></body>", [cardFinding], theme);
+    expect(result.applied).toBe(true);
+    // The descendant arm (`<sel> *`) is what reaches the failing child element.
+    expect(result.html).toContain('[data-item-id="card1"] *{color:var(--color-');
+  });
+
   it("is a no-op when no finding is deterministically repairable", () => {
     const density = makeFinding({
       kind: "density",
@@ -86,5 +108,71 @@ describe("hasDeterministicRepair", () => {
   it("detects a repairable contrast finding", () => {
     expect(hasDeterministicRepair([contrastFinding])).toBe(true);
     expect(hasDeterministicRepair([])).toBe(false);
+  });
+
+  it("rejects a contrast finding on a bare-tag selector (would recolour the whole page)", () => {
+    const generic = makeFinding({
+      kind: "contrast",
+      source: "deterministic",
+      severity: "critical",
+      tag: "mechanical",
+      hardGate: true,
+      deterministicallyFixable: true,
+      region: "span",
+      message: "low contrast on a bare span",
+      data: { bg: yellow, fg: { r: 255, g: 255, b: 255, a: 1 }, required: 4.5 },
+    });
+    expect(hasDeterministicRepair([generic])).toBe(false);
+  });
+});
+
+describe("contrastIsFixable (guards the repair from destructive / futile swaps)", () => {
+  const overImage = makeFinding({
+    kind: "contrast",
+    source: "deterministic",
+    severity: "critical",
+    tag: "mechanical",
+    hardGate: true,
+    deterministicallyFixable: true,
+    region: '[data-item-id="x"] [data-bind="price"]',
+    message: "text over a mid-tone photo",
+    // A mid-grey background: no theme token clears 4.5:1, so a colour swap can't fix it.
+    data: {
+      bg: { r: 128, g: 128, b: 128, a: 1 },
+      fg: { r: 255, g: 255, b: 255, a: 1 },
+      required: 4.5,
+    },
+  });
+  const genericSelector = makeFinding({
+    kind: "contrast",
+    source: "deterministic",
+    severity: "critical",
+    tag: "mechanical",
+    hardGate: true,
+    deterministicallyFixable: true,
+    region: "span",
+    message: "bare span",
+    data: { bg: yellow, fg: { r: 255, g: 255, b: 255, a: 1 }, required: 4.5 },
+  });
+
+  it("is true for a scopable selector over a solid bg a token can clear", () => {
+    expect(contrastIsFixable(contrastFinding, theme)).toBe(true);
+  });
+
+  it("is false for a bare-tag selector (unscopable → would recolour everything)", () => {
+    expect(contrastIsFixable(genericSelector, theme)).toBe(false);
+    // ...and the repair therefore leaves the markup untouched (routes to re-paint instead).
+    const result = applyDeterministicRepairs(
+      "<head></head><body><span>x</span></body>",
+      [genericSelector],
+      theme,
+    );
+    expect(result.applied).toBe(false);
+  });
+
+  it("is false over a mid-tone photo where no token reaches the required ratio", () => {
+    expect(contrastIsFixable(overImage, theme)).toBe(false);
+    const result = applyDeterministicRepairs("<head></head><body></body>", [overImage], theme);
+    expect(result.applied).toBe(false);
   });
 });

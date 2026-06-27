@@ -139,7 +139,17 @@ function collectObservation(grid: { cols: number; rows: number }): unknown {
     if (overflowing.length >= 40) break;
   }
 
-  // Fill-ratio: fraction of a sampled grid landing on real content (not body/html).
+  // Fill-ratio: fraction of a sampled grid landing on *content*. A sample counts only if it
+  // hits text, an image/icon, or a surface visually distinct from the page background (a
+  // card/panel). A full-bleed wrapper painted in the page background colour does NOT count —
+  // otherwise any backgrounded screen reads as 100% filled and trips "over-crammed".
+  const bodyBg = toRgba(getComputedStyle(document.body).backgroundColor);
+  const sameColor = (a: any, b: any) =>
+    Math.abs(a.r - b.r) < 8 && Math.abs(a.g - b.g) < 8 && Math.abs(a.b - b.b) < 8;
+  const ownText = (el: any) =>
+    Array.from(el.childNodes).some(
+      (n: any) => n.nodeType === 3 && (n.textContent || "").trim().length > 0,
+    );
   let filled = 0;
   let total = 0;
   for (let i = 1; i < grid.cols; i++) {
@@ -147,8 +157,22 @@ function collectObservation(grid: { cols: number; rows: number }): unknown {
       const x = (vw * i) / grid.cols;
       const y = (vh * j) / grid.rows;
       total += 1;
-      const hit = document.elementFromPoint(x, y);
-      if (hit && hit !== document.body && hit !== document.documentElement) filled += 1;
+      let node: any = document.elementFromPoint(x, y);
+      let depth = 0;
+      while (node && node !== document.body && node !== document.documentElement && depth < 5) {
+        const tag = node.tagName;
+        if (tag === "IMG" || tag === "SVG" || tag === "svg" || ownText(node)) {
+          filled += 1;
+          break;
+        }
+        const bg = toRgba(getComputedStyle(node).backgroundColor);
+        if (bg.a > 0 && !sameColor(bg, bodyBg)) {
+          filled += 1;
+          break;
+        }
+        node = node.parentElement;
+        depth += 1;
+      }
     }
   }
 

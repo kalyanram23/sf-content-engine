@@ -1,14 +1,20 @@
+import { parse } from "node-html-parser";
 import { describe, expect, it } from "vitest";
 
 import { defaultQaConfig } from "../config/qa";
 import { defaultTokenLintRules } from "../config/token-lint";
 import type { CanonicalItem, PlanScreen, ResolvedTheme } from "../domain/types";
-import { runStructuralChecks, type StructuralContext } from "./structural-checks";
+import {
+  checkMotion,
+  checkSelfContained,
+  runStructuralChecks,
+  type StructuralContext,
+} from "./structural-checks";
 
 const theme: ResolvedTheme = {
   id: "t",
   name: "Test",
-  tokens: { colors: {}, fontFamilies: {}, fontSizes: {}, spacing: {}, radius: {} },
+  tokens: { colors: {}, fontFamilies: {}, radius: {} },
   motion: [
     { name: "stagger-in", kind: "css" },
     { name: "gallery-fade", kind: "runtime" },
@@ -231,5 +237,35 @@ describe("malformed HTML resilience", () => {
     const found = kinds(malformed);
     // id7 and id9 are absent → binding-missing; id4 matrix lacks a 2nd price cell
     expect(found).toContain("binding-missing");
+  });
+});
+
+describe("runtime carousel motion (gallery-fade) is offline-safe", () => {
+  // The vanilla motion.dev runtime is inlined as a <script data-motion-runtime> that drives the
+  // carousel with setInterval + animate (never navigation), over data-URI photos.
+  const carousel =
+    `<div data-motion="gallery-fade" data-motion-params="interval:5000;fade:800">` +
+    `<img src="data:image/png;base64,AAAA"><img src="data:image/png;base64,AAAA"></div>`;
+  const runtime =
+    `<script data-motion-runtime>(function(){var M=globalThis.__ceMotion;if(!M)return;` +
+    `document.querySelectorAll('[data-motion="gallery-fade"]').forEach(function(r){` +
+    `setInterval(function(){M.animate(r,{opacity:[1,0]},{duration:0.8});},5000);});})();</script>`;
+
+  it("passes motion-vocab (runtime marker present) and self-contained (no external/baked-player)", () => {
+    const root = parse(`<main>${carousel}${runtime}</main>`);
+    expect(checkMotion(root, ctx(""))).toEqual([]);
+    expect(checkSelfContained(root)).toEqual([]);
+  });
+
+  it("flags a data-motion runtime preset when the [data-motion-runtime] marker is missing", () => {
+    const root = parse(`<main>${carousel}</main>`);
+    expect(checkMotion(root, ctx("")).length).toBeGreaterThan(0);
+  });
+
+  it("flags a script that performs navigation as a baked player", () => {
+    const root = parse(
+      `<main><script data-motion-runtime>window.location.href='/next';</script></main>`,
+    );
+    expect(checkSelfContained(root).some((f) => f.kind === "baked-player")).toBe(true);
   });
 });

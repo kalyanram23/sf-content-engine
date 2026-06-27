@@ -62,6 +62,12 @@ export interface StructuredCall<T> {
   user: UserContent;
   schema: z.ZodType<T>;
   schemaName: string;
+  /**
+   * Optional sampling temperature. Omitted by default: many current reasoning models
+   * (GPT-5.x, o-series) reject `temperature`, and under `provider.require_parameters` sending
+   * it filters out every endpoint → a 404. Only set it for models known to support it.
+   */
+  temperature?: number;
   /** Optional fixed seed for best-effort reproducibility (D15). */
   seed?: number;
 }
@@ -82,7 +88,7 @@ export async function requestStructured<T>(client: OpenAI, call: StructuredCall<
     const body = {
       model: call.model,
       messages,
-      temperature: 0,
+      ...(call.temperature !== undefined ? { temperature: call.temperature } : {}),
       ...(call.seed !== undefined ? { seed: call.seed } : {}),
       response_format: {
         type: "json_schema",
@@ -132,11 +138,11 @@ export async function requestStructured<T>(client: OpenAI, call: StructuredCall<
 /** A plain text completion (used by the painter, which returns HTML, not JSON). */
 export async function requestText(
   client: OpenAI,
-  params: { model: string; system: string; user: UserContent; seed?: number },
+  params: { model: string; system: string; user: UserContent; temperature?: number; seed?: number },
 ): Promise<string> {
   const completion = await client.chat.completions.create({
     model: params.model,
-    temperature: 0,
+    ...(params.temperature !== undefined ? { temperature: params.temperature } : {}),
     ...(params.seed !== undefined ? { seed: params.seed } : {}),
     messages: [
       { role: "system", content: params.system },

@@ -28,6 +28,11 @@
     "dist"
   ],
   "scripts": {
+    "build:motion": "tsx scripts/build-motion-bundle.ts",
+    "regen:samples": "tsx scripts/regen-samples.ts",
+    "build:full-plan": "tsx scripts/build-full-plan.ts",
+    "embed:fonts": "tsx scripts/embed-fonts.ts",
+    "prebuild": "tsx scripts/build-motion-bundle.ts",
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
@@ -73,7 +78,9 @@
     "@tailwindcss/node": "^4.3.1",
     "@types/node": "^22.15.0",
     "@vitest/coverage-v8": "^4.1.9",
+    "esbuild": "0.27.7",
     "eslint": "^9.39.4",
+    "motion": "12.41.0",
     "openai": "^6.44.0",
     "playwright-core": "^1.61.0",
     "prettier": "^3.8.4",
