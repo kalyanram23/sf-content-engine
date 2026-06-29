@@ -22,9 +22,16 @@ const plan = thinPlanSchema.parse(JSON.parse(readFileSync(resolve(root, "plan.js
 describe("samples (batch fixtures)", () => {
   const byId = new Map(menu.map((i) => [i.id, i]));
 
-  it("menu validates and uses full UUID ids", () => {
+  it("menu validates and uses short logical ids (category letter + index)", () => {
     expect(menu.length).toBeGreaterThan(0);
-    for (const item of menu) expect(item.id.length).toBe(36);
+    const ids = new Set<string>();
+    for (const item of menu) {
+      // e.g. a1, a2 … b1 … (a letter per category + a 1-based index) — short, prompt-cheap.
+      expect(item.id).toMatch(/^[a-z]+[1-9][0-9]*$/);
+      expect(item.id.length).toBeLessThanOrEqual(6);
+      ids.add(item.id);
+    }
+    expect(ids.size).toBe(menu.length); // ids are unique
   });
 
   it("every plan section item resolves to a real menu item", () => {

@@ -1,0 +1,1738 @@
+[
+  {
+    "guid": "2b95c439-e750-4605-9fac-545e817be724",
+    "itemGuidValidity": "VALID",
+    "status": "QUANTITY",
+    "quantity": 344,
+    "multiLocationId": "900000017622944100",
+    "versionId": "2b95c439-e750-4605-9fac-545e817be724"
+  },
+  {
+    "guid": "d6a5156e-e808-4689-b8ee-40b11e5c820c",
+    "itemGuidValidity": "VALID",
+    "status": "QUANTITY",
+    "quantity": 252,
+    "multiLocationId": "900000020671910730",
+    "versionId": "d6a5156e-e808-4689-b8ee-40b11e5c820c"
+  },
+  {
+    "guid": "9ebe6901-150c-4498-8d7c-18fd90433232",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016441093303",
+    "versionId": "9ebe6901-150c-4498-8d7c-18fd90433232"
+  },
+  {
+    "guid": "7a566264-a53a-4850-a71a-092b550bafb7",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000017132472448",
+    "versionId": "7a566264-a53a-4850-a71a-092b550bafb7"
+  },
+  {
+    "guid": "06c398af-a484-4991-b010-06621c804d03",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016440959876",
+    "versionId": "06c398af-a484-4991-b010-06621c804d03"
+  },
+  {
+    "guid": "c0d2ddfa-4399-4854-b32e-95395c3f686f",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000019899425355",
+    "versionId": "c0d2ddfa-4399-4854-b32e-95395c3f686f"
+  },
+  {
+    "guid": "011bec11-9bc6-44a9-ac97-7e2afc71f5e1",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016440959877",
+    "versionId": "011bec11-9bc6-44a9-ac97-7e2afc71f5e1"
+  },
+  {
+    "guid": "c0954db8-4a89-46ab-8736-5847e7394bcd",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016441318677",
+    "versionId": "c0954db8-4a89-46ab-8736-5847e7394bcd"
+  },
+  {
+    "guid": "053f89a4-1f70-4c58-ad8a-58ed08dc3432",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000017277529022",
+    "versionId": "053f89a4-1f70-4c58-ad8a-58ed08dc3432"
+  },
+  {
+    "guid": "d14c8715-fd19-4432-82d8-88aee6ad6522",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016856921527",
+    "versionId": "d14c8715-fd19-4432-82d8-88aee6ad6522"
+  },
+  {
+    "guid": "7fdcbdad-00ea-4d8f-b83c-67489baa3435",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016551988454",
+    "versionId": "7fdcbdad-00ea-4d8f-b83c-67489baa3435"
+  },
+  {
+    "guid": "09fb93f6-6add-454b-bf74-be39bee7d7aa",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016433128338",
+    "versionId": "09fb93f6-6add-454b-bf74-be39bee7d7aa"
+  },
+  {
+    "guid": "25cc9a63-3901-4c0d-862c-2b8e6535088d",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016454057046",
+    "versionId": "25cc9a63-3901-4c0d-862c-2b8e6535088d"
+  },
+  {
+    "guid": "4d148ac8-4eb5-4798-b4b5-6c6ad67c10f1",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016397092158",
+    "versionId": "4d148ac8-4eb5-4798-b4b5-6c6ad67c10f1"
+  },
+  {
+    "guid": "d9fc1b8b-410e-4b82-9602-31ef11b9260b",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016449518232",
+    "versionId": "d9fc1b8b-410e-4b82-9602-31ef11b9260b"
+  },
+  {
+    "guid": "fe05acce-f108-49a0-9eff-db2c8b7f93af",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016433128339",
+    "versionId": "fe05acce-f108-49a0-9eff-db2c8b7f93af"
+  },
+  {
+    "guid": "f6beb16d-b1a6-4720-8484-35a705ea7d87",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016433128340",
+    "versionId": "f6beb16d-b1a6-4720-8484-35a705ea7d87"
+  },
+  {
+    "guid": "5350da82-bee8-4c17-b531-02aaf365554d",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016429607232",
+    "versionId": "5350da82-bee8-4c17-b531-02aaf365554d"
+  },
+  {
+    "guid": "12c6e8ca-e3b7-430c-8f24-55f1f9331aa3",
+    "itemGuidValidity": "VALID",
+    "status": "QUANTITY",
+    "quantity": 2,
+    "multiLocationId": "900000016429607233",
+    "versionId": "12c6e8ca-e3b7-430c-8f24-55f1f9331aa3"
+  },
+  {
+    "guid": "1aa0958d-446e-4935-acca-84fa3b8193e4",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000025533229655",
+    "versionId": "1aa0958d-446e-4935-acca-84fa3b8193e4"
+  },
+  {
+    "guid": "83c7a78c-8603-46fd-844e-8b2413d0b23b",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000022388820793",
+    "versionId": "83c7a78c-8603-46fd-844e-8b2413d0b23b"
+  },
+  {
+    "guid": "446eda18-33af-4892-86c0-a486ca8a01b3",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000022658740766",
+    "versionId": "446eda18-33af-4892-86c0-a486ca8a01b3"
+  },
+  {
+    "guid": "a801e51e-85e3-46e8-83b7-1420834b9b0f",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016441093305",
+    "versionId": "a801e51e-85e3-46e8-83b7-1420834b9b0f"
+  },
+  {
+    "guid": "1e641ab6-1be1-4cb4-8e51-deb894990a63",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016397092159",
+    "versionId": "1e641ab6-1be1-4cb4-8e51-deb894990a63"
+  },
+  {
+    "guid": "73124cde-0304-43ba-a899-ba78578fb295",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016450678975",
+    "versionId": "73124cde-0304-43ba-a899-ba78578fb295"
+  },
+  {
+    "guid": "6f5a1b7e-942a-4ff9-8829-e62744be6651",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016397113141",
+    "versionId": "6f5a1b7e-942a-4ff9-8829-e62744be6651"
+  },
+  {
+    "guid": "1d1857c4-08d9-4bf9-9a1d-2b8f3fbf3d43",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016396941541",
+    "versionId": "1d1857c4-08d9-4bf9-9a1d-2b8f3fbf3d43"
+  },
+  {
+    "guid": "05fcddd0-5318-4cbf-bb43-56beeca74c2a",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016441318675",
+    "versionId": "05fcddd0-5318-4cbf-bb43-56beeca74c2a"
+  },
+  {
+    "guid": "9c9698ca-e88e-472f-9fee-f540a3a77614",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016433128345",
+    "versionId": "9c9698ca-e88e-472f-9fee-f540a3a77614"
+  },
+  {
+    "guid": "5308aced-12d0-4dd4-812b-488858db72e0",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016433128335",
+    "versionId": "5308aced-12d0-4dd4-812b-488858db72e0"
+  },
+  {
+    "guid": "075ed9b9-dbc7-431e-b5df-79cf00485771",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016396662521",
+    "versionId": "075ed9b9-dbc7-431e-b5df-79cf00485771"
+  },
+  {
+    "guid": "c9ec98ae-0d1a-4d44-a593-c461b781e0ed",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000017517490051",
+    "versionId": "c9ec98ae-0d1a-4d44-a593-c461b781e0ed"
+  },
+  {
+    "guid": "5240b2e3-0bda-4ebc-bccf-bcd15f482a6b",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016454058202",
+    "versionId": "5240b2e3-0bda-4ebc-bccf-bcd15f482a6b"
+  },
+  {
+    "guid": "0632bcbf-29f4-4959-92e1-a225ede6eec2",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016888151570",
+    "versionId": "0632bcbf-29f4-4959-92e1-a225ede6eec2"
+  },
+  {
+    "guid": "a7d63e39-17eb-453a-bf7a-2c01646e00c6",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016440892495",
+    "versionId": "a7d63e39-17eb-453a-bf7a-2c01646e00c6"
+  },
+  {
+    "guid": "fe47d74f-8379-4d03-a359-b7160e222cd8",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016395404047",
+    "versionId": "fe47d74f-8379-4d03-a359-b7160e222cd8"
+  },
+  {
+    "guid": "9e20836e-7d24-4319-9bc1-bb2312153efe",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016395404046",
+    "versionId": "9e20836e-7d24-4319-9bc1-bb2312153efe"
+  },
+  {
+    "guid": "5fe72fb1-f5de-48e2-b262-a46ee65dab7b",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000017147569252",
+    "versionId": "5fe72fb1-f5de-48e2-b262-a46ee65dab7b"
+  },
+  {
+    "guid": "f16d17cb-220c-43c7-ae0e-c318ce4cb5be",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000025518086426",
+    "versionId": "f16d17cb-220c-43c7-ae0e-c318ce4cb5be"
+  },
+  {
+    "guid": "60e7ceca-a804-4869-9c2c-b7715fe30c25",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000025517686116",
+    "versionId": "60e7ceca-a804-4869-9c2c-b7715fe30c25"
+  },
+  {
+    "guid": "32d177c0-3afb-4fa1-ba4a-6994ebcd4c05",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000025517686117",
+    "versionId": "32d177c0-3afb-4fa1-ba4a-6994ebcd4c05"
+  },
+  {
+    "guid": "e5a903cf-4c5a-4a2b-b368-8947404b174c",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000022042573201",
+    "versionId": "e5a903cf-4c5a-4a2b-b368-8947404b174c"
+  },
+  {
+    "guid": "d21a9641-9607-4940-be58-f7f9d1b38cf0",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016759832475",
+    "versionId": "d21a9641-9607-4940-be58-f7f9d1b38cf0"
+  },
+  {
+    "guid": "c9b9df23-5fd5-4b34-8210-c91b93db2585",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016855719884",
+    "versionId": "c9b9df23-5fd5-4b34-8210-c91b93db2585"
+  },
+  {
+    "guid": "1b8b8c9a-13ee-46e9-9989-4f59fbc95313",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016858954257",
+    "versionId": "1b8b8c9a-13ee-46e9-9989-4f59fbc95313"
+  },
+  {
+    "guid": "2c1eef30-1bfa-44d2-b001-305647c76e33",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016859313826",
+    "versionId": "2c1eef30-1bfa-44d2-b001-305647c76e33"
+  },
+  {
+    "guid": "c4ab6d76-ddaa-4b97-a078-fd22ed0d79a8",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016865237258",
+    "versionId": "c4ab6d76-ddaa-4b97-a078-fd22ed0d79a8"
+  },
+  {
+    "guid": "258dbc4e-7a9d-4f50-98c0-fa4ddd752fcd",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016865277695",
+    "versionId": "258dbc4e-7a9d-4f50-98c0-fa4ddd752fcd"
+  },
+  {
+    "guid": "147acb53-59da-490e-a654-1a4dcad3f986",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016918741538",
+    "versionId": "147acb53-59da-490e-a654-1a4dcad3f986"
+  },
+  {
+    "guid": "ae0bab66-f0fc-4f0a-9a5c-8406c4b16106",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016888151567",
+    "versionId": "ae0bab66-f0fc-4f0a-9a5c-8406c4b16106"
+  },
+  {
+    "guid": "9006b53c-2fdd-43b5-9353-3d3c02fbbdbe",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016888151568",
+    "versionId": "9006b53c-2fdd-43b5-9353-3d3c02fbbdbe"
+  },
+  {
+    "guid": "9fa9e676-eec2-4f38-906f-ef0412331417",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016888151571",
+    "versionId": "9fa9e676-eec2-4f38-906f-ef0412331417"
+  },
+  {
+    "guid": "17f51354-bd49-4525-a3d4-7be3b364f8d4",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000018564114309",
+    "versionId": "17f51354-bd49-4525-a3d4-7be3b364f8d4"
+  },
+  {
+    "guid": "9dd83a41-29bc-4986-ac78-986b65edf0a7",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000021322436959",
+    "versionId": "9dd83a41-29bc-4986-ac78-986b65edf0a7"
+  },
+  {
+    "guid": "7e8c0d0c-88cb-4137-9655-5b2a70d45d63",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016433128343",
+    "versionId": "7e8c0d0c-88cb-4137-9655-5b2a70d45d63"
+  },
+  {
+    "guid": "d1d7e522-0bf7-4ae0-a3f7-fc2cd0e2ae0e",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000017164514139",
+    "versionId": "d1d7e522-0bf7-4ae0-a3f7-fc2cd0e2ae0e"
+  },
+  {
+    "guid": "54b97a53-5f7f-4444-88fd-b9a8631bc4db",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016859568982",
+    "versionId": "54b97a53-5f7f-4444-88fd-b9a8631bc4db"
+  },
+  {
+    "guid": "64ffa78f-9180-4e04-b4c5-08c3743b8b3a",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016855652107",
+    "versionId": "64ffa78f-9180-4e04-b4c5-08c3743b8b3a"
+  },
+  {
+    "guid": "91a1dbe7-9a2a-4eee-9dfa-80e58791b75d",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016865222625",
+    "versionId": "91a1dbe7-9a2a-4eee-9dfa-80e58791b75d"
+  },
+  {
+    "guid": "26dab49d-9444-4ac9-a7e1-ddfcbdb7831b",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016395865559",
+    "versionId": "26dab49d-9444-4ac9-a7e1-ddfcbdb7831b"
+  },
+  {
+    "guid": "344197dd-d40f-4dc0-ab67-78b6166fa47e",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064581068",
+    "versionId": "344197dd-d40f-4dc0-ab67-78b6166fa47e"
+  },
+  {
+    "guid": "578e7da4-362b-4583-a657-089a553095a7",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064261264",
+    "versionId": "578e7da4-362b-4583-a657-089a553095a7"
+  },
+  {
+    "guid": "a204c2ba-84db-417b-a705-90c8be0d2c54",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000017225584181",
+    "versionId": "a204c2ba-84db-417b-a705-90c8be0d2c54"
+  },
+  {
+    "guid": "8d795205-2819-4c5d-9b23-4ddea1ea0339",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000017667394817",
+    "versionId": "8d795205-2819-4c5d-9b23-4ddea1ea0339"
+  },
+  {
+    "guid": "146c115f-5f24-49d5-9664-481a1a58b93a",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016445331511",
+    "versionId": "146c115f-5f24-49d5-9664-481a1a58b93a"
+  },
+  {
+    "guid": "980b8a52-5269-44a2-8e21-92d69020a1dc",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000017667443238",
+    "versionId": "980b8a52-5269-44a2-8e21-92d69020a1dc"
+  },
+  {
+    "guid": "0581453c-b8a2-42a5-b8af-b2df5202ef6a",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064288378",
+    "versionId": "0581453c-b8a2-42a5-b8af-b2df5202ef6a"
+  },
+  {
+    "guid": "2a20413d-e975-4d73-b7d9-b7f4495ea423",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064288380",
+    "versionId": "2a20413d-e975-4d73-b7d9-b7f4495ea423"
+  },
+  {
+    "guid": "455a9417-32b5-430e-90e9-8585b90bf04e",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016396552668",
+    "versionId": "455a9417-32b5-430e-90e9-8585b90bf04e"
+  },
+  {
+    "guid": "95cf577b-883d-4aff-aebf-36cd9ed07c1f",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064593595",
+    "versionId": "95cf577b-883d-4aff-aebf-36cd9ed07c1f"
+  },
+  {
+    "guid": "a3219425-8bca-42f6-95ea-4c38b3f09b59",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000018828414420",
+    "versionId": "a3219425-8bca-42f6-95ea-4c38b3f09b59"
+  },
+  {
+    "guid": "e2d760d6-8747-4b23-b219-243c2982c617",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064454008",
+    "versionId": "e2d760d6-8747-4b23-b219-243c2982c617"
+  },
+  {
+    "guid": "f5dcea5e-02e4-403f-90cf-cc9ac392bacf",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064593592",
+    "versionId": "f5dcea5e-02e4-403f-90cf-cc9ac392bacf"
+  },
+  {
+    "guid": "f8f4d862-06e0-4eca-8d11-2e9489fdf672",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064454010",
+    "versionId": "f8f4d862-06e0-4eca-8d11-2e9489fdf672"
+  },
+  {
+    "guid": "42dca4b8-6712-49e6-99b6-60a46541eb3b",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016484365520",
+    "versionId": "42dca4b8-6712-49e6-99b6-60a46541eb3b"
+  },
+  {
+    "guid": "deb2019c-ea4c-4d54-9562-3486fc509199",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000017254214655",
+    "versionId": "deb2019c-ea4c-4d54-9562-3486fc509199"
+  },
+  {
+    "guid": "2d138f57-db16-4000-85e6-fd9f0c9a1b8d",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000017277506163",
+    "versionId": "2d138f57-db16-4000-85e6-fd9f0c9a1b8d"
+  },
+  {
+    "guid": "deeebc97-a05f-41cd-bf35-e0047754b974",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000017953805201",
+    "versionId": "deeebc97-a05f-41cd-bf35-e0047754b974"
+  },
+  {
+    "guid": "b3cac3a6-d78c-4088-89d9-1ac6cac14839",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016440892499",
+    "versionId": "b3cac3a6-d78c-4088-89d9-1ac6cac14839"
+  },
+  {
+    "guid": "71d2da40-d8f4-47d3-afe2-c72ebb6ae629",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016440892493",
+    "versionId": "71d2da40-d8f4-47d3-afe2-c72ebb6ae629"
+  },
+  {
+    "guid": "1f86ca2d-3341-4446-bc91-853e10c3667b",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016486365813",
+    "versionId": "1f86ca2d-3341-4446-bc91-853e10c3667b"
+  },
+  {
+    "guid": "d237b27f-78bf-4a9c-9191-391b53348b62",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000018746205505",
+    "versionId": "d237b27f-78bf-4a9c-9191-391b53348b62"
+  },
+  {
+    "guid": "dca8dfdc-0032-44b5-8b39-15d232b6f30c",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016449518230",
+    "versionId": "dca8dfdc-0032-44b5-8b39-15d232b6f30c"
+  },
+  {
+    "guid": "337cf361-452a-4715-babd-ddf6301bc48c",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000022374079776",
+    "versionId": "337cf361-452a-4715-babd-ddf6301bc48c"
+  },
+  {
+    "guid": "556a5ff8-2f2c-47bd-9ed0-8b206aab9223",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000019670942020",
+    "versionId": "556a5ff8-2f2c-47bd-9ed0-8b206aab9223"
+  },
+  {
+    "guid": "5ad7f76a-5a0e-43f5-8fa4-5b6de79cd8a5",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000019130267820",
+    "versionId": "5ad7f76a-5a0e-43f5-8fa4-5b6de79cd8a5"
+  },
+  {
+    "guid": "f8112cb5-b179-47da-a15a-593a6c2b45c2",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016441563144",
+    "versionId": "f8112cb5-b179-47da-a15a-593a6c2b45c2"
+  },
+  {
+    "guid": "484d0e95-499b-4657-a108-8107d821b308",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000019023958807",
+    "versionId": "484d0e95-499b-4657-a108-8107d821b308"
+  },
+  {
+    "guid": "6bdda227-db90-4235-8c88-1e32ab5e4fec",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000019488754113",
+    "versionId": "6bdda227-db90-4235-8c88-1e32ab5e4fec"
+  },
+  {
+    "guid": "62c1c4ad-3b9a-4203-b0d8-07e12047c1be",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000019418847930",
+    "versionId": "62c1c4ad-3b9a-4203-b0d8-07e12047c1be"
+  },
+  {
+    "guid": "7079ab46-6155-459d-bc19-4bf262ebb13b",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000019094929575",
+    "versionId": "7079ab46-6155-459d-bc19-4bf262ebb13b"
+  },
+  {
+    "guid": "a55b41ad-47a3-4896-9ca2-9968432a0d15",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016440892498",
+    "versionId": "a55b41ad-47a3-4896-9ca2-9968432a0d15"
+  },
+  {
+    "guid": "9cfdd489-f9fb-4a88-ada0-447a85b24d4d",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064575079",
+    "versionId": "9cfdd489-f9fb-4a88-ada0-447a85b24d4d"
+  },
+  {
+    "guid": "48da50ed-1e15-432d-9f42-9f35fb7f632f",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000020082897398",
+    "versionId": "48da50ed-1e15-432d-9f42-9f35fb7f632f"
+  },
+  {
+    "guid": "33333a95-9a53-4426-936f-ec79f1339c85",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016440892496",
+    "versionId": "33333a95-9a53-4426-936f-ec79f1339c85"
+  },
+  {
+    "guid": "9e8b1b48-24ca-46a1-8a97-da899316bdc6",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000021323873715",
+    "versionId": "9e8b1b48-24ca-46a1-8a97-da899316bdc6"
+  },
+  {
+    "guid": "d4b4229f-ec7e-4d99-a207-eb47adf3d815",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000019866005468",
+    "versionId": "d4b4229f-ec7e-4d99-a207-eb47adf3d815"
+  },
+  {
+    "guid": "fa13c333-ce48-4638-ba16-43922de49315",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016440892497",
+    "versionId": "fa13c333-ce48-4638-ba16-43922de49315"
+  },
+  {
+    "guid": "6669199d-a340-4575-a42d-277d1c4a2fc9",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000020226908253",
+    "versionId": "6669199d-a340-4575-a42d-277d1c4a2fc9"
+  },
+  {
+    "guid": "ae586bd2-047f-44d2-b53b-d30d03dae3e9",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000019748051640",
+    "versionId": "ae586bd2-047f-44d2-b53b-d30d03dae3e9"
+  },
+  {
+    "guid": "67371365-750a-4b34-b8b3-4662266bee97",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016449518234",
+    "versionId": "67371365-750a-4b34-b8b3-4662266bee97"
+  },
+  {
+    "guid": "35d0f9ec-333d-415c-8ed1-fd3c8d1ed57e",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000022042530239",
+    "versionId": "35d0f9ec-333d-415c-8ed1-fd3c8d1ed57e"
+  },
+  {
+    "guid": "5b8e5981-d5d1-420f-b4ba-860c4b7fa933",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000022042591527",
+    "versionId": "5b8e5981-d5d1-420f-b4ba-860c4b7fa933"
+  },
+  {
+    "guid": "6f039373-dcc3-4c22-b7f3-0fd2d2705b29",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000017248852460",
+    "versionId": "6f039373-dcc3-4c22-b7f3-0fd2d2705b29"
+  },
+  {
+    "guid": "52dcd741-14aa-4d62-ba88-cfe719b3687d",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016441318673",
+    "versionId": "52dcd741-14aa-4d62-ba88-cfe719b3687d"
+  },
+  {
+    "guid": "b999e271-0586-4b71-bb35-2ce22a2d7199",
+    "itemGuidValidity": "VALID",
+    "status": "QUANTITY",
+    "quantity": 1,
+    "multiLocationId": "900000016451526385",
+    "versionId": "b999e271-0586-4b71-bb35-2ce22a2d7199"
+  },
+  {
+    "guid": "4e27ed91-9d11-4db4-9e80-15c5f97e5eea",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016550654835",
+    "versionId": "4e27ed91-9d11-4db4-9e80-15c5f97e5eea"
+  },
+  {
+    "guid": "ae69d291-dbb6-4821-8dca-d680a9e8a2c7",
+    "itemGuidValidity": "VALID",
+    "status": "QUANTITY",
+    "quantity": 1,
+    "multiLocationId": "900000021670477882",
+    "versionId": "ae69d291-dbb6-4821-8dca-d680a9e8a2c7"
+  },
+  {
+    "guid": "3ba801fd-93d2-4a9e-9422-830bd8be156c",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016397520126",
+    "versionId": "3ba801fd-93d2-4a9e-9422-830bd8be156c"
+  },
+  {
+    "guid": "c4f7181e-63a3-4067-941a-fa2c3dcf5eed",
+    "itemGuidValidity": "VALID",
+    "status": "QUANTITY",
+    "quantity": 229,
+    "multiLocationId": "900000016454058200",
+    "versionId": "c4f7181e-63a3-4067-941a-fa2c3dcf5eed"
+  },
+  {
+    "guid": "55b02062-3654-4e90-afa7-ae1d31fdec28",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000023245368946",
+    "versionId": "55b02062-3654-4e90-afa7-ae1d31fdec28"
+  },
+  {
+    "guid": "992408da-100b-4968-8cff-c42237b85bcb",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000022373982912",
+    "versionId": "992408da-100b-4968-8cff-c42237b85bcb"
+  },
+  {
+    "guid": "a403f84f-3683-4333-a796-2cf586576981",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016394057333",
+    "versionId": "a403f84f-3683-4333-a796-2cf586576981"
+  },
+  {
+    "guid": "557ef3eb-765b-4421-a8ae-c890ae59b5cd",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000022230757224",
+    "versionId": "557ef3eb-765b-4421-a8ae-c890ae59b5cd"
+  },
+  {
+    "guid": "96c896e0-41e4-4a6c-abc6-5ae6329b05ed",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000022897987151",
+    "versionId": "96c896e0-41e4-4a6c-abc6-5ae6329b05ed"
+  },
+  {
+    "guid": "d89a1b39-39d2-4021-9ea7-d548ac54d188",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000021386502451",
+    "versionId": "d89a1b39-39d2-4021-9ea7-d548ac54d188"
+  },
+  {
+    "guid": "5f2b6daf-4137-4c26-9361-c40e64068784",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000021385469348",
+    "versionId": "5f2b6daf-4137-4c26-9361-c40e64068784"
+  },
+  {
+    "guid": "cd32c87f-16a3-4da3-b744-e694a4ab4502",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000021386885756",
+    "versionId": "cd32c87f-16a3-4da3-b744-e694a4ab4502"
+  },
+  {
+    "guid": "f5f50c41-023d-4281-96ad-15e2238da659",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000022230774122",
+    "versionId": "f5f50c41-023d-4281-96ad-15e2238da659"
+  },
+  {
+    "guid": "b6d23fa1-cc42-4d50-9c3e-9d079156505f",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000022230786557",
+    "versionId": "b6d23fa1-cc42-4d50-9c3e-9d079156505f"
+  },
+  {
+    "guid": "a38e9630-60f7-4857-bd0c-a3c836aeea1c",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000021387040766",
+    "versionId": "a38e9630-60f7-4857-bd0c-a3c836aeea1c"
+  },
+  {
+    "guid": "72f5c03d-8d58-417c-a6a7-fed104529087",
+    "itemGuidValidity": "VALID",
+    "status": "QUANTITY",
+    "quantity": 30,
+    "multiLocationId": "900000015064592494",
+    "versionId": "72f5c03d-8d58-417c-a6a7-fed104529087"
+  },
+  {
+    "guid": "fe673e67-2a25-4653-b432-fb806333b497",
+    "itemGuidValidity": "VALID",
+    "status": "QUANTITY",
+    "quantity": 8,
+    "multiLocationId": "900000016485747188",
+    "versionId": "fe673e67-2a25-4653-b432-fb806333b497"
+  },
+  {
+    "guid": "0452e1dc-1364-4a33-87c6-986f50b51d68",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000020757474957",
+    "versionId": "0452e1dc-1364-4a33-87c6-986f50b51d68"
+  },
+  {
+    "guid": "6bdc0330-6c2b-4bc2-b005-ad57724ae534",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000020800680573",
+    "versionId": "6bdc0330-6c2b-4bc2-b005-ad57724ae534"
+  },
+  {
+    "guid": "befd6cce-c61a-4369-aafb-7c1ce8747f3f",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000020839303364",
+    "versionId": "befd6cce-c61a-4369-aafb-7c1ce8747f3f"
+  },
+  {
+    "guid": "793457fb-27ac-4b96-a12f-9309d3d1c4af",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000025517686115",
+    "versionId": "793457fb-27ac-4b96-a12f-9309d3d1c4af"
+  },
+  {
+    "guid": "d6fb7114-80df-4a7c-b4e8-cc20181db8fd",
+    "itemGuidValidity": "VALID",
+    "status": "QUANTITY",
+    "quantity": 284,
+    "multiLocationId": "900000016454057048",
+    "versionId": "d6fb7114-80df-4a7c-b4e8-cc20181db8fd"
+  },
+  {
+    "guid": "d66abf96-0c57-4488-a22e-2586d1415298",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000021333531119",
+    "versionId": "d66abf96-0c57-4488-a22e-2586d1415298"
+  },
+  {
+    "guid": "03396a71-9148-4478-b764-9bcd05f442bf",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000020561911016",
+    "versionId": "03396a71-9148-4478-b764-9bcd05f442bf"
+  },
+  {
+    "guid": "d71a5d3b-936f-41d6-8895-4e54db7598a0",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000020913508437",
+    "versionId": "d71a5d3b-936f-41d6-8895-4e54db7598a0"
+  },
+  {
+    "guid": "af06db8c-6db7-465b-8cb0-05f666a8f394",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000022230766108",
+    "versionId": "af06db8c-6db7-465b-8cb0-05f666a8f394"
+  },
+  {
+    "guid": "40e01eb0-5161-4116-8371-7835f65a1747",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000022230748112",
+    "versionId": "40e01eb0-5161-4116-8371-7835f65a1747"
+  },
+  {
+    "guid": "6393f1ad-e489-4b67-951d-94967d731825",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000023162778911",
+    "versionId": "6393f1ad-e489-4b67-951d-94967d731825"
+  },
+  {
+    "guid": "8890bef6-4d06-4660-b2ed-fd8ff15a7788",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000021623081475",
+    "versionId": "8890bef6-4d06-4660-b2ed-fd8ff15a7788"
+  },
+  {
+    "guid": "4731aa5a-cfed-4188-810d-dc1671ae0566",
+    "itemGuidValidity": "VALID",
+    "status": "QUANTITY",
+    "quantity": 350,
+    "multiLocationId": "900000016440959871",
+    "versionId": "4731aa5a-cfed-4188-810d-dc1671ae0566"
+  },
+  {
+    "guid": "0bb99bcc-cdea-4b61-b272-c6c15c1675c7",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000022374037426",
+    "versionId": "0bb99bcc-cdea-4b61-b272-c6c15c1675c7"
+  },
+  {
+    "guid": "aedb7a09-5bb5-46f1-8763-c48ff82a64a8",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016441578446",
+    "versionId": "aedb7a09-5bb5-46f1-8763-c48ff82a64a8"
+  },
+  {
+    "guid": "5002a29d-084c-4c25-8f52-9562ed2ca74e",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000021670461059",
+    "versionId": "5002a29d-084c-4c25-8f52-9562ed2ca74e"
+  },
+  {
+    "guid": "01cc4f60-32f0-4e6b-99e3-909e54ae1864",
+    "itemGuidValidity": "VALID",
+    "status": "QUANTITY",
+    "quantity": 1,
+    "multiLocationId": "900000016450678967",
+    "versionId": "01cc4f60-32f0-4e6b-99e3-909e54ae1864"
+  },
+  {
+    "guid": "4e97a0b1-2f77-44b9-b6dc-b4d08e3621df",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000023162822119",
+    "versionId": "4e97a0b1-2f77-44b9-b6dc-b4d08e3621df"
+  },
+  {
+    "guid": "0bac0e1c-258f-43f4-9fb6-705653a007fe",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000020611991214",
+    "versionId": "0bac0e1c-258f-43f4-9fb6-705653a007fe"
+  },
+  {
+    "guid": "fe587493-dcb3-4a01-a33a-06f0bdc0adf0",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000022408199642",
+    "versionId": "fe587493-dcb3-4a01-a33a-06f0bdc0adf0"
+  },
+  {
+    "guid": "a0b7d280-a6d5-4942-984a-82f8febe5b74",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000023200343499",
+    "versionId": "a0b7d280-a6d5-4942-984a-82f8febe5b74"
+  },
+  {
+    "guid": "eb3b9f15-7c6d-4947-9179-f87b6cb56686",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016551595917",
+    "versionId": "eb3b9f15-7c6d-4947-9179-f87b6cb56686"
+  },
+  {
+    "guid": "1442ff17-60f5-49be-b616-44663128035d",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016433128344",
+    "versionId": "1442ff17-60f5-49be-b616-44663128035d"
+  },
+  {
+    "guid": "9f53af5f-1d31-4dbd-b1f0-595298b709f3",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016551595918",
+    "versionId": "9f53af5f-1d31-4dbd-b1f0-595298b709f3"
+  },
+  {
+    "guid": "0ecd6c6c-e0b8-43a4-b52d-d07e3e03b072",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016484365518",
+    "versionId": "0ecd6c6c-e0b8-43a4-b52d-d07e3e03b072"
+  },
+  {
+    "guid": "2a9d2b63-7e03-4d73-96ff-8c65374193cb",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000020611911881",
+    "versionId": "2a9d2b63-7e03-4d73-96ff-8c65374193cb"
+  },
+  {
+    "guid": "88d6dc72-ced4-4e17-a522-ee990ac76432",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016397092157",
+    "versionId": "88d6dc72-ced4-4e17-a522-ee990ac76432"
+  },
+  {
+    "guid": "d9bcefa2-045e-40cd-8a8c-c8d9661d4141",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064537328",
+    "versionId": "d9bcefa2-045e-40cd-8a8c-c8d9661d4141"
+  },
+  {
+    "guid": "9ec956a7-0133-4885-8e8d-1cd6f09a7266",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000022593641386",
+    "versionId": "9ec956a7-0133-4885-8e8d-1cd6f09a7266"
+  },
+  {
+    "guid": "3f315257-abbf-4626-9804-00434c1349bd",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000022593620142",
+    "versionId": "3f315257-abbf-4626-9804-00434c1349bd"
+  },
+  {
+    "guid": "a52246e0-b105-4150-93d7-3f5736f97dba",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000022717437198",
+    "versionId": "a52246e0-b105-4150-93d7-3f5736f97dba"
+  },
+  {
+    "guid": "79507910-4231-4786-87f0-538881bb780e",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000022717500546",
+    "versionId": "79507910-4231-4786-87f0-538881bb780e"
+  },
+  {
+    "guid": "7fb1d558-f291-45f7-995f-23ec23586098",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016484423954",
+    "versionId": "7fb1d558-f291-45f7-995f-23ec23586098"
+  },
+  {
+    "guid": "84446591-c533-4b5d-bfa5-8e5a00f1bd4c",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000021322436951",
+    "versionId": "84446591-c533-4b5d-bfa5-8e5a00f1bd4c"
+  },
+  {
+    "guid": "ca731dd8-1b66-4628-82de-7f80ac85c0eb",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000025831578638",
+    "versionId": "ca731dd8-1b66-4628-82de-7f80ac85c0eb"
+  },
+  {
+    "guid": "0ef0bcd6-be8d-4508-bbd9-c088bece1a45",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064228724",
+    "versionId": "0ef0bcd6-be8d-4508-bbd9-c088bece1a45"
+  },
+  {
+    "guid": "17df7a4a-b6c2-4183-8a4f-1125756ee366",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064541412",
+    "versionId": "17df7a4a-b6c2-4183-8a4f-1125756ee366"
+  },
+  {
+    "guid": "293d1a77-65e6-4f6f-880c-ae134b1c0fa2",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064278971",
+    "versionId": "293d1a77-65e6-4f6f-880c-ae134b1c0fa2"
+  },
+  {
+    "guid": "35deb705-4d1d-4a03-9156-c4f29394789e",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000021323873707",
+    "versionId": "35deb705-4d1d-4a03-9156-c4f29394789e"
+  },
+  {
+    "guid": "4f3a29f5-d9d1-4e5f-b4c3-365a79420455",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064536668",
+    "versionId": "4f3a29f5-d9d1-4e5f-b4c3-365a79420455"
+  },
+  {
+    "guid": "abc62caf-201f-4968-9060-e36ecb551f6d",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064566416",
+    "versionId": "abc62caf-201f-4968-9060-e36ecb551f6d"
+  },
+  {
+    "guid": "29b83103-450c-476b-82b9-de4c2946ef21",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064591934",
+    "versionId": "29b83103-450c-476b-82b9-de4c2946ef21"
+  },
+  {
+    "guid": "0a0d22fe-0d05-43e1-a6a8-420b6401025d",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064266684",
+    "versionId": "0a0d22fe-0d05-43e1-a6a8-420b6401025d"
+  },
+  {
+    "guid": "2a9b1037-8ba1-416d-a56f-4966a101f278",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064569967",
+    "versionId": "2a9b1037-8ba1-416d-a56f-4966a101f278"
+  },
+  {
+    "guid": "7b84df52-a999-4441-a280-03b830468226",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064283701",
+    "versionId": "7b84df52-a999-4441-a280-03b830468226"
+  },
+  {
+    "guid": "9293f5ff-7108-49f2-94a3-3f0f9be48142",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016395261745",
+    "versionId": "9293f5ff-7108-49f2-94a3-3f0f9be48142"
+  },
+  {
+    "guid": "47908922-b8e9-4395-b4af-ba923cf70689",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000020854047499",
+    "versionId": "47908922-b8e9-4395-b4af-ba923cf70689"
+  },
+  {
+    "guid": "5233feba-8b7b-4641-a226-798a55f5a84d",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064577447",
+    "versionId": "5233feba-8b7b-4641-a226-798a55f5a84d"
+  },
+  {
+    "guid": "a7dd3d32-c9f3-4745-8b75-5cd23885de51",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000018528115870",
+    "versionId": "a7dd3d32-c9f3-4745-8b75-5cd23885de51"
+  },
+  {
+    "guid": "b2ab8911-c316-4a9b-a9f8-87e13d1cff1f",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064584706",
+    "versionId": "b2ab8911-c316-4a9b-a9f8-87e13d1cff1f"
+  },
+  {
+    "guid": "b4e03e58-46cc-4cc7-bd0e-f84d14c7e065",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016395261839",
+    "versionId": "b4e03e58-46cc-4cc7-bd0e-f84d14c7e065"
+  },
+  {
+    "guid": "b5ff2dfa-ff57-47a8-89fe-445c69adf9a3",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016395865553",
+    "versionId": "b5ff2dfa-ff57-47a8-89fe-445c69adf9a3"
+  },
+  {
+    "guid": "c98c98d5-f1a6-4673-9e32-37507215724e",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064264662",
+    "versionId": "c98c98d5-f1a6-4673-9e32-37507215724e"
+  },
+  {
+    "guid": "d00b1726-ef3f-4c73-a077-44b83b024bc5",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000018557944396",
+    "versionId": "d00b1726-ef3f-4c73-a077-44b83b024bc5"
+  },
+  {
+    "guid": "e175c6ac-ceb3-4278-8ae9-ef5d2815a70b",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064258096",
+    "versionId": "e175c6ac-ceb3-4278-8ae9-ef5d2815a70b"
+  },
+  {
+    "guid": "eb551ec6-0e9c-4c75-a95a-92d8d873e6a5",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000018557944395",
+    "versionId": "eb551ec6-0e9c-4c75-a95a-92d8d873e6a5"
+  },
+  {
+    "guid": "f9bdf7eb-661c-4c29-8bec-8270c905230b",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000020768582177",
+    "versionId": "f9bdf7eb-661c-4c29-8bec-8270c905230b"
+  },
+  {
+    "guid": "0681bff9-0084-4834-8328-2250a1941740",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000020755109552",
+    "versionId": "0681bff9-0084-4834-8328-2250a1941740"
+  },
+  {
+    "guid": "2bebb7c0-c8ad-43a8-9f08-672438e7d9ae",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000020854047459",
+    "versionId": "2bebb7c0-c8ad-43a8-9f08-672438e7d9ae"
+  },
+  {
+    "guid": "353c09cb-fc68-4fe7-8b9d-448f57b73e02",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016395865560",
+    "versionId": "353c09cb-fc68-4fe7-8b9d-448f57b73e02"
+  },
+  {
+    "guid": "4c2b14e6-617f-4d32-b11e-6fffbfd3077a",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064586175",
+    "versionId": "4c2b14e6-617f-4d32-b11e-6fffbfd3077a"
+  },
+  {
+    "guid": "68386a6e-3090-4f5e-8633-cf1e43a15053",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064586187",
+    "versionId": "68386a6e-3090-4f5e-8633-cf1e43a15053"
+  },
+  {
+    "guid": "6aa05ad5-c54d-4028-9302-da0f15da36b7",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000020752490514",
+    "versionId": "6aa05ad5-c54d-4028-9302-da0f15da36b7"
+  },
+  {
+    "guid": "9b3bbdb3-9ae5-4fb6-8160-950cbff9358c",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064269324",
+    "versionId": "9b3bbdb3-9ae5-4fb6-8160-950cbff9358c"
+  },
+  {
+    "guid": "aa576c30-01fe-475b-aac4-2e2e36981e7c",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000020854047469",
+    "versionId": "aa576c30-01fe-475b-aac4-2e2e36981e7c"
+  },
+  {
+    "guid": "b39610c7-c72c-4422-b01b-7cdd60d2498c",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064269312",
+    "versionId": "b39610c7-c72c-4422-b01b-7cdd60d2498c"
+  },
+  {
+    "guid": "b8a2721d-e8c8-4734-8cf8-a841340af801",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016450678983",
+    "versionId": "b8a2721d-e8c8-4734-8cf8-a841340af801"
+  },
+  {
+    "guid": "c02ce880-78e4-4a78-8eff-ba0be0c35974",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016395261847",
+    "versionId": "c02ce880-78e4-4a78-8eff-ba0be0c35974"
+  },
+  {
+    "guid": "ecb48db2-bae7-4258-ad1a-63f907acab1e",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064306784",
+    "versionId": "ecb48db2-bae7-4258-ad1a-63f907acab1e"
+  },
+  {
+    "guid": "fe89226e-1f21-4627-b2aa-32c10ba37951",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016393596347",
+    "versionId": "fe89226e-1f21-4627-b2aa-32c10ba37951"
+  },
+  {
+    "guid": "a5d18a64-1cc1-4a27-a6b6-548217a3b66f",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016440892494",
+    "versionId": "a5d18a64-1cc1-4a27-a6b6-548217a3b66f"
+  },
+  {
+    "guid": "382e31ea-7b96-4c71-ada3-76f30e5f75dc",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000022717471037",
+    "versionId": "382e31ea-7b96-4c71-ada3-76f30e5f75dc"
+  },
+  {
+    "guid": "774ff203-016c-4599-b7c2-816f36a6e3fb",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000018918824544",
+    "versionId": "774ff203-016c-4599-b7c2-816f36a6e3fb"
+  },
+  {
+    "guid": "22a76b46-8bb5-4af8-9471-f3cb6444ea87",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000018828810733",
+    "versionId": "22a76b46-8bb5-4af8-9471-f3cb6444ea87"
+  },
+  {
+    "guid": "3319c8c4-7e86-49aa-9aa6-6f7989723bbd",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064589970",
+    "versionId": "3319c8c4-7e86-49aa-9aa6-6f7989723bbd"
+  },
+  {
+    "guid": "4e6864c1-eec7-48cd-a9ce-b1575b8e991a",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064264699",
+    "versionId": "4e6864c1-eec7-48cd-a9ce-b1575b8e991a"
+  },
+  {
+    "guid": "85476113-3cfd-4e26-8caf-9c3125369f13",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064589964",
+    "versionId": "85476113-3cfd-4e26-8caf-9c3125369f13"
+  },
+  {
+    "guid": "9022ec2d-b171-491d-a1dd-b3500aa0886e",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064264682",
+    "versionId": "9022ec2d-b171-491d-a1dd-b3500aa0886e"
+  },
+  {
+    "guid": "b7305203-117d-447c-b403-86f128b3c195",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064591007",
+    "versionId": "b7305203-117d-447c-b403-86f128b3c195"
+  },
+  {
+    "guid": "d918bc43-db18-4df4-8872-d379ba0b561f",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064453740",
+    "versionId": "d918bc43-db18-4df4-8872-d379ba0b561f"
+  },
+  {
+    "guid": "e3d08762-5920-4ace-9543-bc2ec0147c12",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064591029",
+    "versionId": "e3d08762-5920-4ace-9543-bc2ec0147c12"
+  },
+  {
+    "guid": "e6d942f1-8ffd-4de8-a1e9-8e8be656dd01",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064265697",
+    "versionId": "e6d942f1-8ffd-4de8-a1e9-8e8be656dd01"
+  },
+  {
+    "guid": "f4ab0a5f-00fc-46fd-8fe4-654b214fa25c",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064265673",
+    "versionId": "f4ab0a5f-00fc-46fd-8fe4-654b214fa25c"
+  },
+  {
+    "guid": "3e1522e6-cc1f-4020-bfab-cd35cef32015",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064267725",
+    "versionId": "3e1522e6-cc1f-4020-bfab-cd35cef32015"
+  },
+  {
+    "guid": "b1560120-80b3-48d4-bebf-95b3ef4452c0",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064592477",
+    "versionId": "b1560120-80b3-48d4-bebf-95b3ef4452c0"
+  },
+  {
+    "guid": "c5426dcb-87fc-4bdc-a330-cfffeaaeda49",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064267715",
+    "versionId": "c5426dcb-87fc-4bdc-a330-cfffeaaeda49"
+  },
+  {
+    "guid": "f7fe45e0-9416-44fa-8023-05bb4cba6e36",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000015064592479",
+    "versionId": "f7fe45e0-9416-44fa-8023-05bb4cba6e36"
+  },
+  {
+    "guid": "ab8b6837-4a0b-4956-abfc-e8273e1e881b",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016441563134",
+    "versionId": "ab8b6837-4a0b-4956-abfc-e8273e1e881b"
+  },
+  {
+    "guid": "ceadacd4-a43b-4dad-bc68-d82d36b24fee",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000026451803568",
+    "versionId": "ceadacd4-a43b-4dad-bc68-d82d36b24fee"
+  },
+  {
+    "guid": "fc8771de-91a6-4ea8-ac04-c2d6521deb58",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016441093307",
+    "versionId": "fc8771de-91a6-4ea8-ac04-c2d6521deb58"
+  },
+  {
+    "guid": "7d986cab-748d-4aea-be20-5e3a5acde42e",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000018828989808",
+    "versionId": "7d986cab-748d-4aea-be20-5e3a5acde42e"
+  },
+  {
+    "guid": "cf88f09c-3a11-4695-8cc8-bc19f7340cef",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000026253295981",
+    "versionId": "cf88f09c-3a11-4695-8cc8-bc19f7340cef"
+  },
+  {
+    "guid": "5a438862-a3f1-47b1-a34a-aac368849e11",
+    "itemGuidValidity": "VALID",
+    "status": "QUANTITY",
+    "quantity": 316,
+    "multiLocationId": "900000016440959873",
+    "versionId": "5a438862-a3f1-47b1-a34a-aac368849e11"
+  },
+  {
+    "guid": "fa1c489f-3403-465d-9de0-f7462edb0ddf",
+    "itemGuidValidity": "VALID",
+    "status": "OUT_OF_STOCK",
+    "quantity": null,
+    "multiLocationId": "900000016441563146",
+    "versionId": "fa1c489f-3403-465d-9de0-f7462edb0ddf"
+  }
+]

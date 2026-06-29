@@ -148,6 +148,41 @@ describe("token-lint (§5.2) — every surface", () => {
       kinds(VALID_HTML.replace("<main>", "<main><style>.x{border:1px}</style>")),
     ).not.toContain("token-lint");
   });
+
+  it("flags a raw hex in an SVG fill attribute (painter-authored decoration)", () => {
+    const svg = '<svg aria-hidden="true"><path fill="#abcdef" d="M0 0h10v10z"/></svg>';
+    expect(kinds(VALID_HTML.replace("<main>", `<main>${svg}`))).toContain("token-lint");
+  });
+
+  it("flags a raw hex in an SVG stroke attribute", () => {
+    const svg = '<svg aria-hidden="true"><path stroke="#fff" d="M0 0h10v10z"/></svg>';
+    expect(kinds(VALID_HTML.replace("<main>", `<main>${svg}`))).toContain("token-lint");
+  });
+
+  it("does not flag SVG decoration coloured with theme tokens or currentColor", () => {
+    const svg =
+      '<svg aria-hidden="true"><path fill="var(--color-accent)" stroke="currentColor" d="M0 0h10v10z"/></svg>';
+    expect(kinds(VALID_HTML.replace("<main>", `<main>${svg}`))).not.toContain("token-lint");
+  });
+
+  it("flags a raw px in an inline style on a content element", () => {
+    expect(
+      kinds(
+        VALID_HTML.replace("<h3>Margherita</h3>", '<h3 style="font-size:20px">Margherita</h3>'),
+      ),
+    ).toContain("token-lint");
+  });
+
+  it("does not flag raw px in inline style inside aria-hidden SVG decoration (e.g. a ghost word)", () => {
+    const svg =
+      '<svg aria-hidden="true"><text style="font-size:260px" fill="var(--color-surface)">FEAST</text></svg>';
+    expect(kinds(VALID_HTML.replace("<main>", `<main>${svg}`))).not.toContain("token-lint");
+  });
+
+  it("still flags a raw hex in inline style inside decorative SVG (px is exempt, colour is not)", () => {
+    const svg = '<svg aria-hidden="true"><text style="color:#abc">FEAST</text></svg>';
+    expect(kinds(VALID_HTML.replace("<main>", `<main>${svg}`))).toContain("token-lint");
+  });
 });
 
 describe("motion-vocab (§5.2/D14)", () => {

@@ -1,8 +1,9 @@
 import type OpenAI from "openai";
 
 import { PaintError } from "../../domain/errors";
-import type { ResolvedTheme } from "../../domain/types";
+import type { PlanScreen, ResolvedTheme } from "../../domain/types";
 import type { Painter, PaintRequest } from "../../ports/painter";
+import type { Logger } from "../../ports/services";
 import { requestText } from "./client";
 
 /**
@@ -25,8 +26,14 @@ const ENGINE_CONTRACT = `NON-NEGOTIABLE TECHNICAL CONTRACT (always applies, in a
 - PHOTOS: render an item's photo as an <img> with NO src attribute. Instead carry data-img-item="<itemId>" data-img-index="0" and a unique data-ref="<something>"; the engine inlines the real image (as a data-URI) at package time. NEVER put a URL in src. Only reference photos for item ids listed as having a photo.
 - TEXT OVER PHOTOS: NEVER place text (names, prices, descriptions, labels, badges) directly on top of a photo — photos are busy/mid-toned and text over them fails the 4.5:1 contrast gate. Put text on a SOLID theme surface beside/below the photo; if a caption must overlay a photo, give it its own solid or strong-gradient scrim panel. The price must always be on a solid surface.
 - TEXT COLOUR CONTRAST (every text element must clear 4.5:1): primary text is text-text; secondary/description text is text-muted; prices are text-price. For ANY accent-coloured text (tags, labels, small headings, "POPULAR"/"CHEF'S SPECIAL" pills) use text-accent-strong, NEVER text-accent (text-accent is a dim decoration/border colour that fails as text). Badge pills must use a solid bg with high-contrast text. Never use black, near-black, or any dark text colour on the dark theme surfaces.
-- IMAGE SLOT / CAROUSEL: when the plan includes an imageSlot, build a cross-fade photo carousel as a relative, overflow-hidden container carrying data-motion="gallery-fade" and data-motion-params set FROM that preset's params in the motion vocabulary above (format "interval:<ms>;fade:<ms>", e.g. from params {interval, fade}). Inside it put ONE <img> per image-slot item, each absolutely stacked (class "absolute inset-0 w-full h-full object-cover"), the FIRST with opacity-100 and the REST with opacity-0, all using the data-img-item/data-img-index/data-ref scheme above.
-- Everything must fit INSIDE 1920x1080 — never overflow or require scrolling.
+- CAROUSEL (gallery-fade): the one way to cross-fade photos — used both for a plan imageSlot and for any section photo hero. Build a relative, overflow-hidden container carrying data-motion="gallery-fade" and data-motion-params from that preset's params in the motion vocabulary above (format "interval:<ms>;fade:<ms>"). Inside it stack 2 or more <img> (each absolutely positioned, class "absolute inset-0 w-full h-full object-cover"), the FIRST with opacity-100 and the REST with opacity-0, all using the data-img-item/data-img-index/data-ref scheme above. Build a carousel only where the plan calls for it: an imageSlot, or a hero the LAYOUT STRATEGY asks for.
+- SECTIONS: the screen has one or more sections, each with a title, a representation, an item list, and an optional layoutHint. Render EVERY section — show its title as a clear header and include EVERY planned item with its data-item-id; never drop, summarise, or "..." items to save space. How items, photos and heroes are arranged for THIS board is set by the LAYOUT STRATEGY in the board details below; build any rotating photo hero as the CAROUSEL above, and a hero must be a clearly-visible block (a real fraction of its area, never a tiny corner thumbnail/icon/chip).
+- LAYOUT HINT: if a section has a layoutHint, FOLLOW it. For a price matrix/table (e.g. "rows = base dish, columns = Biryani | Pulav"), lay the shared base dish down the rows and the named categories across the columns; put each price in its own <span data-bind="price"> and give every cell the matching item's data-item-id and data-available.
+- ITEM ROWS (name + price): keep each item's name and its price together as one tight unit — the price sits immediately after the name (small gap), or fill the gap between them with a dotted leader. NEVER push the price to the far edge with ml-auto / justify-between leaving a wide hollow gap, and do NOT spread rows vertically with justify-between; pack rows top-aligned with a consistent small gap.
+- IMAGE SIZING: an item photo must fill a generous LANDSCAPE or SQUARE area (e.g. aspect-video / aspect-square / aspect-[4/3] / aspect-[3/2]) with object-cover so it never distorts — photo on top of the card, or a large square beside the text. NEVER cram a photo into a thin fixed-width full-height vertical strip (e.g. a w-16/w-20 column that stretches to row height); that squeezes the image to the wrong aspect ratio.
+- TYPE SIZE (read across a room, ~10-20 ft): use large type. Item names and prices are at LEAST text-lg (text-xl+ when space allows), section/category headers clearly larger still; never render item text below text-base. Prefer fewer, larger rows that fill the available height over many tiny rows separated by empty space; reclaim wasted space (kill large empty gaps and oversized margins) BEFORE shrinking text, and never shrink below these minimums.
+- Everything must fit INSIDE the target canvas given below (Target canvas) — never overflow or require scrolling.
+- DECORATION (optional, only when the theme direction asks for it): you MAY enrich the screen with your own inline decorative SVG/CSS — an ambient backdrop and/or small accents. It MUST be inline (no external URLs, no src) and self-contained. Colour it with theme tokens ONLY: fill="var(--color-accent)" / stroke="var(--color-accent)" (any token name), or fill="currentColor" with a token text class — NEVER a raw hex or rgb() in fill/stroke/style. Decoration is secondary: place it BEHIND the content (e.g. low opacity, negative or low z-index, or in the margins) so it never lowers text contrast — names, prices and descriptions stay on solid theme surfaces. Mark purely decorative SVG aria-hidden="true", and never let it overflow 1920x1080 or push content out of frame.
 - Return ONLY the HTML for the screen body (a single root element). No markdown fences.`;
 
 /** Compose the painter system prompt: the theme's own base prompt + the engine contract. */
@@ -34,6 +41,39 @@ function buildSystem(theme: ResolvedTheme): string {
   const base =
     theme.prompt && theme.prompt.trim() !== "" ? theme.prompt.trim() : DEFAULT_BASE_PROMPT;
   return `${base}\n\n${ENGINE_CONTRACT}`;
+}
+
+/**
+ * True when a board is a price matrix/table (by section representation or layoutHint). A per-item
+ * photo grid fights with a table, so the photo-grid guidance is suppressed for these boards.
+ */
+function isMatrixBoard(planScreen: PlanScreen): boolean {
+  return planScreen.sections.some(
+    (s) => s.representation === "matrix" || /matrix|table/i.test(s.layoutHint ?? ""),
+  );
+}
+
+/**
+ * Per-board layout guidance derived from the plan, so representation/layoutHint are AUTHORITATIVE
+ * (instead of the theme unconditionally demanding a photo card per item). A matrix/table board
+ * renders the table first with ONE shared hero; any other board is a photo-led grid with a hero per
+ * photo section. Exported so the branch can be exercised hermetically.
+ */
+export function describeLayoutStrategy(planScreen: PlanScreen): string {
+  if (isMatrixBoard(planScreen)) {
+    return (
+      "LAYOUT STRATEGY for this board: MATRIX/TABLE FIRST. Render the price table from the section " +
+      "layoutHint as the PRIMARY layout (shared base dish down the rows, the named categories across the " +
+      "columns, one price cell per intersection). Use ONE shared compact rotating hero for the whole board " +
+      "— do NOT give each section its own hero (a dense table at this canvas has no room for one). A per-item " +
+      "photo grid is only a fallback for a non-matrix section that has spare room."
+    );
+  }
+  return (
+    "LAYOUT STRATEGY for this board: PHOTO-LED GRID. Give EVERY item its own large card filling the grid " +
+    "edge to edge, and lead each photo section with its own rotating hero (built as the CAROUSEL above). If a " +
+    "section has only 1–3 items, make one item a prominent hero instead of a grid."
+  );
 }
 
 function describeRequest(request: PaintRequest): string {
@@ -48,12 +88,18 @@ function describeRequest(request: PaintRequest): string {
     return { ...rest, photoCount: item.images?.length ?? 0 };
   });
   const withPhotos = request.items.filter((i) => (i.images?.length ?? 0) > 0).map((i) => i.id);
+  const tokenNames = Object.keys(tokens.colors);
+  const soldNote = tokenNames.includes("sold")
+    ? ' The "sold" token (text-sold / bg-sold) is only for marking sold-out / unavailable items.'
+    : "";
   const lines: string[] = [
     `Theme: ${request.theme.name} (density: ${request.theme.density}${request.theme.motif ? `, motif: ${request.theme.motif}` : ""})`,
-    `Colour tokens: ${Object.keys(tokens.colors).join(", ")}`,
+    `Colour tokens — use as Tailwind classes text-<name> / bg-<name> / border-<name> (e.g. text-text, bg-surface, text-price): ${tokenNames.join(", ")}.${soldNote}`,
     `Motion vocabulary: ${motion}`,
     `Locale: ${request.constraints.locale}, currency: ${request.constraints.currency}`,
+    `Target canvas: ${request.viewport?.width ?? 1920}x${request.viewport?.height ?? 1080}px (aspect ${request.constraints.aspect})`,
     `Plan: ${JSON.stringify(request.planScreen)}`,
+    describeLayoutStrategy(request.planScreen),
     `Items: ${JSON.stringify(slimItems)}`,
     `Item ids WITH a photo (only these may use <img>): ${withPhotos.length > 0 ? withPhotos.join(", ") : "(none)"}`,
   ];
@@ -85,21 +131,63 @@ export class OpenRouterPainter implements Painter {
   constructor(
     private readonly client: OpenAI,
     private readonly model: string,
+    private readonly logger?: Logger,
   ) {}
 
   async paint(request: PaintRequest): Promise<string> {
+    const system = buildSystem(request.theme);
+    const user = describeRequest(request);
+    const isRepaint = request.previousHtml !== undefined && (request.findings?.length ?? 0) > 0;
+    // Surface the exact prompt the painter receives so a `try` run shows how the model is driven.
+    // The system prompt is identical across a board's re-paints, so emit it only on the first paint;
+    // the user prompt (plan + items, and on a re-paint the findings + previous HTML) goes every time.
+    if (!isRepaint) {
+      this.logger?.debug(`painter SYSTEM prompt (theme "${request.theme.name}"):\n${system}`);
+    }
+    // On a re-paint the user prompt embeds the ENTIRE previous HTML; redact that blob from the log
+    // (keep the findings + instructions) so debug output stays a readable prompt, not a page dump.
+    const userForLog =
+      request.previousHtml !== undefined
+        ? user.replace(
+            request.previousHtml,
+            `[previous HTML omitted — ${request.previousHtml.length} chars]`,
+          )
+        : user;
+    this.logger?.debug(
+      `painter USER prompt — board "${request.planScreen.id}" (${isRepaint ? "re-paint" : "first paint"}):\n${userForLog}`,
+    );
     const html = await requestText(this.client, {
       model: this.model,
-      system: buildSystem(request.theme),
-      user: describeRequest(request),
+      system,
+      user,
+      // A full screen of dense HTML is large; give the model ample room so it isn't truncated to
+      // empty (the painter contract forbids dropping items, so output can't be trimmed to fit).
+      maxTokens: 32000,
     });
-    const trimmed = stripFences(html).trim();
-    if (trimmed === "") throw new PaintError("painter returned empty HTML.");
+    const trimmed = extractScreenHtml(html);
+    if (trimmed === "")
+      throw new PaintError(
+        "painter returned empty HTML (model produced no content — likely truncated or refused; " +
+          "if a board is very dense, raise --screens to spread items across more boards).",
+      );
     return trimmed;
   }
 }
 
-/** Strip accidental ```html fences a model might add. */
-function stripFences(html: string): string {
-  return html.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "");
+/**
+ * Extract the screen HTML from a model response. Models sometimes ignore "no markdown fences" and
+ * wrap the markup in a ```html block, and — especially on a re-paint, where the prompt carries QA
+ * findings — prefix it with chain-of-thought prose ("Looking at the two findings: 1. …"). We first
+ * take the contents of a fenced code block if one is present (even after a prose preamble), then
+ * drop any remaining prose before the first real tag — so neither the reasoning nor a stray ```
+ * marker can leak into the rendered page.
+ */
+export function extractScreenHtml(raw: string): string {
+  const fenced = raw.match(/```(?:html)?\s*([\s\S]*?)```/i);
+  let html = fenced?.[1] ?? raw;
+  const firstTag = html.search(
+    /<(?:!doctype|html|body|div|section|main|article|header|ul|ol|table)\b/i,
+  );
+  if (firstTag > 0) html = html.slice(firstTag);
+  return html.trim();
 }

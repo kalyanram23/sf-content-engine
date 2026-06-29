@@ -59,4 +59,19 @@ describe("TailwindPackager (real compile, hermetic)", () => {
     expect(packaged).toContain(`src="${PLACEHOLDER_IMAGE_DATA_URI}"`);
     expect(checkSelfContained(parse(packaged))).toEqual([]);
   }, 60_000);
+
+  it("defers the motion runtime until the DOM is parsed (the runtime <script> lives in <head>)", async () => {
+    // Regression: the runtime <script data-motion-runtime> is emitted inside <head>, so querying
+    // for [data-motion] elements synchronously would match nothing (body not yet parsed) and the
+    // carousel/entrance motion would never start. It must wait for the DOM to be ready.
+    const html = `<div data-motion="gallery-fade" data-motion-params="interval:5000;fade:800" class="text-text">Hi</div>`;
+    const packaged = await new TailwindPackager().package({ html, theme, items: [] });
+
+    expect(packaged).toContain("data-motion-runtime");
+    // The glue guards its DOM work behind readyState/DOMContentLoaded rather than running at parse.
+    expect(packaged).toContain("DOMContentLoaded");
+    expect(packaged).toMatch(/readyState/);
+    // And the runtime marker still sits in <head> (so the guard is what makes it correct).
+    expect(packaged.indexOf("data-motion-runtime")).toBeLessThan(packaged.indexOf("<body"));
+  }, 60_000);
 });

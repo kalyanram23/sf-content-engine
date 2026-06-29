@@ -114,6 +114,7 @@ const CAROUSEL_GLUE =
   `(function(){var M=(typeof globalThis!=="undefined")&&globalThis.__ceMotion;if(!M||!M.animate)return;` +
   `var animate=M.animate;function params(s){var o={};(s||"").split(";").forEach(function(p){var k=p.split(":");` +
   `if(k.length===2){var v=parseFloat(k[1]);o[k[0].trim()]=isNaN(v)?k[1].trim():v;}});return o;}` +
+  `function go(){` +
   `document.querySelectorAll('[data-motion="gallery-fade"]').forEach(function(root){` +
   `var p=params(root.getAttribute("data-motion-params"));var interval=p.interval||5000;var fade=p.fade||800;` +
   `var slides=[];for(var i=0;i<root.children.length;i++){var c=root.children[i];` +
@@ -122,12 +123,17 @@ const CAROUSEL_GLUE =
   `var nxt=slides[(idx+1)%slides.length];animate(cur,{opacity:[1,0]},{duration:fade/1000});` +
   `animate(nxt,{opacity:[0,1]},{duration:fade/1000});idx=(idx+1)%slides.length;},interval);});` +
   `document.querySelectorAll('[data-motion]:not([data-motion="gallery-fade"])').forEach(function(el,i){` +
-  `animate(el,{opacity:[0,1]},{duration:0.6,delay:0.08*i});});})();`;
+  `animate(el,{opacity:[0,1]},{duration:0.6,delay:0.08*i});});}` +
+  // Run only once the body is parsed: this <script> lives in <head>, so querying for
+  // [data-motion] elements synchronously would match nothing and the carousel/entrance would never start.
+  `if(document.readyState!=="loading"){go();}else{document.addEventListener("DOMContentLoaded",go);}})();`;
 
 /** A tiny CSS-entrance stand-in for css-only screens (no motion lib needed). Carries the marker. */
 const STANDIN_GLUE =
-  `(function(){try{var els=document.querySelectorAll('[data-motion]');els.forEach(function(el,i){` +
-  `el.style.opacity='0';el.style.transition='opacity .6s ease';setTimeout(function(){el.style.opacity='1';},120*i);});}catch(e){}})();`;
+  `(function(){function go(){try{var els=document.querySelectorAll('[data-motion]');els.forEach(function(el,i){` +
+  `el.style.opacity='0';el.style.transition='opacity .6s ease';setTimeout(function(){el.style.opacity='1';},120*i);});}catch(e){}}` +
+  // Same head-placement caveat as CAROUSEL_GLUE: defer to DOMContentLoaded so the body exists.
+  `if(document.readyState!=="loading"){go();}else{document.addEventListener("DOMContentLoaded",go);}})();`;
 
 /**
  * The inlined Motion runtime (D14). When a runtime-kind preset is used we inline the bundled

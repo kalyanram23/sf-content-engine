@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { LlmContractError } from "../../domain/errors";
-import { requestStructured, toStrictJsonSchema } from "./client";
+import { requestStructured, requestText, toStrictJsonSchema } from "./client";
 
 /** A duck-typed OpenAI client that replays scripted message contents (no network). */
 function mockClient(contents: string[]): OpenAI {
@@ -57,5 +57,46 @@ describe("requestStructured (D11)", () => {
   it("throws a typed LlmContractError when the contract is never met", async () => {
     const client = mockClient(['{"wrong":"shape"}', '{"still":"wrong"}']);
     await expect(requestStructured(client, call)).rejects.toBeInstanceOf(LlmContractError);
+  });
+});
+
+describe("requestText resilience", () => {
+  const base = { model: "m", system: "s", user: "u", retryBackoffMs: 0 };
+
+  it("retries a transient mid-stream socket drop and recovers", async () => {
+    let calls = 0;
+    const client = {
+      chat: {
+        completions: {
+          create: () => {
+            calls += 1;
+            if (calls === 1) {
+              return Promise.reject(
+                Object.assign(new Error("terminated"), { code: "UND_ERR_SOCKET" }),
+              );
+            }
+            return Promise.resolve({ choices: [{ message: { content: "<div>ok</div>" } }] });
+          },
+        },
+      },
+    } as unknown as OpenAI;
+    await expect(requestText(client, base)).resolves.toContain("ok");
+    expect(calls).toBe(2);
+  });
+
+  it("does not retry a non-transient error (e.g. a 400)", async () => {
+    let calls = 0;
+    const client = {
+      chat: {
+        completions: {
+          create: () => {
+            calls += 1;
+            return Promise.reject(new Error("400 invalid request"));
+          },
+        },
+      },
+    } as unknown as OpenAI;
+    await expect(requestText(client, base)).rejects.toThrow(/invalid request/);
+    expect(calls).toBe(1);
   });
 });

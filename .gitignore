@@ -1,10 +1,37 @@
+# Dependencies
 node_modules
+
+# Build output (tsup) + TS incremental cache
 dist
+*.tsbuildinfo
+
+# Test coverage
 coverage
+
+# Engine run artifacts (playground / scripts / debug sink)
 playground-output
+real-output
+/debug/
+
+# Logs (npm/yarn/pnpm debug logs included)
 *.log
+
+# Environment / secrets — keep the committed template
 .env
 .env.*
+!.env.example
+
+# npm packaging (npm pack / publish tarball)
+*.tgz
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
 .DS_Store
-real-output
-debug
+
+# Claude Code — personal, not shared (also in the user's global ignore)
+.claude/settings.local.json
+CLAUDE.local.md

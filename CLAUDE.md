@@ -6,9 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `content-engine` — a stateless TS (ESM) library that turns a normalized menu into finished
 digital-signage screens: `generate({ items, brief, constraints }) → { screens, posters, qaReport }`.
-The screen is painted freely by an LLM "on rails", then corrected by a generator–critic QA
-loop until it passes (or the iteration budget trips), then frozen. v1 = one screen, one preset
-(botanical), hand-authored plan.
+An LLM **planner** allocates the whole menu across the requested screen count (deterministic
+coverage code guarantees nothing is dropped); each screen is then painted freely by an LLM "on
+rails", corrected by a generator–critic QA loop until it passes (or the iteration budget trips),
+then frozen. Themes (`botanical`, `bubblegum`) are externalized JSON bundles; item photos are
+inlined as `data:` URIs before paint so the whole pipeline is offline-safe.
 
 The behaviour spec is the source of truth:
 `docs/superpowers/specs/2026-06-22-display-content-generation-engine-design.md`.
@@ -22,8 +24,10 @@ npm run verify          # the gate: prettier --check → eslint → tsc --noEmit
 npm test                # vitest run (unit + e2e, fakes only — no network/browser/key)
 npx vitest run src/qa/scoring          # run one test file/dir
 npx vitest run -t "never lets it"      # run tests matching a name
-npm run build           # tsup → ESM + .d.ts for ., ./node, ./testing
+npm run build           # prebuild bakes the motion bundle, then tsup → ESM + .d.ts for ., ./node, ./testing
 npm run playground      # run the engine on fixtures → ./playground-output (all acceptance scenarios)
+npm run try             # scripts/try.ts — drive the real node engine on a menu end-to-end (needs a key)
+npm run regen:samples   # regenerate the samples/ fixtures from source menus
 npm run test:live       # gated adapter tests; needs OPENROUTER_API_KEY and/or RUN_BROWSER_TESTS=1 (+ npx playwright install chromium)
 ```
 
@@ -36,16 +40,39 @@ OpenRouter client and a real-compile test for the Tailwind packager.
 **Pure core + injected ports.** Nothing in the core touches network/browser/clock/randomness —
 every external concern is a port interface (`src/ports/`) injected at one composition root.
 `createEngine(ports, config)` (`src/pipeline/engine.ts`) is the pure root; `createNodeEngine`
-(`src/adapters/node-engine.ts`) wires the real OpenRouter/Playwright/Tailwind adapters. Tests
-inject fakes via `createFakeEngine` (`src/testing/fakes/`). If you add a dependency on time/IO,
-add a port — don't reach for a global.
+(`src/adapters/node-engine.ts`) wires the real OpenRouter/Playwright/Tailwind adapters. The ports
+(`src/ports/`) are `Planner`, `ThemeRepository`, `ImageFetcher`, `Painter`, `Packager`,
+`BrowserPort`, `VisionCritic`, `Repairer`, plus the ambient `Clock`/`IdGenerator`/`Logger` and an
+optional `DebugSink` (`capture()` is invoked per scored candidate to dump HTML/screenshot/findings
+for inspection — off by default, never affects output, D15). Tests inject fakes via
+`createFakeEngine` (`src/testing/fakes/`). Models are config-as-data: `config.models` routes the
+`plan`/`paint`/`critique`/`repair` roles to OpenRouter ids (validated against the allowlist at load,
+D11). If you add a dependency on time/IO, add a port — don't reach for a global.
 
 **The pipeline is a LangGraph `StateGraph`, isolated to one file.** `src/pipeline/graph.ts` is the
 **only** file that imports `@langchain/langgraph`. Nodes (`src/pipeline/nodes/index.ts`) are plain
 `(ctx, state) => Promise<Partial<EngineState>>` functions with zero LangGraph knowledge; `graph.ts`
-binds `ctx` and wires them. Flow: `plan → resolveTheme → paint → package → deterministicQA →
-visionQA → score → route → {repair|paint|plan|freeze}`. `package` is its own node so "QA always
-runs on what ships" is structural.
+binds `ctx` and wires them. Flow: `plan → resolveTheme → fetchImages → paint → package →
+deterministicQA → visionQA → score → route → {repair|paint|plan|freeze}`. `package` is its own node
+so "QA always runs on what ships" is structural; `fetchImages` inlines item photos to `data:` URIs
+so paint/QA/render never touch the network.
+
+**Planning is LLM judgment + deterministic coverage.** The planner port (`Planner`) returns a
+`ThinPlan`. The default Node adapter is `OpenRouterPlanner` (`src/adapters/openrouter/planner.ts`):
+it sends the LLM a small, id-free **menu digest** (`buildMenuDigest`) and gets back a category-level
+`PlanLayout` (order, grouping, representation, combined-category matrices) — never item ids. Pure
+code in `src/planning/coverage.ts` (`expandLayoutToPlan`) expands that into a full plan: it resolves
+categories to real ids, **appends any category the LLM forgot**, balances sections across exactly
+`screens` boards via a linear-partition DP, and **asserts 100% coverage** (throws if any item is
+unplaced). An LLM can't be trusted to enumerate 300+ ids without dropping some, so it does the
+judgment and this guarantees the bookkeeping. Pass a hand-authored `plan` to `createNodeEngine` to
+bypass the LLM (wires `StaticPlanner` instead).
+
+**Themes are externalized JSON bundles.** A `ThemePreset` (prompt + tokens + motion vocab + assets)
+lives in `themes/<id>.theme.json`, resolved through the `ThemeRepository` port. `createNodeEngine`
+with `themesDir` wires `FileThemeRepository`, which loads those files at runtime and **overrides the
+bundled presets** (`src/theme/presets/`) by id, falling back to the bundle for ids not on disk. The
+painter prompt is `theme.prompt` + the engine's fixed contract.
 
 **The router owns termination; `best` is preserved.** `route()` (`src/pipeline/router.ts`) is pure
 and the **sole** authority: it returns `"freeze"` the instant `iteration >= loop.maxIterations`.

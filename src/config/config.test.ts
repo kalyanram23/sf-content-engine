@@ -47,7 +47,7 @@ describe("loadEngineConfig", () => {
         structuredOutputAllowlist: [
           "some/new-model",
           // the other structured-output roles (plan, repair) must remain covered
-          "anthropic/claude-sonnet-4.6",
+          "z-ai/glm-5.2",
           "openai/gpt-5.4-nano",
         ],
       },

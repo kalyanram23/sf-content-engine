@@ -95,6 +95,7 @@ export async function paintNode(
     items,
     theme: state.theme,
     constraints: state.input.constraints,
+    viewport: { width: ctx.config.qa.viewport.width, height: ctx.config.qa.viewport.height },
     ...(state.html !== undefined ? { previousHtml: state.html } : {}),
     ...(state.findings.length > 0 ? { findings: state.findings } : {}),
   });
@@ -118,6 +119,9 @@ export async function packageNode(
   });
   if (!packagedHtml || packagedHtml.trim() === "")
     throw new PackagingError("packager returned empty HTML.");
+  ctx.ports.logger?.debug(
+    `board ${state.screenIndex + 1} "${screen.id}": packaged ${Math.round(state.html.length / 1024)}KB raw → ${Math.round(packagedHtml.length / 1024)}KB (Tailwind compiled, photos inlined)`,
+  );
   return { packagedHtml };
 }
 

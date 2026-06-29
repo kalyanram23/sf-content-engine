@@ -1,7 +1,7 @@
 {
   "id": "botanical",
   "name": "Botanical",
-  "prompt": "You are an expert digital-signage screen designer creating ONE self-contained screen for a 1920x1080 TV that guests read across a room. Visual identity for this theme: BOTANICAL — calm, premium, garden-fresh. Lean on the olive/sage accent and subtle leaf motifs; pair the Cormorant Garamond display face (titles) with Inter for body text; let the deep green background and generous negative space feel intentional and upscale. Design goals: FILL THE SCREEN — structure the root as a full-height column (min-h-screen flex flex-col) whose content area is flex-1 and uses a grid whose rows STRETCH so cards reach near the bottom edge; never leave the bottom half or any large band empty. Use large type and large cards so the layout reads as full, with even, modest margins. Strong title-led hierarchy: the screen title dominates (not oversized); section headers are clearly distinct from item names (larger and/or accent-coloured, with a divider); item names are large and high-contrast; the price sits beside the name. Keep each item's name + price as one tight block (never name-pinned-top / price-pinned-bottom, no hollow justify-between middle); within a stretched card, vertically centre that tight block. When the plan includes a photo carousel or item photos, make the photography a PROMINENT hero and the food look appetising. Make it feel intentionally designed for THIS theme, not a generic grid — a guest should glance and immediately want to order.",
+  "prompt": "You are an expert digital-signage screen designer creating ONE self-contained screen for a 1920x1080 TV that guests read across a room. Visual identity for this theme: BOTANICAL — calm, premium, garden-fresh. Lean on the olive/sage accent and subtle leaf motifs; pair the Cormorant Garamond display face (titles) with Inter for body text; let the deep green background and generous negative space feel intentional and upscale. Design goals: FILL THE SCREEN — structure the root as a full-height column (min-h-screen flex flex-col) whose content area is flex-1 and uses a grid whose rows STRETCH so cards reach near the bottom edge; never leave the bottom half or any large band empty. Use large type and large cards so the layout reads as full, with even, modest margins. Strong title-led hierarchy: the screen title dominates (not oversized); section headers are clearly distinct from item names (larger and/or accent-coloured, with a divider); item names are large and high-contrast; the price sits beside the name. Keep each item's name + price as one tight block (never name-pinned-top / price-pinned-bottom, no hollow justify-between middle); within a stretched card, vertically centre that tight block. When the plan includes a photo carousel or item photos, make the photography a PROMINENT hero and the food look appetising. DECORATION: there is no pre-supplied background image — author your own botanical decoration as part of the design, drawn as inline SVG in the olive/sage palette. Give the screen an ambient backdrop of soft, organic leaf and branch line-art sitting behind the content, AND integrated accents that earn their place: a small flourish by the screen title, slim leaf or vine dividers between sections, a leaf motif beside section headers, and an illustrative sprig/leaf motif standing in for any item that has no photo. Keep it restrained and tasteful so it frames and elevates the menu rather than competing with the names and prices. Make it feel intentionally designed for THIS theme, not a generic grid — a guest should glance and immediately want to order.",
   "tokens": {
     "colors": {
       "bg": "#1f2a24",
@@ -47,12 +47,7 @@
     }
   ],
   "assets": {
-    "backgrounds": [
-      {
-        "id": "botanical-leaves",
-        "dataUri": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22200%22%20viewBox%3D%220%200%20200%20200%22%3E%3Crect%20width%3D%22200%22%20height%3D%22200%22%20fill%3D%22%231f2a24%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%2333433a%22%20stroke-width%3D%222%22%20opacity%3D%220.5%22%3E%3Cpath%20d%3D%22M40%20160%20C40%20110%2070%2090%20100%2080%20C70%20100%2060%20130%2060%20160%20Z%22%2F%3E%3Cpath%20d%3D%22M160%2040%20C160%2090%20130%20110%20100%20120%20C130%20100%20140%2070%20140%2040%20Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"
-      }
-    ],
+    "backgrounds": [],
     "fonts": [
       {
         "family": "Cormorant Garamond",

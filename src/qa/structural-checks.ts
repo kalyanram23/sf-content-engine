@@ -188,6 +188,18 @@ function lintCss(text: string, where: string, rules: TokenLintRules): QaFinding[
   return findings;
 }
 
+/** True when `el` is, or is nested inside, an `aria-hidden="true"` SVG (painter decoration). */
+function isDecorativeSvg(el: HTMLElement): boolean {
+  let node: HTMLElement | null = el;
+  while (node) {
+    if (node.tagName?.toLowerCase() === "svg" && node.getAttribute("aria-hidden") === "true") {
+      return true;
+    }
+    node = node.parentNode as HTMLElement | null;
+  }
+  return false;
+}
+
 /** §5.2 token-lint rail: reject raw hex/px in class arbitrary-values, inline style, and <style>. */
 export function checkTokenLint(root: HTMLElement, ctx: StructuralContext): QaFinding[] {
   const findings: QaFinding[] = [];
@@ -200,13 +212,24 @@ export function checkTokenLint(root: HTMLElement, ctx: StructuralContext): QaFin
       findings.push(...lintCss(inner, `class "${m[0]}"`, ctx.tokenLint));
     }
   }
-  // Inline style attributes.
+  // Inline style attributes. Decorative SVG (aria-hidden="true") legitimately needs raw px for
+  // geometry/font-size (e.g. a giant "ghost word"), so exempt PX there; raw hex stays flagged
+  // (decoration must still colour via theme tokens — see the SVG presentation-attr check below).
+  const decorativePxRules: TokenLintRules = { ...ctx.tokenLint, allowRawPx: true };
   for (const el of root.querySelectorAll("[style]")) {
-    findings.push(...lintCss(el.getAttribute("style") ?? "", "inline style", ctx.tokenLint));
+    const rules = isDecorativeSvg(el) ? decorativePxRules : ctx.tokenLint;
+    findings.push(...lintCss(el.getAttribute("style") ?? "", "inline style", rules));
   }
   // <style> blocks.
   for (const el of root.querySelectorAll("style")) {
     findings.push(...lintCss(el.text, "<style> block", ctx.tokenLint));
+  }
+  // SVG presentation attributes (painter-authored decoration must use theme tokens, not raw hex):
+  // fill="#fff" / stroke="#abc" / stop-color / flood-color. Use var(--color-*) or currentColor.
+  for (const attr of ["fill", "stroke", "stop-color", "flood-color"]) {
+    for (const el of root.querySelectorAll(`[${attr}]`)) {
+      findings.push(...lintCss(el.getAttribute(attr) ?? "", `${attr} attribute`, ctx.tokenLint));
+    }
   }
 
   // Dedupe identical (value, where) findings to avoid flooding the loop.

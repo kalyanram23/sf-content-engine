@@ -12,6 +12,7 @@ import { NodeImageFetcher } from "./image/image-fetcher";
 import { createFileThemeRepository } from "./theme/file-theme-repository";
 import { createOpenRouterClient, type OpenRouterClientOptions } from "./openrouter/client";
 import { OpenRouterPainter } from "./openrouter/painter";
+import { OpenRouterPlanner } from "./openrouter/planner";
 import { OpenRouterRepairer } from "./openrouter/repairer";
 import { OpenRouterVisionCritic } from "./openrouter/vision-critic";
 import { StaticPlanner } from "./planner/static-planner";
@@ -74,9 +75,15 @@ export function createNodeEngine(options: NodeEngineOptions): ContentEngine {
       : createDefaultThemeRepository());
 
   const ports: EnginePorts = {
-    planner: options.planner ?? new StaticPlanner(options.plan),
+    // No explicit planner: use the hand-authored plan if one was supplied, else the LLM coverage
+    // planner auto-distributes the whole menu across the requested screen count.
+    planner:
+      options.planner ??
+      (options.plan
+        ? new StaticPlanner(options.plan)
+        : new OpenRouterPlanner(client, config.models.plan, options.logger)),
     themeRepository,
-    painter: new OpenRouterPainter(client, config.models.paint),
+    painter: new OpenRouterPainter(client, config.models.paint, options.logger),
     packager: new TailwindPackager(),
     browser: new PlaywrightBrowser(options.browser ?? {}),
     visionCritic: new OpenRouterVisionCritic(client, config.models.critique),

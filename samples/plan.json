@@ -3,29 +3,21 @@
     {
       "id": "screen-1",
       "imageSlot": {
-        "categoryId": "INDO - CHINESE",
+        "categoryId": "Biryani",
         "items": [
-          "c9e1ffc1-62ed-4a30-91c5-06e857789b5f",
-          "989d0195-e0fe-43a5-bf9a-6bd1194d3d14",
-          "3e7e8ff5-76e7-4ffd-b926-0d3956928c86",
-          "b0fb36db-daa9-4828-ae58-e56301dcdabb",
-          "0c92d011-e6f4-4926-8b5d-5cd1ff68278c",
-          "33af87b1-fc66-48cf-bf0f-dce1f4f90a66",
-          "8ebf97e4-3609-4390-ad61-d67a4ac99b79"
+          "a1",
+          "a2",
+          "a7"
         ]
       },
       "sections": [
         {
-          "title": "Indo-Chinese",
+          "title": "BIRYANI",
           "representation": "grid",
           "items": [
-            "c9e1ffc1-62ed-4a30-91c5-06e857789b5f",
-            "989d0195-e0fe-43a5-bf9a-6bd1194d3d14",
-            "3e7e8ff5-76e7-4ffd-b926-0d3956928c86",
-            "b0fb36db-daa9-4828-ae58-e56301dcdabb",
-            "0c92d011-e6f4-4926-8b5d-5cd1ff68278c",
-            "33af87b1-fc66-48cf-bf0f-dce1f4f90a66",
-            "8ebf97e4-3609-4390-ad61-d67a4ac99b79"
+            "a1",
+            "a2",
+            "a7"
           ]
         }
       ]
@@ -33,27 +25,19 @@
     {
       "id": "screen-2",
       "imageSlot": {
-        "categoryId": "NON VEG APPETIZERS",
+        "categoryId": "Veg Curries",
         "items": [
-          "1778ffe1-b21b-41ee-a262-3d652bacae06",
-          "421828a1-7a47-468b-b019-a1cb09b5b30b",
-          "aefc940e-a453-46f3-916d-57808369aba2",
-          "6ae1e54f-0505-41d3-ba18-6a92550552c3",
-          "573b9f8b-a30f-47a6-87f1-6df7d0dc20da",
-          "b5d5f5ec-6c6a-4a20-a12a-3ffee92dba1c"
+          "n6",
+          "n7"
         ]
       },
       "sections": [
         {
-          "title": "Non-Veg Appetizers",
+          "title": "VEG CURRIES",
           "representation": "grid",
           "items": [
-            "1778ffe1-b21b-41ee-a262-3d652bacae06",
-            "421828a1-7a47-468b-b019-a1cb09b5b30b",
-            "aefc940e-a453-46f3-916d-57808369aba2",
-            "6ae1e54f-0505-41d3-ba18-6a92550552c3",
-            "573b9f8b-a30f-47a6-87f1-6df7d0dc20da",
-            "b5d5f5ec-6c6a-4a20-a12a-3ffee92dba1c"
+            "n6",
+            "n7"
           ]
         }
       ]
@@ -61,23 +45,105 @@
     {
       "id": "screen-3",
       "imageSlot": {
-        "categoryId": "CHATS",
+        "categoryId": "Non Veg Appetizers",
         "items": [
-          "940cb6fe-168e-4988-a016-3d5774a1a465",
-          "89a5fe8c-6430-42ec-9450-5adba903fa5b",
-          "a5d18a64-1cc1-4a27-a6b6-548217a3b66f",
-          "a7d63e39-17eb-453a-bf7a-2c01646e00c6"
+          "h2",
+          "h3",
+          "h4",
+          "h5",
+          "h9",
+          "h13",
+          "h16"
         ]
       },
       "sections": [
         {
-          "title": "Chaats",
+          "title": "NON-VEG APPETIZERS",
           "representation": "grid",
           "items": [
-            "940cb6fe-168e-4988-a016-3d5774a1a465",
-            "89a5fe8c-6430-42ec-9450-5adba903fa5b",
-            "a5d18a64-1cc1-4a27-a6b6-548217a3b66f",
-            "a7d63e39-17eb-453a-bf7a-2c01646e00c6"
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h9",
+            "h13",
+            "h16"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "screen-4",
+      "imageSlot": {
+        "categoryId": "Indo Chinese",
+        "items": [
+          "c1",
+          "c2",
+          "c3",
+          "c4",
+          "c6",
+          "c7",
+          "c8"
+        ]
+      },
+      "sections": [
+        {
+          "title": "INDO-CHINESE",
+          "representation": "grid",
+          "items": [
+            "c1",
+            "c2",
+            "c3",
+            "c4",
+            "c6",
+            "c7",
+            "c8"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "screen-5",
+      "imageSlot": {
+        "categoryId": "Mandi",
+        "items": [
+          "d6",
+          "d7",
+          "d9",
+          "d14",
+          "d15"
+        ]
+      },
+      "sections": [
+        {
+          "title": "MANDI",
+          "representation": "grid",
+          "items": [
+            "d6",
+            "d7",
+            "d9",
+            "d14",
+            "d15"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "screen-6",
+      "imageSlot": {
+        "categoryId": "Desserts",
+        "items": [
+          "t1",
+          "t2"
+        ]
+      },
+      "sections": [
+        {
+          "title": "DESSERTS",
+          "representation": "grid",
+          "items": [
+            "t1",
+            "t2"
           ]
         }
       ]

@@ -48,3 +48,14 @@ export type DensityConfig = z.infer<typeof densityConfigSchema>;
 export type QaConfig = z.infer<typeof qaConfigSchema>;
 
 export const defaultQaConfig = (): QaConfig => deepFreeze(qaConfigSchema.parse({}));
+
+/** The render geometry for a screen aspect — 16:9 landscape, 9:16 portrait (DPR 1). */
+export function viewportForAspect(aspect: "16:9" | "9:16"): {
+  width: number;
+  height: number;
+  dpr: number;
+} {
+  return aspect === "9:16"
+    ? { width: 1080, height: 1920, dpr: 1 }
+    : { width: 1920, height: 1080, dpr: 1 };
+}

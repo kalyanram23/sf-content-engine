@@ -34,6 +34,13 @@ describe("createEngine — end-to-end pipeline (fakes)", () => {
     expect(out.posters[0]!.pngBase64.length).toBeGreaterThan(0);
   });
 
+  it("plan() resolves the thin plan without rendering (enables resumable, board-by-board runs)", async () => {
+    const engine = createFakeEngine({ observations: [cleanObservation()] });
+    const plan = await engine.plan(fixtures.input);
+    expect(plan.screens.length).toBeGreaterThan(0);
+    expect(plan.screens[0]!.sections.length).toBeGreaterThan(0);
+  });
+
   it("acceptance #1: rebalances dead space via re-paint within budget", async () => {
     // Dead space on the first render; the re-paint converges on the second.
     const engine = createFakeEngine({ observations: [deadSpaceObservation(), cleanObservation()] });

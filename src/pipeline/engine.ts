@@ -10,6 +10,12 @@ import type { FrozenScreen, NodeContext } from "./state";
 export interface ContentEngine {
   /** Turn a menu into finished signage screens. Validates input/output at the boundary. */
   generate(input: unknown): Promise<GenerateOutput>;
+  /**
+   * Resolve only the thin plan for an input (caller-supplied, else the Planner port), without
+   * rendering. Lets a caller cache the plan and drive rendering board-by-board (e.g. resumable
+   * runs that skip already-finished boards). Validated at the boundary.
+   */
+  plan(input: unknown): Promise<ThinPlan>;
 }
 
 function isRecursionError(error: unknown): boolean {
@@ -63,17 +69,27 @@ export function createEngine(ports: EnginePorts, config?: unknown): ContentEngin
     return finalState.frozen;
   }
 
+  /** Resolve + validate the thin plan (caller-supplied, else the Planner port). */
+  async function resolvePlan(parsed: GenerateInput): Promise<ThinPlan> {
+    return parseOrThrow(
+      thinPlanSchema,
+      parsed.plan ?? (await ports.planner.plan(parsed)),
+      "thin plan",
+    );
+  }
+
   return {
+    async plan(input: unknown): Promise<ThinPlan> {
+      const parsed = parseOrThrow(generateInputSchema, input, "generate input");
+      return resolvePlan(parsed);
+    },
+
     async generate(input: unknown): Promise<GenerateOutput> {
       const parsed = parseOrThrow(generateInputSchema, input, "generate input");
 
       // The caller authors the allocation: one PlanScreen per board. Resolve the plan once
       // (caller-supplied, else the Planner port) and render every screen in it.
-      const plan = parseOrThrow(
-        thinPlanSchema,
-        parsed.plan ?? (await ports.planner.plan(parsed)),
-        "thin plan",
-      );
+      const plan = await resolvePlan(parsed);
 
       // `constraints.screens` (when a number) must agree with the plan's board count.
       const requested = parsed.constraints.screens;

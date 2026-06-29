@@ -1,0 +1,49 @@
+Codemap Analysis Report
+Generated: 2026-06-28
+Project: content-engine (stateless TypeScript ESM library)
+Scan: 70 src .ts (non-test), 23 test files, 12 adapter modules
+
+=== STATUS: INITIAL GENERATION ===
+No previous docs/CODEMAPS/ existed — this is a first scan, so no diff percentage
+and no overwrite-approval gate (Step 3) applies. All maps created fresh.
+
+=== FILES CREATED ===
+  docs/CODEMAPS/README.md         index + template-substitution note
+  docs/CODEMAPS/architecture.md   type, entry points, layering, roots, data flow
+  docs/CODEMAPS/pipeline.md       LangGraph nodes, node→port map, routing, state
+  docs/CODEMAPS/ports.md          port ↔ real-adapter ↔ fake (DI seam)
+  docs/CODEMAPS/qa.md             two-tier QA, scoring, repair, planning, config
+  docs/CODEMAPS/dependencies.md   services, runtime deps, optional peers, build
+
+=== TEMPLATE ADAPTATION ===
+The /update-codemaps template targets web services (backend routes, frontend page
+tree, DB tables). This project is a library with none of those. Substitutions:
+  backend.md  -> pipeline.md   (LangGraph StateGraph is the "backend")
+  frontend.md -> (omitted)     no UI; output IS self-contained HTML artifacts
+  data.md     -> qa.md         no DB; domain model + config-as-data + coverage live here
+  ports.md    (added)          dependency-injection seam, the project's defining structure
+
+=== ARCHITECTURE SNAPSHOT (for future diffs) ===
+Entry points (3): src/index.ts (pure), src/node.ts (adapters), src/testing.ts (fakes)
+Pipeline nodes (10): planContent, resolveTheme, fetchImages, paint, package,
+  deterministicQA, visionQA, score, repair, freeze
+Ports (12 in EnginePorts): planner, themeRepository, painter, packager, browser,
+  visionCritic, imageFetcher, clock, idGenerator, logger?, debug?, llmRepairer?
+Real adapter families: openrouter (client+painter+planner+critic+repairer),
+  playwright (browser), tailwind (packager), theme (file-theme-repository),
+  image (image-fetcher), planner (static-planner)
+Themes (externalized JSON): botanical, bubblegum
+Config-as-data blocks: routing, tokenLint, rubric, qa, loop, models
+
+=== EXTERNAL SERVICES / NEW DEPENDENCIES ===
+Services: OpenRouter (LLM gateway), headless Chromium (Playwright), remote image hosts.
+Optional peers (hermetic boundary): openai, playwright-core, tailwindcss, @tailwindcss/node.
+No database / cache / queue. Stateless across calls (D15).
+
+=== STALENESS WARNINGS (docs not updated in 90+ days) ===
+None. Repository is days old (initial commit 2026-06; all docs within window).
+
+=== NOTES ===
+- docs/ is in .prettierignore, so codemaps are not subject to the format gate.
+- Source-of-truth files to re-derive from on next run: package.json (scripts/deps/exports),
+  src/ports/index.ts (EnginePorts), src/pipeline/{graph,nodes,router,state}.ts, src/config/*.

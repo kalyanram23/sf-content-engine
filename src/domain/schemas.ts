@@ -52,9 +52,9 @@ export const themeBriefSchema = z.object({
 });
 
 export const generateConstraintsSchema = z.object({
-  /** v1: 16:9 only. */
-  aspect: z.literal("16:9").default("16:9"),
-  /** Spec type is `number | "auto"`; v1 only supports 1 (enforced in the engine, D5). */
+  /** Landscape (16:9) or portrait (9:16); drives the render viewport. */
+  aspect: z.enum(["16:9", "9:16"]).default("16:9"),
+  /** Spec type is `number | "auto"`; the coverage planner fits all items into this many screens. */
   screens: z.union([z.number().int().positive(), z.literal("auto")]).default(1),
   locale: z.string().default("en-US"),
   currency: z.string().default("USD"),
@@ -69,6 +69,11 @@ export const planSectionSchema = z.object({
   representation: representationSchema,
   /** Canonical item IDs allocated to this section. */
   items: z.array(z.string().min(1)).min(1),
+  /**
+   * Optional free-text layout direction for the painter (e.g. "price table: rows = base dish,
+   * columns = Biryani | Pulav"). The painter free-paints from it; no fixed structure required.
+   */
+  layoutHint: z.string().optional(),
 });
 
 export const planImageSlotSchema = z.object({

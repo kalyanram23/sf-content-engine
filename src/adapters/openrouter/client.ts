@@ -135,15 +135,60 @@ export async function requestStructured<T>(client: OpenAI, call: StructuredCall<
   );
 }
 
-/** A plain text completion (used by the painter, which returns HTML, not JSON). */
+/**
+ * Transient network failures worth retrying — a dropped/closed/reset socket or connection timeout,
+ * including a mid-stream drop the SDK does NOT retry on its own (a long, dense paint can have its
+ * socket closed after the response body has started → undici "terminated" / UND_ERR_SOCKET).
+ */
+function isTransientNetworkError(error: unknown): boolean {
+  const e = error as { name?: string; code?: string; message?: string; cause?: { code?: string } };
+  const code = e.code ?? e.cause?.code ?? "";
+  const message = (e.message ?? "").toLowerCase();
+  return (
+    e.name === "APIConnectionError" ||
+    e.name === "APIConnectionTimeoutError" ||
+    code === "UND_ERR_SOCKET" ||
+    code === "ECONNRESET" ||
+    code === "ECONNREFUSED" ||
+    code === "ETIMEDOUT" ||
+    message.includes("terminated") ||
+    message.includes("other side closed") ||
+    message.includes("socket hang up")
+  );
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(() => resolve(), ms);
+  });
+}
+
+/**
+ * A plain text completion (used by the painter, which returns HTML, not JSON). Sets an explicit
+ * `max_tokens` so a large/dense board isn't cut off, and retries the two failure modes a long,
+ * dense paint hits: an EMPTY body (a thinking model can burn its whole budget on reasoning before
+ * emitting) and a TRANSIENT network drop (the provider closes the socket mid-stream — which the
+ * SDK won't retry once the body has started). A persistent empty returns "" (the painter throws a
+ * PaintError); a persistent / non-transient network error propagates.
+ */
 export async function requestText(
   client: OpenAI,
-  params: { model: string; system: string; user: UserContent; temperature?: number; seed?: number },
+  params: {
+    model: string;
+    system: string;
+    user: UserContent;
+    temperature?: number;
+    seed?: number;
+    maxTokens?: number;
+    /** Base backoff between retries (ms), grown linearly per attempt. Set to 0 in tests. */
+    retryBackoffMs?: number;
+  },
 ): Promise<string> {
-  const completion = await client.chat.completions.create({
+  const body = {
     model: params.model,
     ...(params.temperature !== undefined ? { temperature: params.temperature } : {}),
     ...(params.seed !== undefined ? { seed: params.seed } : {}),
+    ...(params.maxTokens !== undefined ? { max_tokens: params.maxTokens } : {}),
     messages: [
       { role: "system", content: params.system },
       {
@@ -151,6 +196,27 @@ export async function requestText(
         content: params.user as OpenAI.Chat.ChatCompletionUserMessageParam["content"],
       },
     ],
-  });
-  return completion.choices[0]?.message.content ?? "";
+  } as unknown as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming;
+
+  const backoff = params.retryBackoffMs ?? 1500;
+  const maxAttempts = 3;
+  let last = "";
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    let completion: OpenAI.Chat.ChatCompletion;
+    try {
+      completion = await client.chat.completions.create(body);
+    } catch (error) {
+      // Retry a transient socket drop a few times (with linear backoff) before giving up; a real
+      // error (4xx/5xx/auth/bad request) is not transient and propagates immediately.
+      if (isTransientNetworkError(error) && attempt < maxAttempts - 1) {
+        await delay(backoff * (attempt + 1));
+        continue;
+      }
+      throw error;
+    }
+    last = completion.choices[0]?.message.content ?? "";
+    if (last.trim() !== "") return last;
+    // Empty body: loop and re-ask (a reasoning model may have spent its budget before emitting).
+  }
+  return last;
 }

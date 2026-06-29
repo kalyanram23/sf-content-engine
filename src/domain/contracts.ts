@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { severitySchema, thinPlanSchema } from "./schemas";
+import { representationSchema, severitySchema, thinPlanSchema } from "./schemas";
 
 /**
  * Strict LLM request/response contracts. These are SEPARATE from EngineState and the
@@ -13,6 +13,30 @@ import { severitySchema, thinPlanSchema } from "./schemas";
 /** What the planner LLM returns — the thin plan (spec §5.4). */
 export const planResponseSchema = thinPlanSchema;
 export type PlanResponse = z.infer<typeof planResponseSchema>;
+
+/**
+ * The coverage planner's CATEGORY-LEVEL intent (D-coverage). The LLM emits an ordered list of
+ * blocks — grouping, representation, order, and combined-category matrices — but NOT item ids.
+ * Deterministic code (`src/planning/coverage.ts`) expands each block to the real item ids,
+ * guarantees 100% menu coverage, and packs blocks into the requested screen count. Keeping the
+ * LLM output small + id-free is what makes it reliable. All fields required for strict mode (D11);
+ * `layoutHint` is "" when there's no special direction.
+ */
+export const planBlockSchema = z.object({
+  /** Section heading the painter shows (e.g. "Biryani & Pulav", "Veg Curries"). */
+  title: z.string().min(1),
+  /** One or more menu category names whose items fill this block (>1 = a combined/matrix block). */
+  categories: z.array(z.string().min(1)).min(1),
+  representation: representationSchema,
+  /** Free-text painter direction (e.g. the price-table description); "" if none. */
+  layoutHint: z.string(),
+});
+export type PlanBlock = z.infer<typeof planBlockSchema>;
+
+export const planLayoutSchema = z.object({
+  blocks: z.array(planBlockSchema).min(1),
+});
+export type PlanLayout = z.infer<typeof planLayoutSchema>;
 
 /** A single critic finding, keyed to a rubric dimension id (spec §5.6 vision pass). */
 export const critiqueFindingSchema = z.object({

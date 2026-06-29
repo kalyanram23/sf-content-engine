@@ -13,6 +13,8 @@ export interface PaintRequest {
   items: CanonicalItem[];
   theme: ResolvedTheme;
   constraints: GenerateConstraints;
+  /** The exact pixel canvas the screen is rendered + QA'd at (derived from the aspect). */
+  viewport?: { width: number; height: number };
   /**
    * On a re-paint, the previous HTML and the findings to act on. The painter should make
    * the minimal change that resolves the findings (minimal-change-first, §10.6).

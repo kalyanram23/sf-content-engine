@@ -40,6 +40,24 @@ npx playwright install chromium
 The main entry (`content-engine`) is pure and has no heavy/Node-only dependencies. The real
 adapters live behind `content-engine/node`; deterministic fakes behind `content-engine/testing`.
 
+## Environment
+
+Only the **Node adapters and live tests** read env (copy `.env.example` → `.env`). The hermetic
+suite (`npm test` / `npm run verify`) needs **none** of this — it runs on fakes. Model routing is
+**not** env; it's config-as-data (`createNodeEngine({ config: { models: … } })`, defaults in
+`src/config/models.ts`).
+
+<!-- AUTO-GENERATED:env (from .env.example — regenerate, don't hand-edit) -->
+
+| Variable              | Required | Description                                            |
+| --------------------- | -------- | ------------------------------------------------------ |
+| `OPENROUTER_API_KEY`  | for live | Any real LLM call / the OpenRouter live test.          |
+| `OPENROUTER_APP_URL`  | No       | OpenRouter attribution header (dashboard).             |
+| `OPENROUTER_APP_NAME` | No       | OpenRouter attribution header (dashboard).             |
+| `RUN_BROWSER_TESTS`   | No       | Set to `1` to enable the live Playwright browser test. |
+
+<!-- /AUTO-GENERATED:env -->
+
 ## Quickstart (deterministic, no network/browser)
 
 ```ts
@@ -76,8 +94,9 @@ const engine = createNodeEngine({
     models: { paint: "anthropic/claude-sonnet-4.5", critique: "openai/gpt-4o-mini" },
     loop: { maxIterations: 3 },
   },
-  // v1: hand-authored plan (the LLM planner is a later slice)
-  plan: myThinPlan,
+  // Optional: pass a hand-authored `plan` to bypass the LLM planner (wires StaticPlanner).
+  // Omit it and the LLM coverage planner auto-distributes the whole menu across the screens.
+  // Optional: `themesDir` loads externalized themes/<id>.theme.json at runtime.
 });
 
 export async function POST(req: Request) {
@@ -85,8 +104,7 @@ export async function POST(req: Request) {
   const output = await engine.generate({
     items,
     brief: { presetId: botanicalPreset.id, density: "balanced" },
-    constraints: { aspect: "16:9", screens: 1, locale: "en-US", currency: "USD" },
-    plan: myThinPlan,
+    constraints: { aspect: "16:9", screens: 2, locale: "en-US", currency: "USD" },
   });
   return Response.json(output);
 }
@@ -98,13 +116,17 @@ erased at compile time and pulls in nothing at runtime.
 ## The QA correction loop
 
 ```
-plan → resolveTheme → paint → package → deterministicQA → visionQA → score → route ─┐
-                        ▲                                                            │
-          repair ───────┤  repair (deterministic token-swap, else LLM)              │
-                        │  paint  (minimal-change re-paint)                          │
-          re-plan ◀─────┘  plan   (structural capacity escalation)                  │
-                           freeze (ship best-scoring; flagged if budget spent) ◀────┘
+plan → resolveTheme → fetchImages → paint → package → deterministicQA → visionQA → score → route ─┐
+                                      ▲                                                            │
+                        repair ───────┤  repair (deterministic token-swap, else LLM)              │
+                                      │  paint  (minimal-change re-paint)                          │
+                        re-plan ◀─────┘  plan   (structural capacity escalation)                  │
+                                         freeze (ship best-scoring; flagged if budget spent) ◀────┘
 ```
+
+`plan` is the LLM coverage planner (category-level judgment + deterministic 100% coverage; pass a
+hand-authored `plan` to bypass it). `fetchImages` inlines item photos to `data:` URIs so paint/QA/
+render never touch the network.
 
 - **Deterministic pass** (headless Chromium, $0): WCAG contrast (**hard gate**), overflow,
   density, image-slot integrity, plus pure structural checks — binding integrity, token-lint,
@@ -134,13 +156,19 @@ is a correct offline fallback on its own.
 
 ## Scripts
 
-| Command              | What                                                              |
-| -------------------- | ----------------------------------------------------------------- |
-| `npm run verify`     | format-check → lint → typecheck → test (CI gate, hermetic)        |
-| `npm test`           | unit + e2e suite (fakes; no network/browser)                      |
-| `npm run test:live`  | gated adapter tests (needs `OPENROUTER_API_KEY` and/or a browser) |
-| `npm run build`      | ESM + `.d.ts` for `.`, `./node`, `./testing`                      |
-| `npm run playground` | run the engine on fixtures → `./playground-output`                |
+<!-- AUTO-GENERATED:scripts (from package.json — regenerate, don't hand-edit) -->
+
+| Command                 | What                                                                |
+| ----------------------- | ------------------------------------------------------------------- |
+| `npm run verify`        | format-check → lint → typecheck → test (CI gate, hermetic)          |
+| `npm test`              | unit + e2e suite (fakes; no network/browser)                        |
+| `npm run test:live`     | gated adapter tests (needs `OPENROUTER_API_KEY` and/or a browser)   |
+| `npm run build`         | bake motion bundle (prebuild), then ESM + `.d.ts` for the 3 entries |
+| `npm run playground`    | run the engine on fixtures → `./playground-output`                  |
+| `npm run try`           | drive the real Node engine on a menu end-to-end (needs a key)       |
+| `npm run regen:samples` | regenerate the `samples/` fixtures from source menus                |
+
+<!-- /AUTO-GENERATED:scripts -->
 
 ## Extending
 
@@ -150,7 +178,9 @@ stages, or LLM vendors implement a small interface and wire in at the compositio
 
 ## Status / scope
 
-v1 is the walking skeleton (spec §7): one screen, one preset (botanical), hand-authored
-plan, the full QA loop. Deferred (§8): the LLM planner + multi-screen (`screens:"auto"`),
-brief-driven theme extension, image-model backgrounds, hide+reflow out-of-stock, and the
-runtime gray-out patcher (a downstream service — the binding it relies on already ships).
+The walking skeleton (spec §7) plus several §8 slices now ship: the **LLM coverage planner**
+distributing the whole menu across **multiple screens** (hand-authored `plan` still bypasses it),
+**externalized JSON themes** (`botanical`, `bubblegum`), and an **item-photo carousel** (photos
+fetched and inlined as offline `data:` URIs). Still deferred (§8): brief-driven theme generation,
+image-model-generated backgrounds, hide+reflow out-of-stock, and the runtime gray-out patcher (a
+downstream service — the binding it relies on already ships).
