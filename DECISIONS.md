@@ -257,3 +257,16 @@ appropriate recipes for sparse-hero vs. dense-table boards, and cross-board vari
 100% menu-coverage guarantee is untouched (blueprints are presentation, not allocation) and
 `fixed` invariants are visual-only and **never count-reducing** (item coverage stays enforced by
 the binding-integrity check). Adding a layout is a data edit, not an engine change.
+
+## D18 — Brand content is a per-run input; logo resolves at the Node root, fails loud
+
+Brand (logo + optional name/tagline) is an optional `brand` field on `GenerateInput`, not a theme
+property — a venue's logo is theirs, independent of the chosen theme. Brand _colour_ is excluded:
+`brief.palette` token overrides already cover it. The logo `src` accepts a `data:` URI, an
+`http(s)://` URL, or a local fs path (bare or `file://`), resolved to a data-URI at the Node
+composition root (`createNodeEngine`) via `resolveAssetToDataUri`, so the pure core stays hermetic.
+The painter emits `<img data-brand-logo>` with no src and the packager injects the data-URI at
+package time (reusing the item-photo placeholder scheme). Unlike item photos (which degrade to a
+placeholder), an unreadable logo throws `BrandAssetError` — a logo the caller explicitly pointed at
+that can't be read is a real misconfiguration. A `brand-binding` structural check guarantees the
+logo renders and stays inlined.

@@ -37,6 +37,12 @@ flowchart LR
     IN --> ENG --> OUT
 ```
 
+**Brand content (D18).** `GenerateInput.brand` optionally carries a logo (+ name/tagline) rendered
+as a header band on every screen. `createNodeEngine` resolves the logo `src` (URL / fs path / data:)
+to a data-URI before the pure pipeline runs (`src/adapters/image/asset-resolver.ts`); the painter
+emits an `<img data-brand-logo>` placeholder and the packager inlines it, so the artifact stays
+offline-safe. The `checkBrandBinding` QA check guarantees the logo actually renders.
+
 ## 1. Design tenets (spec §10 + the build brief)
 
 1. **Pure deterministic core, I/O behind ports.** No network, browser, clock, or

@@ -10,11 +10,13 @@ An LLM **planner** allocates the whole menu across the requested screen count (d
 coverage code guarantees nothing is dropped); each screen is then painted freely by an LLM "on
 rails", corrected by a generator–critic QA loop until it passes (or the iteration budget trips),
 then frozen. Themes (`botanical`, `bubblegum`) are externalized JSON bundles; item photos are
-inlined as `data:` URIs before paint so the whole pipeline is offline-safe.
+inlined as `data:` URIs before paint so the whole pipeline is offline-safe. Optional `brand` input
+(`{ logo?: { src, alt? }, name?, tagline? }`) renders a logo header band on every screen; the logo
+`src` may be a URL, a local fs path, or a data-URI (resolved to a data-URI at the Node root — D18).
 
 The behaviour spec is the source of truth:
 `docs/superpowers/specs/2026-06-22-display-content-generation-engine-design.md`.
-`ARCHITECTURE.md` documents structure; `DECISIONS.md` logs every interpretation as **D1–D16**
+`ARCHITECTURE.md` documents structure; `DECISIONS.md` logs every interpretation as **D1–D18**
 (cite these when changing a load-bearing decision). Read those before non-trivial changes.
 
 ## Commands
