@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { ContentEngineError, ValidationError } from "./errors";
+import { BrandAssetError, ContentEngineError, ValidationError } from "./errors";
 import { parseOrThrow } from "./parse";
-import { canonicalItemSchema, generateInputSchema, themePresetSchema } from "./schemas";
+import {
+  brandInputSchema,
+  canonicalItemSchema,
+  generateInputSchema,
+  themePresetSchema,
+} from "./schemas";
 
 describe("canonicalItemSchema", () => {
   it("defaults `available` to true", () => {
@@ -132,5 +137,39 @@ describe("parseOrThrow", () => {
       expect(err.message).toContain("item");
       expect(Array.isArray(err.details?.["issues"])).toBe(true);
     }
+  });
+});
+
+describe("brand input", () => {
+  const base = {
+    items: [{ id: "p1", name: "Pizza", category: "Mains", price: 9 }],
+    brief: { presetId: "botanical" },
+  };
+
+  it("accepts a logo with name and tagline", () => {
+    const parsed = generateInputSchema.parse({
+      ...base,
+      brand: {
+        logo: { src: "data:image/png;base64,AAAA", alt: "Acme" },
+        name: "Acme",
+        tagline: "Fresh",
+      },
+    });
+    expect(parsed.brand?.name).toBe("Acme");
+    expect(parsed.brand?.logo?.src).toBe("data:image/png;base64,AAAA");
+  });
+
+  it("accepts input with no brand (backward compatible)", () => {
+    expect(generateInputSchema.parse(base).brand).toBeUndefined();
+  });
+
+  it("rejects an empty logo src", () => {
+    expect(() => brandInputSchema.parse({ logo: { src: "" } })).toThrow();
+  });
+
+  it("BrandAssetError carries the stable code", () => {
+    const err = new BrandAssetError("nope");
+    expect(err.code).toBe("BRAND_ASSET");
+    expect(err).toBeInstanceOf(BrandAssetError);
   });
 });

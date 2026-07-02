@@ -338,6 +338,24 @@ export const posterSchema = z.object({
   height: z.number().int().positive(),
 });
 
+/* ------------------------------------------------------------------ brand (D18) */
+
+/** A brand logo source: a data: URI, an http(s) URL, or a local fs path. The Node composition
+ * root resolves URL/path to a data-URI before the pure core sees it (hermetic boundary). */
+export const brandLogoSchema = z.object({
+  src: z.string().min(1),
+  /** Accessibility / fallback text for the logo image. */
+  alt: z.string().optional(),
+});
+
+/** Optional per-run brand content, rendered as a header band on every screen. Brand *colour*
+ * is intentionally NOT here — `brief.palette` token overrides already cover it (D18). */
+export const brandInputSchema = z.object({
+  logo: brandLogoSchema.optional(),
+  name: z.string().min(1).optional(),
+  tagline: z.string().min(1).optional(),
+});
+
 /* ------------------------------------------------------------------ generate() I/O (§3) */
 
 export const generateInputSchema = z.object({
@@ -347,6 +365,8 @@ export const generateInputSchema = z.object({
   constraints: generateConstraintsSchema.prefault({}),
   /** Optional hand-authored plan (v1, §5.4). When absent the `Planner` port produces it. */
   plan: thinPlanSchema.optional(),
+  /** Optional brand content (logo + name/tagline) rendered as a header band (D18). */
+  brand: brandInputSchema.optional(),
 });
 
 export const generateOutputSchema = z.object({

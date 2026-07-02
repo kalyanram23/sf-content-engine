@@ -14,6 +14,7 @@ export type ContentEngineErrorCode =
   | "LLM_CONTRACT"
   | "QA_BUDGET"
   | "CONFIG"
+  | "BRAND_ASSET"
   | "INTERNAL";
 
 export interface ContentEngineErrorOptions {
@@ -99,5 +100,13 @@ export class QaBudgetError extends ContentEngineError {
 export class ConfigError extends ContentEngineError {
   constructor(message: string, options?: ContentEngineErrorOptions) {
     super("CONFIG", message, options);
+  }
+}
+
+/** A brand asset (logo) could not be read/fetched from its source (fs path or URL). Unlike item
+ * photos (which degrade to a placeholder), a logo the caller explicitly pointed at fails loud. */
+export class BrandAssetError extends ContentEngineError {
+  constructor(message: string, options?: ContentEngineErrorOptions) {
+    super("BRAND_ASSET", message, options);
   }
 }

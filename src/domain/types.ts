@@ -2,6 +2,8 @@ import type { z } from "zod";
 
 import type {
   blueprintAppliesWhenSchema,
+  brandInputSchema,
+  brandLogoSchema,
   canonicalItemSchema,
   componentRecipeSchema,
   densitySchema,
@@ -39,6 +41,9 @@ export type CanonicalItem = z.infer<typeof canonicalItemSchema>;
 export type Density = z.infer<typeof densitySchema>;
 export type ThemeBrief = z.infer<typeof themeBriefSchema>;
 export type GenerateConstraints = z.infer<typeof generateConstraintsSchema>;
+
+export type BrandLogo = z.infer<typeof brandLogoSchema>;
+export type BrandInput = z.infer<typeof brandInputSchema>;
 
 export type Representation = z.infer<typeof representationSchema>;
 export type PlanSection = z.infer<typeof planSectionSchema>;
