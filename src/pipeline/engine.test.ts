@@ -209,4 +209,18 @@ describe("createEngine — end-to-end pipeline (fakes)", () => {
     const engine = createFakeEngine();
     await expect(engine.generate({ items: [] })).rejects.toThrow(/Invalid generate input/);
   });
+
+  it("renders and inlines a brand logo header when brand content is provided", async () => {
+    const logo = "data:image/png;base64,AAAABBBBCCCC";
+    const engine = createFakeEngine({ observations: [cleanObservation()] });
+    const out = await engine.generate({
+      ...fixtures.input,
+      brand: { logo: { src: logo, alt: "Acme" }, name: "Acme Diner", tagline: "Fresh daily" },
+    });
+    const screen = out.screens[0]!;
+    expect(screen.html).toContain("data-brand-logo");
+    expect(screen.html).toContain(logo); // packager injected the resolved data-URI
+    expect(screen.html).toContain("Acme Diner");
+    expect(out.qaReport.screens[0]!.passed).toBe(true); // brand-binding check passes
+  });
 });

@@ -1,4 +1,4 @@
-import type { CanonicalItem, PlanScreen, Representation } from "../../domain/types";
+import type { BrandInput, CanonicalItem, PlanScreen, Representation } from "../../domain/types";
 import type { PaintRequest, Painter } from "../../ports/painter";
 
 /**
@@ -9,7 +9,7 @@ import type { PaintRequest, Painter } from "../../ports/painter";
  */
 export class FakePainter implements Painter {
   paint(request: PaintRequest): Promise<string> {
-    return Promise.resolve(renderScreen(request.planScreen, request.items));
+    return Promise.resolve(renderScreen(request.planScreen, request.items, request.brand));
   }
 }
 
@@ -85,7 +85,24 @@ function renderCarousel(screen: PlanScreen, byId: Map<string, CanonicalItem>): s
   );
 }
 
-function renderScreen(screen: PlanScreen, items: readonly CanonicalItem[]): string {
+/** A minimal brand header band: an `<img data-brand-logo>` (NO src — the packager inlines it) plus
+ * optional name/tagline text. Token classes only, no external refs — stays bindable + offline-safe. */
+function renderBrandHeader(brand: BrandInput): string {
+  const logo = brand.logo
+    ? `<img data-brand-logo class="h-16" alt="${escapeHtml(brand.logo.alt ?? "brand logo")}">`
+    : "";
+  const name = brand.name ? `<span class="text-text">${escapeHtml(brand.name)}</span>` : "";
+  const tagline = brand.tagline
+    ? `<span class="text-muted">${escapeHtml(brand.tagline)}</span>`
+    : "";
+  return `<header class="brand-header flex items-center gap-3 p-4" data-motion="fade-in">${logo}${name}${tagline}</header>`;
+}
+
+function renderScreen(
+  screen: PlanScreen,
+  items: readonly CanonicalItem[],
+  brand?: BrandInput,
+): string {
   const byId = new Map(items.map((i) => [i.id, i]));
   const sections = screen.sections
     .map((section) => {
@@ -103,5 +120,6 @@ function renderScreen(screen: PlanScreen, items: readonly CanonicalItem[]): stri
     .join("");
 
   const carousel = renderCarousel(screen, byId);
-  return `<main class="screen grid gap-4 p-6">${carousel}${sections}</main>`;
+  const header = brand !== undefined ? renderBrandHeader(brand) : "";
+  return `<main class="screen grid gap-4 p-6">${header}${carousel}${sections}</main>`;
 }
