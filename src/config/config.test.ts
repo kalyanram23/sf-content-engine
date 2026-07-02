@@ -58,4 +58,19 @@ describe("loadEngineConfig", () => {
   it("rejects structurally invalid config with a ValidationError-coded failure", () => {
     expect(() => loadEngineConfig({ loop: { maxIterations: 0 } })).toThrow(/Invalid engine config/);
   });
+
+  it("defaults reasoning per role (plan thinks, paint is bounded) plus a request timeout", () => {
+    const config = defaultEngineConfig();
+    expect(config.models.reasoning.plan).toEqual({ enabled: true });
+    expect(config.models.reasoning.paint).toEqual({ effort: "low" });
+    expect(config.models.reasoning.critique).toBeUndefined();
+    expect(config.models.requestTimeoutMs).toBe(300000);
+  });
+
+  it("overrides one role's reasoning while keeping sibling defaults", () => {
+    const config = loadEngineConfig({ models: { reasoning: { paint: { maxTokens: 4000 } } } });
+    expect(config.models.reasoning.paint).toEqual({ maxTokens: 4000 });
+    // plan keeps its default even though only paint was overridden (per-field defaults)
+    expect(config.models.reasoning.plan).toEqual({ enabled: true });
+  });
 });

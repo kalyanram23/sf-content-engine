@@ -3,6 +3,7 @@ import { ContentEngineError, UnsupportedConstraintError } from "../domain/errors
 import { parseOrThrow } from "../domain/parse";
 import { generateInputSchema, generateOutputSchema, thinPlanSchema } from "../domain/schemas";
 import type { GenerateInput, GenerateOutput, ThinPlan } from "../domain/types";
+import type { RequestCorrelation } from "../ports/correlation";
 import type { EnginePorts } from "../ports/index";
 import { compileGraph, recursionLimitFor } from "./graph";
 import type { FrozenScreen, NodeContext } from "./state";
@@ -37,6 +38,7 @@ export function createEngine(ports: EnginePorts, config?: unknown): ContentEngin
     parsed: GenerateInput,
     plan: ThinPlan,
     index: number,
+    runId: string,
   ): Promise<FrozenScreen> {
     const threadId = ports.idGenerator.next("run");
     ports.logger?.info(
@@ -46,7 +48,7 @@ export function createEngine(ports: EnginePorts, config?: unknown): ContentEngin
     let finalState;
     try {
       finalState = await graph.invoke(
-        { input: parsed, plan, screenIndex: index },
+        { input: parsed, plan, screenIndex: index, runId },
         { configurable: { thread_id: threadId }, recursionLimit },
       );
     } catch (error) {
@@ -70,10 +72,14 @@ export function createEngine(ports: EnginePorts, config?: unknown): ContentEngin
   }
 
   /** Resolve + validate the thin plan (caller-supplied, else the Planner port). */
-  async function resolvePlan(parsed: GenerateInput): Promise<ThinPlan> {
+  async function resolvePlan(parsed: GenerateInput, runId: string): Promise<ThinPlan> {
+    const correlation: RequestCorrelation = {
+      runId,
+      ...(parsed.brief.restaurant !== undefined ? { restaurant: parsed.brief.restaurant } : {}),
+    };
     return parseOrThrow(
       thinPlanSchema,
-      parsed.plan ?? (await ports.planner.plan(parsed)),
+      parsed.plan ?? (await ports.planner.plan(parsed, correlation)),
       "thin plan",
     );
   }
@@ -81,15 +87,19 @@ export function createEngine(ports: EnginePorts, config?: unknown): ContentEngin
   return {
     async plan(input: unknown): Promise<ThinPlan> {
       const parsed = parseOrThrow(generateInputSchema, input, "generate input");
-      return resolvePlan(parsed);
+      return resolvePlan(parsed, ports.idGenerator.next("run"));
     },
 
     async generate(input: unknown): Promise<GenerateOutput> {
       const parsed = parseOrThrow(generateInputSchema, input, "generate input");
 
+      // One run id for the whole invocation: groups the planner + every board's calls under a
+      // single trace id, while each board's session id stays distinct (D15, observability).
+      const runId = ports.idGenerator.next("run");
+
       // The caller authors the allocation: one PlanScreen per board. Resolve the plan once
       // (caller-supplied, else the Planner port) and render every screen in it.
-      const plan = await resolvePlan(parsed);
+      const plan = await resolvePlan(parsed, runId);
 
       // `constraints.screens` (when a number) must agree with the plan's board count.
       const requested = parsed.constraints.screens;
@@ -100,11 +110,21 @@ export function createEngine(ports: EnginePorts, config?: unknown): ContentEngin
         );
       }
 
-      // Render boards sequentially — each is an independent QA loop (own thread/checkpointer).
-      const frozen: FrozenScreen[] = [];
-      for (let i = 0; i < plan.screens.length; i += 1) {
-        frozen.push(await renderScreen(parsed, plan, i));
-      }
+      // Render boards with bounded concurrency — each is an independent QA loop (own
+      // thread/checkpointer/best). Results are written by index so screen order is preserved
+      // regardless of completion order. Default concurrency is 1 (sequential, unchanged).
+      const frozen: FrozenScreen[] = new Array<FrozenScreen>(plan.screens.length);
+      const workers = Math.max(
+        1,
+        Math.min(resolvedConfig.execution.boardConcurrency, plan.screens.length),
+      );
+      let nextIndex = 0;
+      const runWorker = async (): Promise<void> => {
+        for (let i = nextIndex++; i < plan.screens.length; i = nextIndex++) {
+          frozen[i] = await renderScreen(parsed, plan, i, runId);
+        }
+      };
+      await Promise.all(Array.from({ length: workers }, runWorker));
 
       const output: GenerateOutput = {
         screens: frozen.map((f) => f.screen),

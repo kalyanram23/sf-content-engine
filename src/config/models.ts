@@ -7,6 +7,30 @@ export const modelRoleSchema = z.enum(["plan", "paint", "critique", "repair", "a
 export type ModelRole = z.infer<typeof modelRoleSchema>;
 
 /**
+ * Per-role reasoning control, mapped to OpenRouter's `reasoning` request field by the adapter
+ * (`src/adapters/openrouter/client.ts`). Every field is optional so a role tunes only what it needs.
+ */
+export const reasoningSettingSchema = z.object({
+  /** Force reasoning on/off; when unset the model's own default applies. */
+  enabled: z.boolean().optional(),
+  /**
+   * OpenAI-style effort bucket — the lever models WITHOUT a hard reasoning budget actually honour
+   * (e.g. z-ai/GLM): OpenRouter maps `maxTokens` to an effort level for them, so prefer `effort`
+   * directly there.
+   */
+  effort: z.enum(["none", "minimal", "low", "medium", "high", "xhigh", "max"]).optional(),
+  /**
+   * Anthropic-style hard reasoning-token budget. A real cap only on Gemini / Anthropic /
+   * Qwen-thinking models; elsewhere OpenRouter normalises it to an `effort` level.
+   */
+  maxTokens: z.number().int().positive().optional(),
+  /** Drop reasoning tokens from the response body (the reasoning still happens). */
+  exclude: z.boolean().optional(),
+});
+
+export type ReasoningSetting = z.infer<typeof reasoningSettingSchema>;
+
+/**
  * OpenRouter model routing (D1). Each role maps to a model id; swapping a model is a data
  * edit. The §9 caution is encoded as defaults, picked for highest-quality-per-dollar:
  * `paint` is a strong, cost-efficient HTML/coding model (GLM-5.2 — taste/layout at a fraction
@@ -37,6 +61,27 @@ export const modelRoutingSchema = z.object({
       "google/gemini-3.5-flash",
       "google/gemini-3.1-pro-preview",
     ]),
+  /**
+   * Per-role reasoning control. Defaults: `plan` thinks (judgment-heavy, one cheap call); `paint`
+   * is bounded to LOW effort (long-form HTML where unbounded reasoning starves the content budget
+   * and can return an empty body — the screen-3 failure). `critique`/`repair`/`adjudicate` keep the
+   * model default. Override per role, e.g. `paint: { maxTokens: 4000 }`.
+   */
+  reasoning: z
+    .object({
+      plan: reasoningSettingSchema.prefault({ enabled: true }),
+      paint: reasoningSettingSchema.prefault({ effort: "low" }),
+      critique: reasoningSettingSchema.optional(),
+      repair: reasoningSettingSchema.optional(),
+      adjudicate: reasoningSettingSchema.optional(),
+    })
+    .prefault({}),
+  /**
+   * Per-request timeout (ms) for every OpenRouter call, set on the SDK client so a stalled call
+   * (e.g. a dead socket) can't hang the run for minutes — the SDK default is 10 min. With `paint`
+   * reasoning bounded above, paints finish well inside this.
+   */
+  requestTimeoutMs: z.number().int().positive().default(300000),
 });
 
 export type ModelRouting = z.infer<typeof modelRoutingSchema>;

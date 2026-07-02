@@ -4,6 +4,7 @@ import type { FindingSource, FindingTag, QaFinding, Severity } from "../domain/t
  * (rules-as-data), so these are conveniences, not an exhaustive enum. */
 export const FindingKind = {
   Contrast: "contrast",
+  Legibility: "legibility",
   Overflow: "overflow",
   OverflowCapacity: "overflow-capacity",
   Density: "density",

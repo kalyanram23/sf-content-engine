@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { initLogger } from "braintrust";
+
 import { loadEngineConfig } from "../config/index";
 import type { ThinPlan } from "../domain/types";
 import { createEngine, type ContentEngine } from "../pipeline/engine";
@@ -53,6 +55,14 @@ export interface NodeEngineOptions {
   logger?: Logger;
   /** Optional per-iteration artifact capture (HTML/screenshot/findings) for debugging. */
   debug?: DebugSink;
+  /**
+   * Opt into Braintrust tracing. When set, the engine initializes a Braintrust logger (under
+   * `projectName`, default `"content-engine"`) and auto-instruments every LLM call via `wrapOpenAI`.
+   * When omitted (default) Braintrust is NOT initialized — the only tracing is OpenRouter Broadcast
+   * (`session_id` + `trace`), which needs no extra dependency. Requires Braintrust credentials in the
+   * environment / local Braintrust config when enabled.
+   */
+  braintrust?: { projectName?: string };
 }
 
 /**
@@ -61,9 +71,22 @@ export interface NodeEngineOptions {
  * load (D11). Deterministic repairs are pure-core, so the LLM repairer is the fallback (D13).
  */
 export function createNodeEngine(options: NodeEngineOptions): ContentEngine {
+  // Braintrust tracing is opt-in: only initialize the logger (and client-side auto-instrumentation)
+  // when the caller asked for it. The default tracing path is OpenRouter Broadcast, which needs no
+  // external logger — so a plain run carries no Braintrust coupling. API key (when enabled) is picked
+  // up from the local Braintrust config automatically.
+  const braintrustEnabled = options.braintrust !== undefined;
+  if (braintrustEnabled) {
+    initLogger({ projectName: options.braintrust?.projectName ?? "content-engine" });
+  }
+
   const config = loadEngineConfig(options.config);
 
-  const clientOptions: OpenRouterClientOptions = { apiKey: options.openRouterApiKey };
+  const clientOptions: OpenRouterClientOptions = {
+    apiKey: options.openRouterApiKey,
+    timeoutMs: config.models.requestTimeoutMs,
+    braintrust: braintrustEnabled,
+  };
   if (options.appUrl) clientOptions.appUrl = options.appUrl;
   if (options.appName) clientOptions.appName = options.appName;
   const client = createOpenRouterClient(clientOptions);
@@ -81,14 +104,32 @@ export function createNodeEngine(options: NodeEngineOptions): ContentEngine {
       options.planner ??
       (options.plan
         ? new StaticPlanner(options.plan)
-        : new OpenRouterPlanner(client, config.models.plan, options.logger)),
+        : new OpenRouterPlanner(
+            client,
+            config.models.plan,
+            options.logger,
+            config.models.reasoning.plan,
+          )),
     themeRepository,
-    painter: new OpenRouterPainter(client, config.models.paint, options.logger),
+    painter: new OpenRouterPainter(
+      client,
+      config.models.paint,
+      options.logger,
+      config.models.reasoning.paint,
+    ),
     packager: new TailwindPackager(),
     browser: new PlaywrightBrowser(options.browser ?? {}),
-    visionCritic: new OpenRouterVisionCritic(client, config.models.critique),
+    visionCritic: new OpenRouterVisionCritic(
+      client,
+      config.models.critique,
+      config.models.reasoning.critique,
+    ),
     imageFetcher: new NodeImageFetcher(),
-    llmRepairer: new OpenRouterRepairer(client, config.models.repair),
+    llmRepairer: new OpenRouterRepairer(
+      client,
+      config.models.repair,
+      config.models.reasoning.repair,
+    ),
     clock: new SystemClock(),
     idGenerator: new SystemIdGenerator(),
     ...(options.logger ? { logger: options.logger } : {}),

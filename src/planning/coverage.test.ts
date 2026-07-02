@@ -151,6 +151,67 @@ describe("buildMenuDigest", () => {
   });
 });
 
+describe("imageSlot synthesis (matrix shared hero)", () => {
+  it("gives a matrix board an imageSlot cycling its photo items", () => {
+    const plan = expandLayoutToPlan(LAYOUT, MENU, 2);
+    const matrixScreen = plan.screens.find((s) =>
+      s.sections.some((sec) => sec.representation === "matrix"),
+    );
+    expect(matrixScreen?.imageSlot).toBeDefined();
+    // b1, b2, p1 carry photos in MENU; p2 does not.
+    expect(matrixScreen?.imageSlot?.items).toEqual(["b1", "b2", "p1"]);
+  });
+
+  it("does not synthesize a slot for a non-matrix board (strategy owns those heroes)", () => {
+    const plan = expandLayoutToPlan(LAYOUT, MENU, 2);
+    const gridScreen = plan.screens.find(
+      (s) => !s.sections.some((sec) => sec.representation === "matrix"),
+    );
+    expect(gridScreen).toBeDefined();
+    expect(gridScreen?.imageSlot).toBeUndefined();
+  });
+
+  it("synthesizes a slot for a table board flagged only by layoutHint (not representation)", () => {
+    const menu: CanonicalItem[] = [
+      item("b1", "Chicken Biryani", "Biryani", true),
+      item("b2", "Paneer Biryani", "Biryani", true),
+    ];
+    const plan = expandLayoutToPlan(
+      {
+        blocks: [
+          {
+            title: "Biryani",
+            categories: ["Biryani"],
+            // representation is grid, but the layoutHint marks it a price table.
+            representation: "grid",
+            layoutHint: "price table: rows = base dish, columns = style",
+          },
+        ],
+      },
+      menu,
+      1,
+    );
+    expect(plan.screens[0]?.imageSlot?.items).toEqual(["b1", "b2"]);
+  });
+
+  it("does not synthesize a slot when fewer than two matrix-board items have photos", () => {
+    const sparse: CanonicalItem[] = [
+      item("b1", "Chicken Biryani", "Biryani", true),
+      item("b2", "Paneer Biryani", "Biryani"),
+    ];
+    const plan = expandLayoutToPlan(
+      {
+        blocks: [
+          { title: "Biryani", categories: ["Biryani"], representation: "matrix", layoutHint: "" },
+        ],
+      },
+      sparse,
+      1,
+    );
+    expect(plan.screens[0]?.imageSlot).toBeUndefined();
+  });
+});
+
 describe("legibility warning (warn-and-cram)", () => {
   it("warns but does not throw when a board exceeds the ~10–20 ft budget", () => {
     const big: CanonicalItem[] = Array.from({ length: 30 }, (_, i) =>

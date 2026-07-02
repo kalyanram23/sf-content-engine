@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { ContentEngineError, ValidationError } from "./errors";
 import { parseOrThrow } from "./parse";
-import { canonicalItemSchema, generateInputSchema } from "./schemas";
+import { canonicalItemSchema, generateInputSchema, themePresetSchema } from "./schemas";
 
 describe("canonicalItemSchema", () => {
   it("defaults `available` to true", () => {
@@ -63,6 +63,54 @@ describe("generateInputSchema", () => {
       expect(error).toBeInstanceOf(ValidationError);
       // Path points at the offending nested location so the author can fix it.
       expect((error as ValidationError).message).toContain("plan.screens.0.sections.0.items");
+    }
+  });
+});
+
+describe("themePresetSchema component binds", () => {
+  const base = {
+    id: "t",
+    name: "T",
+    tokens: {
+      colors: { bg: "#000", surface: "#111", text: "#fff", price: "#fc0" },
+      fontFamilies: { body: "Inter" },
+      radius: { md: "1rem", full: "9999px" },
+    },
+    motion: [{ name: "fade-in", kind: "css" as const }],
+  };
+
+  it("accepts component binds that resolve to declared tokens", () => {
+    const preset = themePresetSchema.parse({
+      ...base,
+      components: [
+        {
+          id: "price-pill",
+          role: "price pill",
+          binds: { text: "price", bg: "surface" },
+          rule: "one per item",
+        },
+      ],
+    });
+    expect(preset.components).toHaveLength(1);
+  });
+
+  it("rejects a component bind naming an undeclared token, with an actionable path", () => {
+    try {
+      parseOrThrow(
+        themePresetSchema,
+        {
+          ...base,
+          components: [
+            { id: "price-pill", role: "price pill", binds: { bg: "nonexistent" }, rule: "x" },
+          ],
+        },
+        "theme preset",
+      );
+      expect.unreachable("should have thrown");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ValidationError);
+      expect((error as ValidationError).message).toContain("components.0.binds.bg");
+      expect((error as ValidationError).message).toContain("not a declared token");
     }
   });
 });

@@ -1,11 +1,14 @@
 import type { RepairResponse } from "../domain/contracts";
 import type { QaFinding, ResolvedTheme } from "../domain/types";
+import type { RequestCorrelation } from "./correlation";
 
 export interface LlmRepairRequest {
   html: string;
   theme: ResolvedTheme;
   /** The mechanical findings to fix. */
   findings: QaFinding[];
+  /** Observability correlation for this call (run/board/iteration), threaded to OpenRouter Broadcast. */
+  correlation?: RequestCorrelation;
 }
 
 /**

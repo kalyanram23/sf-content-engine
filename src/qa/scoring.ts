@@ -1,6 +1,7 @@
-import type { VisionRubricConfig } from "../config/rubric";
+import type { RubricDimension, VisionRubricConfig } from "../config/rubric";
 import { severityAtLeast } from "../domain/severity";
 import type { QaFinding, Severity } from "../domain/types";
+import { decideGate } from "./gate";
 
 /**
  * Scoring + the total-order comparator (D12). `best`-by-score is maintained by an explicit
@@ -26,19 +27,21 @@ export interface ScreenScore {
   passed: boolean;
 }
 
+/** True when a vision finding fails this rubric dimension (at/above its fail severity). */
+function dimensionFailed(findings: readonly QaFinding[], dim: RubricDimension): boolean {
+  return findings.some(
+    (f) =>
+      f.source === "vision" && f.kind === dim.id && severityAtLeast(f.severity, dim.failAtSeverity),
+  );
+}
+
 /** Weighted fraction of rubric dimensions that did not fail (spec §5.6 vision pass). */
 export function rubricScore(findings: readonly QaFinding[], rubric: VisionRubricConfig): number {
   const totalWeight = rubric.dimensions.reduce((sum, d) => sum + d.weight, 0);
   if (totalWeight === 0) return 1;
   let passWeight = 0;
   for (const dim of rubric.dimensions) {
-    const failed = findings.some(
-      (f) =>
-        f.source === "vision" &&
-        f.kind === dim.id &&
-        severityAtLeast(f.severity, dim.failAtSeverity),
-    );
-    if (!failed) passWeight += dim.weight;
+    if (!dimensionFailed(findings, dim)) passWeight += dim.weight;
   }
   return passWeight / totalWeight;
 }
@@ -49,18 +52,16 @@ export function scoreScreen(
   blockingSeverity: Severity = DEFAULT_BLOCKING_SEVERITY,
 ): ScreenScore {
   const penalty = findings.reduce((sum, f) => sum + SEVERITY_PENALTY[f.severity], 0);
-  const hardGateFailures = findings.filter((f) => f.hardGate).length;
   const rubric01 = rubricScore(findings, rubric);
-  // Deterministic findings (overflow/density/binding/token-lint) and hard gates (contrast) hard-
-  // block a pass. VISION (critic) quality is graded by the weighted rubric instead — a single
-  // reflexive critic nit ("balance: some dead space") must not hard-block an otherwise-good screen;
-  // a genuinely poor screen still fails because enough rubric dimensions drop it below threshold.
-  const blocking =
-    hardGateFailures > 0 ||
-    findings.some(
-      (f) => f.source === "deterministic" && severityAtLeast(f.severity, blockingSeverity),
-    );
-  const passed = !blocking && rubric01 >= rubric.passThreshold;
+  // The pass/block policy lives in decideGate (qa/gate.ts) — one auditable predicate shared
+  // with anything else that needs the decision. On top of the gate, a rubric dimension marked
+  // `blocking: true` fails the pass on its own when it fails hard — so a craft-critical
+  // dimension (e.g. hierarchy) can drive the loop without every critic nit doing so.
+  const { blocking, hardGateFailures } = decideGate(findings, blockingSeverity);
+  const failedBlockingDimension = rubric.dimensions.some(
+    (dim) => dim.blocking && dimensionFailed(findings, dim),
+  );
+  const passed = !blocking && !failedBlockingDimension && rubric01 >= rubric.passThreshold;
   // Ordering: hard gates dominate, then total penalty, then rubric score as the tiebreak.
   const total = -hardGateFailures * 1_000_000 - penalty * 1_000 + rubric01;
   return { total, rubricScore: rubric01, penalty, hardGateFailures, passed };

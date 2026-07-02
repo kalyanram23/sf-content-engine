@@ -1,5 +1,5 @@
 import type { QaConfig } from "../config/qa";
-import type { QaFinding } from "../domain/types";
+import type { PlanScreen, QaFinding } from "../domain/types";
 import type { RenderObservation } from "../ports/browser";
 import { contrastRatio, requiredRatio } from "./contrast";
 import { FindingKind, makeFinding } from "./finding";
@@ -62,6 +62,56 @@ export function checkContrast(obs: RenderObservation, qa: QaConfig): QaFinding[]
   return findings;
 }
 
+/**
+ * Legibility floor (read across a room): item-bound text below the configured px floor is a
+ * layout failure → re-paint. Only samples INSIDE an item node are held to the floor (small
+ * chrome/footnotes are legitimate); items in a `matrix` section get the relaxed table floor.
+ * Offenders are aggregated into ONE finding so a shrunken 30-row board doesn't flood the loop.
+ */
+export function checkLegibility(
+  obs: RenderObservation,
+  qa: QaConfig,
+  planScreen?: PlanScreen,
+): QaFinding[] {
+  const matrixItemIds = new Set<string>(
+    (planScreen?.sections ?? [])
+      .filter((s) => s.representation === "matrix")
+      .flatMap((s) => s.items),
+  );
+  const offenders = obs.textSamples
+    .filter((s) => s.itemId !== undefined)
+    .map((s) => ({
+      sample: s,
+      floor: matrixItemIds.has(s.itemId ?? "")
+        ? qa.legibility.matrixItemMinPx
+        : qa.legibility.itemMinPx,
+    }))
+    .filter(({ sample, floor }) => sample.fontPx < floor);
+  if (offenders.length === 0) return [];
+
+  const worst = offenders.reduce((a, b) => (a.sample.fontPx <= b.sample.fontPx ? a : b));
+  return [
+    makeFinding({
+      kind: FindingKind.Legibility,
+      source: "deterministic",
+      severity: "major",
+      tag: "layout",
+      region: worst.sample.ref,
+      ...(worst.sample.itemId !== undefined ? { itemId: worst.sample.itemId } : {}),
+      message:
+        `${offenders.length} item text element(s) below the legibility floor ` +
+        `(worst: "${worst.sample.ref}" at ${worst.sample.fontPx.toFixed(1)}px < ${worst.floor}px). ` +
+        `Enlarge the text — reclaim empty space instead of shrinking type.`,
+      data: {
+        count: offenders.length,
+        offenders: offenders
+          .slice(0, 8)
+          .map(({ sample, floor }) => ({ ref: sample.ref, fontPx: sample.fontPx, floor })),
+      },
+    }),
+  ];
+}
+
 /** Content overflowing the fixed-size screen → re-paint (layout problem). */
 export function checkOverflow(obs: RenderObservation, qa: QaConfig): QaFinding[] {
   const tol = qa.overflowTolerancePx;
@@ -80,20 +130,31 @@ export function checkOverflow(obs: RenderObservation, qa: QaConfig): QaFinding[]
   ];
 }
 
-/** Density bounds — too empty (dead space) or too crammed → re-paint (§5.6). */
-export function checkDensity(obs: RenderObservation, qa: QaConfig): QaFinding[] {
-  const { minFill, maxFill } = qa.density;
+/**
+ * Density bounds — too empty (dead space) or too crammed → re-paint (§5.6). Plan-aware: a
+ * sparse board (few planned items) is held to the relaxed `sparseMinFill` floor, so an
+ * intentionally airy hero board isn't punished by a floor calibrated for full menus.
+ */
+export function checkDensity(
+  obs: RenderObservation,
+  qa: QaConfig,
+  planScreen?: PlanScreen,
+): QaFinding[] {
+  const { maxFill, sparseItemCount, sparseMinFill, underFillSeverity } = qa.density;
+  const itemCount = planScreen?.sections.reduce((n, s) => n + s.items.length, 0);
+  const sparse = itemCount !== undefined && itemCount <= sparseItemCount;
+  const minFill = sparse ? sparseMinFill : qa.density.minFill;
   if (obs.fillRatio < minFill) {
     return [
       makeFinding({
         kind: FindingKind.Density,
         source: "deterministic",
-        severity: "major",
+        severity: underFillSeverity,
         tag: "layout",
         message: `Screen is under-filled (${(obs.fillRatio * 100).toFixed(0)}% < ${(
           minFill * 100
-        ).toFixed(0)}%) — dead space.`,
-        data: { fillRatio: obs.fillRatio, minFill, kind: "under" },
+        ).toFixed(0)}%${sparse ? ", sparse-board floor" : ""}) — dead space.`,
+        data: { fillRatio: obs.fillRatio, minFill, kind: "under", ...(sparse ? { sparse } : {}) },
       }),
     ];
   }
@@ -132,11 +193,16 @@ export function checkImages(obs: RenderObservation): QaFinding[] {
 }
 
 /** All rendered checks except the viewport precondition (handled separately by the node). */
-export function runRenderedChecks(obs: RenderObservation, qa: QaConfig): QaFinding[] {
+export function runRenderedChecks(
+  obs: RenderObservation,
+  qa: QaConfig,
+  planScreen?: PlanScreen,
+): QaFinding[] {
   return [
     ...checkContrast(obs, qa),
+    ...checkLegibility(obs, qa, planScreen),
     ...checkOverflow(obs, qa),
-    ...checkDensity(obs, qa),
+    ...checkDensity(obs, qa, planScreen),
     ...checkImages(obs),
   ];
 }

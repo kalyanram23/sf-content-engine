@@ -1,11 +1,13 @@
 import type { PlanLayout } from "../domain/contracts";
 import type {
   CanonicalItem,
+  PlanImageSlot,
   PlanScreen,
   PlanSection,
   Representation,
   ThinPlan,
 } from "../domain/types";
+import { isMatrixBoard } from "./layout-strategy";
 
 /**
  * Coverage planning (pure core). The LLM planner decides STRUCTURE at the category level — order,
@@ -178,6 +180,36 @@ export function partitionContiguous(sizes: number[], k: number): number[] {
   return counts;
 }
 
+/** Photo carousel slots hold a handful of photos — enough to rotate, small enough to stay a hero. */
+const IMAGE_SLOT_MAX_PHOTOS = 6;
+
+/**
+ * Synthesize a board-level photo-carousel slot for a MATRIX board. The matrix layout strategy
+ * asks the painter for ONE shared rotating hero, but only a hand-authored plan ever carried the
+ * `imageSlot` naming which photos to cycle — the LLM-planner path had no way to reach the
+ * carousel. Grid boards are deliberately excluded: their per-section heroes already come from
+ * the layout strategy, and a board-level slot on top would double the hero.
+ */
+function synthesizeImageSlot(
+  sections: readonly PlanSection[],
+  byId: Map<string, CanonicalItem>,
+): PlanImageSlot | undefined {
+  // Same matrix test the blueprint selector + painter use (representation OR layoutHint), so a
+  // layoutHint-only table board still gets its shared-hero carousel.
+  if (!isMatrixBoard({ sections })) return undefined;
+  const photoIds: string[] = [];
+  for (const section of sections) {
+    for (const id of section.items) {
+      const item = byId.get(id);
+      if ((item?.images?.length ?? 0) > 0 && !photoIds.includes(id)) photoIds.push(id);
+      if (photoIds.length >= IMAGE_SLOT_MAX_PHOTOS) break;
+    }
+    if (photoIds.length >= IMAGE_SLOT_MAX_PHOTOS) break;
+  }
+  // A carousel needs at least two photos to rotate; below that the painter's own hero handling wins.
+  return photoIds.length >= 2 ? { items: photoIds } : undefined;
+}
+
 /** Throw if any menu item failed to land on a board — the non-negotiable coverage guarantee. */
 function assertCoverage(plan: ThinPlan, items: readonly CanonicalItem[]): void {
   const placed = new Set<string>();
@@ -221,12 +253,19 @@ export function expandLayoutToPlan(
     drafts.map((d) => d.size),
     boards,
   );
+  const byId = new Map(items.map((item) => [item.id, item]));
   const planScreens: PlanScreen[] = [];
   let cursor = 0;
   counts.forEach((count, i) => {
     const group = drafts.slice(cursor, cursor + count);
     cursor += count;
-    planScreens.push({ id: `screen-${i + 1}`, sections: group.map((d) => d.section) });
+    const sections = group.map((d) => d.section);
+    const imageSlot = synthesizeImageSlot(sections, byId);
+    planScreens.push({
+      id: `screen-${i + 1}`,
+      sections,
+      ...(imageSlot !== undefined ? { imageSlot } : {}),
+    });
   });
 
   const plan: ThinPlan = { screens: planScreens };

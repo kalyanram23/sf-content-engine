@@ -1,7 +1,21 @@
 {
   "id": "botanical",
   "name": "Botanical",
-  "prompt": "You are an expert digital-signage screen designer creating ONE self-contained screen for a 1920x1080 TV that guests read across a room. Visual identity for this theme: BOTANICAL — calm, premium, garden-fresh. Lean on the olive/sage accent and subtle leaf motifs; pair the Cormorant Garamond display face (titles) with Inter for body text; let the deep green background and generous negative space feel intentional and upscale. Design goals: FILL THE SCREEN — structure the root as a full-height column (min-h-screen flex flex-col) whose content area is flex-1 and uses a grid whose rows STRETCH so cards reach near the bottom edge; never leave the bottom half or any large band empty. Use large type and large cards so the layout reads as full, with even, modest margins. Strong title-led hierarchy: the screen title dominates (not oversized); section headers are clearly distinct from item names (larger and/or accent-coloured, with a divider); item names are large and high-contrast; the price sits beside the name. Keep each item's name + price as one tight block (never name-pinned-top / price-pinned-bottom, no hollow justify-between middle); within a stretched card, vertically centre that tight block. When the plan includes a photo carousel or item photos, make the photography a PROMINENT hero and the food look appetising. DECORATION: there is no pre-supplied background image — author your own botanical decoration as part of the design, drawn as inline SVG in the olive/sage palette. Give the screen an ambient backdrop of soft, organic leaf and branch line-art sitting behind the content, AND integrated accents that earn their place: a small flourish by the screen title, slim leaf or vine dividers between sections, a leaf motif beside section headers, and an illustrative sprig/leaf motif standing in for any item that has no photo. Keep it restrained and tasteful so it frames and elevates the menu rather than competing with the names and prices. Make it feel intentionally designed for THIS theme, not a generic grid — a guest should glance and immediately want to order.",
+  "design": {
+    "identity": "Visual identity for this theme: BOTANICAL — calm, premium, garden-fresh, like the menu of an upscale garden restaurant. Lean on the olive/sage accent and subtle leaf motifs; pair the Cormorant Garamond display face (titles) with Inter for body text; let the deep green background and generous negative space feel intentional and unhurried. When the plan includes a photo carousel or item photos, make the photography a PROMINENT hero and the food look appetising. DECORATION: there is no pre-supplied background image — author your own botanical decoration as part of the design, drawn as inline SVG in the olive/sage palette. Give the screen an ambient backdrop of soft, organic leaf and branch line-art sitting behind the content, AND integrated accents that earn their place: a small flourish by the screen title, slim leaf or vine dividers between sections, a leaf motif beside section headers, and an illustrative sprig/leaf motif standing in for any item that has no photo. Keep it restrained and tasteful so it frames and elevates the menu rather than competing with the names and prices.",
+    "do": [
+      "Let whitespace breathe — generous padding inside cards, calm and even margins",
+      "Serif display (Cormorant Garamond) for the screen title and section headers; Inter for names, prices and body",
+      "Thin, elegant section dividers — a hairline rule or a single slim vine flourish",
+      "Keep the palette to the olive/sage greens with the warm gold reserved for prices"
+    ],
+    "dont": [
+      "No neon, candy, or saturated colours — the palette stays muted and organic",
+      "No heavy borders, drop shadows, or glossy pill buttons",
+      "No cramped many-tiny-cards grids — fewer, larger cards with room around them",
+      "No decoration overlapping or competing with names and prices"
+    ]
+  },
   "tokens": {
     "colors": {
       "bg": "#1f2a24",
@@ -44,6 +58,26 @@
         "interval": 5000,
         "fade": 800
       }
+    }
+  ],
+  "components": [
+    {
+      "id": "price-pill",
+      "role": "price pill",
+      "binds": { "text": "price", "bg": "surface-strong" },
+      "rule": "The price sits on a solid surface beside the name; never a raw pill floating on a photo. Keep prices in tabular-nums."
+    },
+    {
+      "id": "section-header",
+      "role": "section header with leaf mark",
+      "binds": { "text": "accent-strong", "rule": "accent" },
+      "rule": "One per section — the serif header with a slim leaf/vine divider; clearly larger than item names."
+    },
+    {
+      "id": "sold-tag",
+      "role": "sold-out tag",
+      "binds": { "text": "sold" },
+      "rule": "Only on unavailable items; muted, never competing with available items."
     }
   ],
   "assets": {

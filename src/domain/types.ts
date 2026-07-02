@@ -1,8 +1,11 @@
 import type { z } from "zod";
 
 import type {
+  blueprintAppliesWhenSchema,
   canonicalItemSchema,
+  componentRecipeSchema,
   densitySchema,
+  layoutBlueprintSchema,
   findingSourceSchema,
   findingTagSchema,
   generateConstraintsSchema,
@@ -11,6 +14,7 @@ import type {
   itemSizeSchema,
   itemVariantSchema,
   motionPresetSchema,
+  planImageSlotSchema,
   planScreenSchema,
   planSectionSchema,
   posterSchema,
@@ -22,6 +26,7 @@ import type {
   selfContainedScreenSchema,
   severitySchema,
   themeBriefSchema,
+  themeDesignSchema,
   themePresetSchema,
   themeTokensSchema,
   thinPlanSchema,
@@ -37,11 +42,17 @@ export type GenerateConstraints = z.infer<typeof generateConstraintsSchema>;
 
 export type Representation = z.infer<typeof representationSchema>;
 export type PlanSection = z.infer<typeof planSectionSchema>;
+export type PlanImageSlot = z.infer<typeof planImageSlotSchema>;
 export type PlanScreen = z.infer<typeof planScreenSchema>;
 export type ThinPlan = z.infer<typeof thinPlanSchema>;
 
+export type BlueprintAppliesWhen = z.infer<typeof blueprintAppliesWhenSchema>;
+export type LayoutBlueprint = z.infer<typeof layoutBlueprintSchema>;
+
 export type MotionPreset = z.infer<typeof motionPresetSchema>;
 export type ThemeTokens = z.infer<typeof themeTokensSchema>;
+export type ThemeDesign = z.infer<typeof themeDesignSchema>;
+export type ComponentRecipe = z.infer<typeof componentRecipeSchema>;
 export type ThemePreset = z.infer<typeof themePresetSchema>;
 export type ResolvedTheme = z.infer<typeof resolvedThemeSchema>;
 

@@ -61,8 +61,9 @@ flowchart LR
 flowchart TD
     GO([generate]) --> PLAN
 
-    PLAN["plan<br/><i>Planner port</i> → ThinPlan<br/>(input.plan or StaticPlanner)"]
+    PLAN["plan<br/><i>Planner port (LLM by default)</i> → ThinPlan<br/>(OpenRouterPlanner; StaticPlanner when input.plan given)"]
     THEME["resolveTheme<br/><i>ThemeRepository</i> → preset<br/>+ apply brief perturbations"]
+    FETCH["fetchImages<br/><i>ImageFetcher port</i><br/>inline item photos → data: URIs (once per board)"]
     PAINT["paint<br/><i>Painter port (LLM)</i><br/>bespoke HTML on the rails"]
     PKG["package<br/><i>Packager port</i><br/>Tailwind→CSS · inline assets + motion"]
     DQA["deterministicQA<br/><i>BrowserPort</i> render @ exact viewport<br/>+ pure structural &amp; rendered checks"]
@@ -72,7 +73,7 @@ flowchart TD
     FREEZE["freeze<br/>lock BEST → screen + poster + report"]
     DONE([END])
 
-    PLAN --> THEME --> PAINT --> PKG --> DQA --> VQA --> SCORE
+    PLAN --> THEME --> FETCH --> PAINT --> PKG --> DQA --> VQA --> SCORE
     REPAIR --> PKG
     SCORE -->|"repair · mechanical &amp; deterministically fixable"| REPAIR
     SCORE -->|"paint · re-paint, minimal change"| PAINT
@@ -82,14 +83,22 @@ flowchart TD
 
     classDef llm fill:#2b3a31,color:#f3efe6,stroke:#8a9a5b;
     classDef io fill:#35463b,color:#f3efe6,stroke:#c2cf95;
-    class PAINT,VQA llm;
-    class PLAN,THEME,PKG,DQA io;
+    class PLAN,PAINT,VQA llm;
+    class THEME,FETCH,PKG,DQA io;
 ```
+
+> **Green nodes = LLM calls.** `plan`, `paint`, and `visionQA` always hit a model; `repair`
+> is an LLM call **only** when the deterministic token-swap can't fix the finding (it falls
+> back to the optional `LlmRepairer`), so it's left unmarked.
+>
+> Every LLM call (`plan`/`paint`/`critique`/`repair`) is stamped with a `RequestCorrelation`
+> (run/board/iteration + restaurant) threaded from the engine; the OpenRouter adapter turns it
+> into Broadcast `session_id` + `trace` for external observability — see §9.
 
 The cycle (`score → repair/paint/plan → … → score`) **is** the QA correction loop.
 
-- **Nodes** are pipeline stages: `plan, resolveTheme, paint, package, deterministicQA,
-visionQA, score, repair, freeze`. Each is a pure
+- **Nodes** are pipeline stages: `plan, resolveTheme, fetchImages, paint, package,
+deterministicQA, visionQA, score, repair, freeze`. Each is a pure
   `NodeFn = (ctx, state) => Promise<Partial<EngineState>>` over ports + config. **No node
   imports LangGraph.** `package` is its own node so "QA runs on what ships" is a graph
   invariant (D4); `paint`/`repair` are pure HTML producers.
@@ -137,6 +146,79 @@ flowchart TD
     RT -->|capacity overflow| re-plan
     RT -->|other blocking finding| re-paint
     RT -->|none / budget spent| freeze
+
+    classDef llm fill:#2b3a31,color:#f3efe6,stroke:#8a9a5b;
+    class VC llm;
+```
+
+> Green = LLM call: only the `VisionCritic` here; the rendered and structural checks are pure.
+
+### 2.2 How the plan is built (LLM judgment + deterministic coverage)
+
+`plan` runs **once per `generate()`** (not per board). The LLM only makes category-level
+judgment calls on a small, **id-free** digest; pure code does all the bookkeeping and
+**asserts 100 % coverage** — an LLM can't be trusted to enumerate 300+ ids without dropping
+some. Pass a hand-authored `plan` to bypass the LLM entirely (`StaticPlanner`).
+
+```mermaid
+flowchart TD
+    ITEMS["input.items: CanonicalItem[]"] --> DIG["buildMenuDigest()<br/>group by category · sample names<br/>(NO item ids leave here)"]
+    SCR["constraints.screens<br/>(number, or 'auto' → ceil(items / 40))"] --> UREQ
+    NOTES["brief.notes (optional)<br/>user direction — overrides defaults"] --> UREQ
+    DIG --> UREQ["describePlanRequest()<br/>user prompt: screens · aspect · digest JSON"]
+
+    SYS["SYSTEM prompt<br/>'plan BY CATEGORY, never list ids'<br/>cover every category once · balance<br/>combine shared-base cats → matrix"] --> LLM
+    UREQ --> LLM["Planner (LLM)<br/>requestStructured · planLayoutSchema"]
+    LLM --> LAYOUT["PlanLayout: ordered blocks[]<br/>title · categories[] · representation · layoutHint"]
+
+    LAYOUT --> EXP["expandLayoutToPlan() — PURE<br/>1 resolve categories → real item ids<br/>2 append any category the LLM forgot<br/>3 linear-partition DP packs blocks → exactly N boards<br/>4 assert every item placed (throws on a gap)"]
+    EXP --> PLAN["ThinPlan: screens[]<br/>each PlanScreen = sections + representation + layoutHint (+ imageSlot)"]
+
+    classDef llm fill:#2b3a31,color:#f3efe6,stroke:#8a9a5b;
+    classDef pure fill:#35463b,color:#f3efe6,stroke:#c2cf95;
+    class LLM llm;
+    class DIG,EXP pure;
+```
+
+### 2.3 How the painter prompt is built (theme owns the look, engine owns the rails)
+
+`paint` turns one `PlanScreen` into bespoke HTML. The prompt is two strings: a **system**
+prompt that is constant for a board (theme creative direction + the fixed engine contract)
+and a **user** prompt carrying that board's concrete data. On a re-paint only the user prompt
+grows (findings + previous HTML); the system prompt is unchanged. (`src/adapters/openrouter/painter.ts`.)
+
+```mermaid
+flowchart TD
+    subgraph SYSTEM["system prompt — buildSystem(theme) · constant per board"]
+        direction TB
+        BASE["theme.prompt<br/>(from themes/&lt;id&gt;.theme.json;<br/>DEFAULT_BASE_PROMPT if none)<br/><i>creative direction / visual identity</i>"]
+        CONTRACT["ENGINE_CONTRACT<br/>tokens-only · data-item-id/data-bind · data-motion<br/>self-contained · photo scheme (img, no src)<br/>contrast rules · gallery-fade carousel<br/>layout-hint/matrix · type-size mins · 'HTML only'"]
+    end
+
+    subgraph USER["user prompt — describeRequest(request) · per board"]
+        direction TB
+        U1["theme name · density · motif"]
+        U2["colour token NAMES (text-/bg-/border-)"]
+        U3["motion vocabulary (name · kind · params)"]
+        U4["locale · currency · target canvas (viewport)"]
+        U5["Plan: JSON(planScreen)"]
+        U6["LAYOUT STRATEGY<br/>matrix → table-first, 1 hero<br/>else → photo-led grid, hero per section"]
+        U7["Items: JSON(slimItems)<br/><i>image data-URIs stripped → photoCount</i>"]
+        U8["item ids WITH a photo (img allowlist)"]
+        U9["imageSlot → gallery-fade carousel (if any)"]
+        U10["RE-PAINT only: findings + previous HTML<br/>'make the MINIMAL change'"]
+    end
+
+    SYSTEM --> CALL
+    USER --> CALL["Painter (LLM) via OpenRouter<br/>model = models.paint · maxTokens 32000"]
+    CALL --> RAW["raw model output"]
+    RAW --> EXTRACT["extractScreenHtml()<br/>strip markdown fences + chain-of-thought<br/>before the first real tag"]
+    EXTRACT --> HTML["screen HTML (single root)<br/>→ package node"]
+
+    classDef llm fill:#2b3a31,color:#f3efe6,stroke:#8a9a5b;
+    classDef pure fill:#35463b,color:#f3efe6,stroke:#c2cf95;
+    class CALL llm;
+    class EXTRACT pure;
 ```
 
 ## 3. Module map
@@ -151,15 +233,16 @@ src/
   domain/
     schemas.ts              # Zod: CanonicalItem, ThemeBrief, GenerateInput/Output, ThinPlan,
                             #   ResolvedTheme, MotionPreset, QaFinding, QaReport, SelfContainedScreen, Poster
-    contracts.ts            # STRICT LLM contracts: PlanResponse, CritiqueResponse (additionalProperties:false)
+    contracts.ts            # STRICT LLM contracts: PlanLayout/PlanBlock (planner), CritiqueResponse (additionalProperties:false)
     types.ts                # z.infer types
     errors.ts               # ContentEngineError hierarchy (structured, typed)
 
   ports/
     index.ts                # barrel + EnginePorts
-    planner.ts theme-repository.ts painter.ts packager.ts
+    planner.ts theme-repository.ts painter.ts packager.ts image-fetcher.ts
     browser.ts              # BrowserPort + RenderObservation (sampled text fg/bg, fillRatio, scroll, images, actualViewport)
-    vision-critic.ts repairer.ts services.ts   # services = Clock, IdGenerator, Logger
+    vision-critic.ts repairer.ts services.ts   # services = Clock, IdGenerator, Logger, DebugSink (D15)
+    correlation.ts          # RequestCorrelation (run/board/iteration/restaurant) threaded to the LLM ports (§9)
 
   config/
     index.ts                # EngineConfig assembly + loadEngineConfig (deep-merge + validate + freeze)
@@ -173,8 +256,10 @@ src/
   theme/
     resolve.ts              # resolveTheme(preset, brief) → ResolvedTheme (pure; applies brief perturbations)
     presets/
-      index.ts              # InMemoryThemeRepository + registry
-      botanical.ts          # botanical preset: tokens + motion vocab + assets — DATA
+      index.ts              # InMemoryThemeRepository + createDefaultThemeRepository + registry (bundled fallback)
+      botanical.ts          # bundled botanical preset: tokens + motion vocab + assets — DATA
+                            #   (externalized JSON themes live in themes/<id>.theme.json at the repo root
+                            #    and override the bundled presets at runtime via FileThemeRepository)
 
   qa/
     contrast.ts             # WCAG relative luminance + ratio (pure math over rgba)
@@ -194,18 +279,21 @@ src/
   pipeline/
     state.ts                # EngineState schema + NodeContext (ports + config)
     nodes/
-      index.ts              # the node fns: plan, resolveTheme, paint, package, deterministicQA, visionQA, score, repair, freeze
+      index.ts              # the node fns: plan, resolveTheme, fetchImages, paint, package, deterministicQA, visionQA, score, repair, freeze
       shared.ts             # currentScreen / resolveScreenItems / plannedSectionItemIds helpers
     router.ts               # route(state, config) → Route (pure; sole termination authority)
     graph.ts                # StateGraph wiring + per-call compile (the ONLY LangGraph file; plan node id is "planContent")
     engine.ts               # createEngine(ports, config) → { generate }
 
   adapters/                 # Node-only concrete implementations
-    openrouter/             # client.ts (strict structured-output + validate + re-ask), painter/vision-critic/repairer
+    openrouter/             # client.ts (strict structured-output + validate + re-ask); planner/painter/vision-critic/repairer
+                            #   + correlation.ts (RequestCorrelation → Broadcast session_id/trace)
     playwright/browser.ts   # render at exact viewport+dpr, network-disabled; computed-style colour pre-filter + fillRatio + screenshot
     tailwind/packager.ts    # @tailwindcss/node compile (hermetic paths) + inline assets + inline Motion-runtime marker
-    planner/static-planner.ts
-    node-engine.ts          # createNodeEngine: composition root for real adapters
+    image/image-fetcher.ts  # NodeImageFetcher: fetch remote photos → data: URIs (offline-safe paint/QA)
+    theme/file-theme-repository.ts  # FileThemeRepository: load themes/<id>.theme.json at runtime, override bundled presets
+    planner/static-planner.ts       # StaticPlanner: hand-authored-plan bypass (no LLM)
+    node-engine.ts          # createNodeEngine: composition root (OpenRouterPlanner + FileThemeRepository by default)
 
   testing/
     fakes/                  # deterministic fakes for every port (+ scenario-scriptable painter/critic/browser)
@@ -291,8 +379,12 @@ export type {
   Clock,
   IdGenerator,
   Logger,
+  DebugSink, // optional capture() per scored candidate — off by default (D15)
+  DebugCapture,
   EnginePorts,
 } from "...";
+// NOTE: `ImageFetcher` + `RequestCorrelation` are part of `EnginePorts` but are currently
+// re-exported only from the `ports/` barrel, not this main entry.
 
 // Themes + engine
 export { botanicalPreset, InMemoryThemeRepository, createEngine } from "...";
@@ -306,20 +398,22 @@ export type { ContentEngine } from "..."; // { generate(input): Promise<Generate
 
 ## 5. Interfaces per swappable concern
 
-| Port                           | Responsibility                                                                        | Real adapter              | Fake                           |
-| ------------------------------ | ------------------------------------------------------------------------------------- | ------------------------- | ------------------------------ |
-| `Planner`                      | menu → `ThinPlan` (allocation + representation hints)                                 | `StaticPlanner` (v1)      | scripted plan                  |
-| `ThemeRepository`              | preset id → `ThemePreset` (tokens + motion + assets)                                  | `InMemoryThemeRepository` | in-memory                      |
-| `Painter`                      | plan-slice + theme → bespoke HTML (Tailwind + data-motion + bindings)                 | `OpenRouterPainter`       | scenario-scripted HTML         |
-| `Packager`                     | HTML + theme → self-contained artifact (Tailwind→CSS, inline assets + Motion runtime) | `TailwindPackager`        | deterministic inline transform |
-| `BrowserPort`                  | render at exact viewport/dpr (offline) → sampled observations + screenshot            | `PlaywrightBrowser`       | scripted observations          |
-| `VisionCritic`                 | screenshot + plan + rubric → structured findings                                      | `OpenRouterVisionCritic`  | scenario-scripted findings     |
-| `LlmRepairer`                  | LLM-backed repair (optional; deterministic repairs are pure-core, D13)                | `OpenRouterRepairer`      | deterministic patch            |
-| `Clock`/`IdGenerator`/`Logger` | time / ids (incl. thread_id) / logs                                                   | system impls              | fixed clock, counter ids, noop |
+| Port                                       | Responsibility                                                                        | Real adapter                                                      | Fake                           |
+| ------------------------------------------ | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------ |
+| `Planner` 🧠                               | menu digest → category `PlanLayout`, expanded to a coverage-guaranteed `ThinPlan`     | `OpenRouterPlanner` (default) · `StaticPlanner` when `plan` given | scripted plan                  |
+| `ThemeRepository`                          | preset id → `ThemePreset` (tokens + motion + assets)                                  | `FileThemeRepository` over bundled `InMemoryThemeRepository`      | in-memory                      |
+| `ImageFetcher`                             | remote photo URLs → `data:` URIs (so paint/QA/render stay offline)                    | `NodeImageFetcher`                                                | deterministic map              |
+| `Painter` 🧠                               | plan-slice + theme → bespoke HTML (Tailwind + data-motion + bindings)                 | `OpenRouterPainter`                                               | scenario-scripted HTML         |
+| `Packager`                                 | HTML + theme → self-contained artifact (Tailwind→CSS, inline assets + Motion runtime) | `TailwindPackager`                                                | deterministic inline transform |
+| `BrowserPort`                              | render at exact viewport/dpr (offline) → sampled observations + screenshot            | `PlaywrightBrowser`                                               | scripted observations          |
+| `VisionCritic` 🧠                          | screenshot + plan + rubric → structured findings                                      | `OpenRouterVisionCritic`                                          | scenario-scripted findings     |
+| `LlmRepairer` 🧠                           | LLM-backed repair (optional; deterministic repairs are pure-core, D13)                | `OpenRouterRepairer`                                              | deterministic patch            |
+| `Clock`/`IdGenerator`/`Logger`/`DebugSink` | time / ids (incl. thread_id) / logs / optional per-candidate capture (D15)            | system impls                                                      | fixed clock, counter ids, noop |
 
-Each port is narrow (1–3 methods), typed by domain Zod types. `Painter`/`VisionCritic`/
-`LlmRepairer` are vendor-agnostic; OpenRouter is one adapter and the role→model map is
-`ModelRouting` data (D1).
+🧠 = LLM-backed. Each port is narrow (1–3 methods), typed by domain Zod types.
+`Planner`/`Painter`/`VisionCritic`/`LlmRepairer` are vendor-agnostic; OpenRouter is one
+adapter and the role→model map is `ModelRouting` data (D1). Every LLM port also accepts a
+`RequestCorrelation` for tracing (§9).
 
 ## 6. Rule / config data model
 
@@ -369,9 +463,10 @@ requiredBindings:["price"], capacities:{ matrix, "variant-rows", grid, list } }`
   pass custom config) — no code change.
 - **QA check:** add a pure fn in `qa/`, register in `qa/index.ts`, emit a `QaFinding` with
   `kind` + `tag`; routing/scoring pick it up via config.
-- **Theme preset / motion preset:** add a `ThemePreset` (or extend `preset.motion`) data
-  file under `theme/presets/`; tokens + the motion vocab flow into the rails automatically
-  (single source of truth — D14).
+- **Theme preset / motion preset:** drop a `themes/<id>.theme.json` bundle (prompt + tokens +
+  motion + assets) — `FileThemeRepository` loads it at runtime and it overrides any bundled
+  preset of the same id; or add a bundled `ThemePreset` under `theme/presets/`. Tokens + the
+  motion vocab flow into the rails automatically (single source of truth — D14).
 - **Model swap:** edit `ModelRouting` data (ensure the id is on the structured-output
   allowlist).
 - **LLM vendor:** implement `Painter`/`VisionCritic`/`LlmRepairer` against another SDK.
@@ -379,6 +474,37 @@ requiredBindings:["price"], capacities:{ matrix, "variant-rows", grid, list } }`
   extend `EngineState` if it carries new state.
 - **Multi-screen:** already supported — author N `PlanScreen`s and `generate()` renders each
   (D5). To parallelise the per-board loop in `engine.ts`, map it onto LangGraph's `Send` API.
-- **Automatic content-splitting (`screens:"auto"` with no plan):** add a `Planner` that
-  allocates items into N boards from `constraints.screens`/the menu (spec §8 — still deferred).
+- **Automatic content-splitting (`screens:"auto"` or a number, no hand-authored plan):**
+  implemented — `OpenRouterPlanner` gets a category-level layout from the LLM and
+  `expandLayoutToPlan` (`planning/coverage.ts`) packs it into N coverage-guaranteed boards
+  (§2.2). Swap the judgment by implementing `Planner`; pass `plan` to bypass the LLM entirely.
 - **Image-gen backgrounds (§8):** add a per-preset cache seam on `ThemeRepository`.
+
+## 9. Observability — request correlation & OpenRouter Broadcast
+
+Every LLM call carries a **`RequestCorrelation`** so one `generate()` run's calls can be
+grouped and filtered in an external platform. The core stays wire-format-agnostic: it only
+knows the run/board/iteration/restaurant; the OpenRouter adapter turns that into the provider's
+Broadcast fields. Every field is optional — callers/tests that don't trace are unaffected.
+
+```mermaid
+flowchart LR
+    ENG["engine.ts<br/>runId = idGenerator.next('run')"] --> RC["RequestCorrelation<br/>runId · restaurant · screenId? · iteration?"]
+    RC -->|"resolvePlan (run-level, no screenId)"| PL["Planner 🧠"]
+    RC -->|"renderScreen (board + iteration)"| PT["Painter / VisionCritic / Repairer 🧠"]
+    PL --> BB
+    PT --> BB["buildBroadcast(correlation, role)<br/><i>adapters/openrouter/correlation.ts</i>"]
+    BB --> OUT["OpenRouter fields:<br/>session_id = &lt;restaurant-slug&gt;:&lt;screen-or-role&gt;:&lt;runId&gt;<br/>trace = {trace_name:'content-engine', role, trace_id, board, iteration}"]
+    OUT --> DEST["Broadcast destinations<br/>(LangSmith / Langfuse / OTLP)"]
+
+    classDef llm fill:#2b3a31,color:#f3efe6,stroke:#8a9a5b;
+    class PL,PT llm;
+```
+
+- **`session_id`** groups a board's whole QA loop into one session and is also OpenRouter's
+  sticky-routing key, so it improves prompt-cache hits across a board's re-paints. It is emitted
+  only when a `runId` is present.
+- **`trace`** is arbitrary metadata forwarded to every configured Broadcast destination as span
+  attributes (`role`, `board`, `iteration`, `restaurant`).
+- Chosen over client-side LangSmith `wrapOpenAI`: correlation is provider-level data the engine
+  passes through, with no extra dependency in the pure core.

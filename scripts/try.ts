@@ -10,7 +10,7 @@
  *   npm run try -- samples/menu.json --screens=6 --prompt "combine biryani and pulav as a price table"
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 import { viewportForAspect } from "../src/config/qa";
 import { createNodeEngine } from "../src/node";
@@ -49,6 +49,9 @@ const flagValue = (name: string): string | undefined =>
   flags.find((f) => f.startsWith(`--${name}=`))?.split("=")[1];
 const SCREENS = Number(flagValue("screens") ?? "6");
 const ASPECT: "16:9" | "9:16" = flagValue("aspect") === "9:16" ? "9:16" : "16:9";
+// Names the run for observability: OpenRouter Broadcast traces carry session_id
+// "<restaurant>:<board>:<runId>". Defaults to the menu filename; override with --restaurant=.
+const RESTAURANT = flagValue("restaurant") ?? basename(MENU_PATH).replace(/\.json$/i, "");
 // `--fresh` wipes real-output/ first (replan + repaint everything); default RESUMES — reuse the
 // cached plan and skip boards already written, so a failed/interrupted run continues where it left off.
 const FRESH = flags.includes("--fresh");
@@ -166,6 +169,7 @@ async function main(): Promise<void> {
   const brief = {
     presetId: "bubblegum",
     density: "balanced" as const,
+    restaurant: RESTAURANT,
     ...(PROMPT ? { notes: PROMPT } : {}),
   };
   const baseConstraints = { aspect: ASPECT, locale: "en-US", currency: "USD" } as const;

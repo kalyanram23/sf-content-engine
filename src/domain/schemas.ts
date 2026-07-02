@@ -49,6 +49,8 @@ export const themeBriefSchema = z.object({
   density: densitySchema.optional(),
   motif: z.string().optional(),
   notes: z.string().optional(),
+  /** Restaurant/menu name. Used only for observability correlation (Broadcast session id + trace). */
+  restaurant: z.string().optional(),
 });
 
 export const generateConstraintsSchema = z.object({
@@ -91,6 +93,48 @@ export const thinPlanSchema = z.object({
   screens: z.array(planScreenSchema).min(1),
 });
 
+/* ------------------------------------------------------------------ layout blueprints (D17) */
+
+/**
+ * When a blueprint applies to a board. All present fields must hold (AND) — except
+ * `representationAnyOf`/`layoutHintPattern`, which form one OR'd section test: the board
+ * qualifies when ANY section's representation is listed OR its layoutHint matches the pattern
+ * (mirrors the legacy matrix-board detection).
+ */
+export const blueprintAppliesWhenSchema = z.object({
+  representationAnyOf: z.array(representationSchema).optional(),
+  /** Case-insensitive regex source tested against section layoutHints. */
+  layoutHintPattern: z.string().optional(),
+  /** Bounds on the board's total planned item count. */
+  minItems: z.number().int().positive().optional(),
+  maxItems: z.number().int().positive().optional(),
+  /** Bounds on the board's section count. */
+  minSections: z.number().int().positive().optional(),
+  maxSections: z.number().int().positive().optional(),
+  /** Minimum number of items on the board that carry a photo. */
+  minPhotoItems: z.number().int().positive().optional(),
+});
+
+/**
+ * A named golden layout (hyperframes "frame treatment" adapted to static signage): selection
+ * rules + the LAYOUT STRATEGY prose the painter renders from, split into FIXED invariants
+ * (visual-only — NEVER count-reducing; item coverage is separately guaranteed by the
+ * binding-integrity check) and FREE judgment calls. Selection is pure code at paint time —
+ * the planner's LLM contract is untouched.
+ */
+export const layoutBlueprintSchema = z.object({
+  id: z.string().min(1),
+  /** Higher wins; the first matching blueprint by descending priority is selected. */
+  priority: z.number().int(),
+  appliesWhen: blueprintAppliesWhenSchema.prefault({}),
+  /** The strategy prose rendered into the painter prompt (and shown to the vision critic). */
+  strategy: z.string().min(1),
+  /** Non-negotiable visual invariants, rendered as "FIXED (do not change)". */
+  fixed: z.array(z.string().min(1)).default([]),
+  /** Explicitly the painter's judgment, rendered as "FREE (your call)". */
+  free: z.array(z.string().min(1)).default([]),
+});
+
 /* ------------------------------------------------------------------ theme (rails, §5.2/§5.3) */
 
 export const motionPresetSchema = z.object({
@@ -126,29 +170,103 @@ export const themeAssetsSchema = z.object({
   fonts: z.array(themeFontSchema).default([]),
 });
 
+/**
+ * Structured design direction — the frame.md-inspired split of the old single `prompt` blob
+ * into named, individually consumable fields. `identity` feeds the painter as the creative
+ * core; `do`/`dont` are rendered as explicit lists for the painter AND handed to the vision
+ * critic (so "theme-adherence" is graded against declared intent). Keep `dont` entries
+ * VISUALLY checkable ("no sharp corners"), not token-value assertions — palette enforcement
+ * stays with the deterministic token-lint.
+ */
+export const themeDesignSchema = z.object({
+  /** The theme's visual identity + decoration voice — the creative core of the painter prompt. */
+  identity: z.string().min(1),
+  /** Positive theme-specific direction, rendered as a DO list. */
+  do: z.array(z.string().min(1)).default([]),
+  /** Theme-specific anti-patterns, rendered as a DON'T list and shown to the critic. */
+  dont: z.array(z.string().min(1)).default([]),
+});
+
+/**
+ * A reusable signage component recipe (hyperframes "components-as-recipes" adapted to menus).
+ * `binds` maps a slot name to a THEME TOKEN name (e.g. `{ bg: "surface-strong", text: "text" }`);
+ * every bound name must resolve to a declared token — validated at LOAD time so a typo fails
+ * loudly (a theme-authoring error), not silently at paint. `rule` is the scarcity/usage prose
+ * fed to the painter (e.g. "one specials ribbon per board; diet badge never larger than the
+ * dish name"). Purely painter guidance — no data-component output contract in v1.
+ */
+export const componentRecipeSchema = z.object({
+  id: z.string().min(1),
+  /** What the component IS, e.g. "price pill", "diet badge", "specials ribbon". */
+  role: z.string().min(1),
+  /** slot → theme token name (resolved to a value for the painter; validated at load). */
+  binds: z.record(z.string(), z.string()).default({}),
+  /** Scarcity/usage constraint prose the painter honours. */
+  rule: z.string().min(1),
+});
+
 /** A vetted preset bundle: tokens + motion vocabulary + assets (spec §5.3). */
-export const themePresetSchema = z.object({
+export const themePresetObjectSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   /**
-   * The theme's base painter prompt — its creative + design direction (voice, layout posture,
-   * visual identity). Externalized per-theme (e.g. `themes/<id>.theme.json`) so authoring a
-   * theme is editing one file. The engine appends a non-negotiable technical contract
-   * (bindings, offline-safety, motion vocab, the photo-placeholder scheme) the painter must
-   * always honour, so a theme controls the look/voice but can't break the rails.
+   * LEGACY: the theme's painter prompt as one prose blob. Superseded by `design` (structured
+   * fields); kept as a fallback so existing third-party theme files load unchanged. When both
+   * are present, `design` wins and `prompt` is ignored (no two-source drift).
    */
   prompt: z.string().optional(),
+  design: themeDesignSchema.optional(),
   tokens: themeTokensSchema,
   /** The motion vocabulary — single source of truth for the motion-vocab lint (D14). */
   motion: z.array(motionPresetSchema).min(1),
+  /**
+   * Optional per-theme layout blueprints, merged OVER the engine catalog by id (replace or
+   * add) — mirrors how FileThemeRepository overrides bundled presets (D14 precedent). Lets a
+   * theme curate layouts coherent with its own composition voice.
+   */
+  layouts: z.array(layoutBlueprintSchema).optional(),
+  /** Optional reusable component recipes (see {@link componentRecipeSchema}). */
+  components: z.array(componentRecipeSchema).optional(),
   assets: themeAssetsSchema.default({ backgrounds: [], fonts: [] }),
 });
 
+/**
+ * Assert every component `binds` value names a declared token (colors ∪ radius ∪ fontFamilies).
+ * Runs at parse time so a malformed theme fails loudly at load, not at paint (D14-style
+ * authoring guard). Shared by the preset and resolved-theme schemas.
+ */
+function validateComponentBinds(
+  preset: z.infer<typeof themePresetObjectSchema>,
+  ctx: z.RefinementCtx,
+): void {
+  if (!preset.components) return;
+  const known = new Set([
+    ...Object.keys(preset.tokens.colors),
+    ...Object.keys(preset.tokens.radius),
+    ...Object.keys(preset.tokens.fontFamilies),
+  ]);
+  preset.components.forEach((component, i) => {
+    for (const [slot, tokenName] of Object.entries(component.binds)) {
+      if (!known.has(tokenName)) {
+        ctx.addIssue({
+          code: "custom",
+          message: `component "${component.id}" binds ${slot} → "${tokenName}", which is not a declared token.`,
+          path: ["components", i, "binds", slot],
+        });
+      }
+    }
+  });
+}
+
+export const themePresetSchema = themePresetObjectSchema.superRefine(validateComponentBinds);
+
 /** A preset with brief perturbations applied — what the painter actually paints against. */
-export const resolvedThemeSchema = themePresetSchema.extend({
-  density: densitySchema,
-  motif: z.string().optional(),
-});
+export const resolvedThemeSchema = themePresetObjectSchema
+  .extend({
+    density: densitySchema,
+    motif: z.string().optional(),
+  })
+  .superRefine(validateComponentBinds);
 
 /* ------------------------------------------------------------------ QA findings + report (§5.6) */
 

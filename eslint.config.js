@@ -9,6 +9,9 @@ export default tseslint.config(
       "coverage",
       "playground-output",
       "src/adapters/tailwind/motion-bundle.generated.ts",
+      // Shelved Claude Agent SDK backend experiment — kept on disk, out of the gate (see .gitignore).
+      "src/adapters/claudecode/**",
+      "scripts/try-claude.ts",
     ],
   },
   js.configs.recommended,

@@ -38,6 +38,11 @@ export class PlaywrightBrowser implements BrowserPort {
       const context = await browser.newContext({
         viewport: { width: request.viewport.width, height: request.viewport.height },
         deviceScaleFactor: request.viewport.dpr,
+        // Capture the settled, fully-revealed frame. The packaged motion runtime honours
+        // prefers-reduced-motion by skipping its entrance reveal + carousel loop, so QA (and the
+        // poster it ships) see the final state instead of the t=0 opacity:0 frame. The TV never
+        // sets this, so the live HTML still animates — same bytes, different rendering preference.
+        reducedMotion: "reduce",
       });
       const page = await context.newPage();
       // Disable the network: only inline (data:) content may load.
@@ -57,6 +62,15 @@ export class PlaywrightBrowser implements BrowserPort {
 
       const grid = this.options.fillGrid ?? { cols: 48, rows: 27 };
       const observation = (await page.evaluate(collectObservation, grid)) as RenderObservation;
+      // Motion is suppressed (reducedMotion above), but fonts/images still finish asynchronously;
+      // wait for them so the screenshot — which feeds the vision critic and the poster — isn't
+      // caught mid-paint (FOUT / undecoded data: images).
+      await page.evaluate(() => document.fonts.ready.then(() => undefined));
+      await page.evaluate(() =>
+        Promise.all(
+          (Array.from(document.images) as any[]).map((img) => img.decode().catch(() => undefined)),
+        ).then(() => undefined),
+      );
       const screenshot = await page.screenshot({ type: "png" });
       return { observation, screenshotBase64: screenshot.toString("base64") };
     } catch (error) {

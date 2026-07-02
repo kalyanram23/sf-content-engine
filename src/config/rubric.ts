@@ -9,6 +9,12 @@ export const rubricDimensionSchema = z.object({
   weight: z.number().positive(),
   /** A finding at/above this severity fails the dimension. */
   failAtSeverity: severitySchema,
+  /**
+   * When true, this dimension failing (at/above `failAtSeverity`) fails the whole pass on its
+   * own — regardless of the weighted score. Absent/false everywhere by default: turning it on
+   * for a craft-critical dimension (e.g. hierarchy) is a config decision, not an engine change.
+   */
+  blocking: z.boolean().optional(),
 });
 
 /**
@@ -35,7 +41,8 @@ export const visionRubricConfigSchema = z.object({
       },
       {
         id: "theme-adherence",
-        description: "Adheres to the resolved theme tokens and motif.",
+        description:
+          "Matches the DESIGN INTENT brief (identity, palette roles, motif) — not just any pleasant design.",
         weight: 0.75,
         failAtSeverity: "major",
       },
@@ -47,7 +54,8 @@ export const visionRubricConfigSchema = z.object({
       },
       {
         id: "intentional-design",
-        description: "Looks intentionally designed, not AI-generic.",
+        description:
+          "Looks intentionally designed for THIS theme (see DESIGN INTENT), not AI-generic or templated.",
         weight: 0.75,
         failAtSeverity: "major",
       },
@@ -58,7 +66,13 @@ export const visionRubricConfigSchema = z.object({
         failAtSeverity: "minor",
       },
     ]),
-  passThreshold: z.number().min(0).max(1).default(0.6),
+  /**
+   * Minimum weighted score to pass. 0.7 means any TWO failed dimensions fail the board (two
+   * weight-1 failures score 3.5/5.5 ≈ 0.64) while a single failure still passes (worst single
+   * weight-1 failure scores 4.5/5.5 ≈ 0.82) — at the old 0.6, a board failing both hierarchy
+   * AND intentional-design (3.75/5.5 ≈ 0.68) still shipped as "passed".
+   */
+  passThreshold: z.number().min(0).max(1).default(0.7),
 });
 
 export type RubricDimension = z.infer<typeof rubricDimensionSchema>;

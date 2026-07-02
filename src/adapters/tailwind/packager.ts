@@ -115,6 +115,11 @@ const CAROUSEL_GLUE =
   `var animate=M.animate;function params(s){var o={};(s||"").split(";").forEach(function(p){var k=p.split(":");` +
   `if(k.length===2){var v=parseFloat(k[1]);o[k[0].trim()]=isNaN(v)?k[1].trim():v;}});return o;}` +
   `function go(){` +
+  // When the renderer asks for reduced motion (the QA browser does, the TV does not), skip the
+  // reveal + carousel entirely: the HTML's default state IS the final frame — entrance elements
+  // keep their natural opacity:1 and the carousel's first slide is opacity-100 by contract — so
+  // the captured screenshot is the settled board, not the t=0 blank.
+  `if(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches)return;` +
   `document.querySelectorAll('[data-motion="gallery-fade"]').forEach(function(root){` +
   `var p=params(root.getAttribute("data-motion-params"));var interval=p.interval||5000;var fade=p.fade||800;` +
   `var slides=[];for(var i=0;i<root.children.length;i++){var c=root.children[i];` +
@@ -130,7 +135,11 @@ const CAROUSEL_GLUE =
 
 /** A tiny CSS-entrance stand-in for css-only screens (no motion lib needed). Carries the marker. */
 const STANDIN_GLUE =
-  `(function(){function go(){try{var els=document.querySelectorAll('[data-motion]');els.forEach(function(el,i){` +
+  `(function(){function go(){` +
+  // Same reduced-motion guard as the runtime glue: under reduced motion the elements keep their
+  // default opacity:1, so the capture shows the final state instead of fading in from blank.
+  `if(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches)return;` +
+  `try{var els=document.querySelectorAll('[data-motion]');els.forEach(function(el,i){` +
   `el.style.opacity='0';el.style.transition='opacity .6s ease';setTimeout(function(){el.style.opacity='1';},120*i);});}catch(e){}}` +
   // Same head-placement caveat as CAROUSEL_GLUE: defer to DOMContentLoaded so the body exists.
   `if(document.readyState!=="loading"){go();}else{document.addEventListener("DOMContentLoaded",go);}})();`;

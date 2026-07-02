@@ -29,8 +29,12 @@ export const routingRuleSchema = z.object({
  * in `pipeline/router.ts`; changing routing is a config edit, never an engine edit.
  *
  * Default policy, highest priority first:
- *  1. a structural-capacity finding (planned > slot capacity) → re-plan (a concrete signal,
- *     not a severity — review S1);
+ *  1. a structural-capacity finding (planned > slot capacity) → freeze flagged. Capacity
+ *     overflow can't be fixed by re-paint OR re-plan (items are ground truth — never dropped;
+ *     and the per-screen graph re-runs `planContent` on the SAME cached plan, a no-op). So the
+ *     honest terminal is to ship the best candidate flagged after the first detection rather
+ *     than burn the whole iteration budget (D17 rationale; the LLM planner also avoids this by
+ *     packing into enough screens). Fix the allocation upstream (raise `screens`).
  *  2. a deterministically-fixable mechanical finding → repair (cheap/free, never the
  *     painter — §5.6);
  *  3. any other actionable finding → re-paint (minimal-change-first default — §10.6).
@@ -39,9 +43,9 @@ export const routingRuleSchema = z.object({
 export const routingRulesSchema = z.object({
   rules: z.array(routingRuleSchema).default([
     {
-      id: "structural-capacity-to-replan",
+      id: "structural-capacity-to-freeze",
       when: { kindAnyOf: ["overflow-capacity"] },
-      route: "plan",
+      route: "freeze",
       priority: 100,
     },
     {

@@ -6,6 +6,7 @@ import {
   checkContrast,
   checkDensity,
   checkImages,
+  checkLegibility,
   checkOverflow,
   checkViewport,
   runRenderedChecks,
@@ -146,6 +147,50 @@ describe("checkImages", () => {
       baseObservation({ images: [{ ref: "g1", loaded: false, naturalWidth: 0 }] }),
     );
     expect(findings[0]).toMatchObject({ kind: "image-slot", region: "g1" });
+  });
+});
+
+describe("checkLegibility", () => {
+  const itemSample = (fontPx: number, itemId = "i1") => ({
+    ref: `[data-item-id="${itemId}"]`,
+    itemId,
+    fg: { r: 0, g: 0, b: 0, a: 1 },
+    bg: { r: 255, g: 255, b: 255, a: 1 },
+    fontPx,
+    bold: false,
+    bbox: { x: 0, y: 0, width: 100, height: 20 },
+  });
+
+  it("flags item text below the floor, aggregated into one finding", () => {
+    const obs = baseObservation({ textSamples: [itemSample(11), itemSample(12, "i2")] });
+    const findings = checkLegibility(obs, qa);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({ kind: "legibility", severity: "major", tag: "layout" });
+    expect(findings[0]?.data?.["count"]).toBe(2);
+    // worst offender named in the message/region
+    expect(findings[0]?.region).toBe('[data-item-id="i1"]');
+  });
+
+  it("ignores small text that is not item-bound (chrome/footnotes)", () => {
+    const { itemId: _itemId, ...chrome } = itemSample(10);
+    const obs = baseObservation({ textSamples: [{ ...chrome, ref: "footer" }] });
+    expect(checkLegibility(obs, qa)).toHaveLength(0);
+  });
+
+  it("relaxes the floor for items in a matrix section", () => {
+    const obs = baseObservation({ textSamples: [itemSample(13, "m1")] });
+    const matrixPlan = {
+      id: "s1",
+      sections: [{ title: "T", representation: "matrix" as const, items: ["m1"] }],
+    };
+    // 13px fails the default 14px item floor, but passes the 12px matrix floor.
+    expect(checkLegibility(obs, qa)).toHaveLength(1);
+    expect(checkLegibility(obs, qa, matrixPlan)).toHaveLength(0);
+  });
+
+  it("passes item text at or above the floor", () => {
+    const obs = baseObservation({ textSamples: [itemSample(18)] });
+    expect(checkLegibility(obs, qa)).toHaveLength(0);
   });
 });
 

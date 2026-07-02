@@ -3,8 +3,11 @@ import { z } from "zod";
 import { ConfigError } from "../domain/errors";
 import { parseOrThrow } from "../domain/parse";
 import { deepFreeze } from "../util/freeze";
+import { executionConfigSchema } from "./execution";
+import { layoutsConfigSchema } from "./layouts";
 import { loopConfigSchema } from "./loop";
 import { type ModelRouting, modelRoutingSchema } from "./models";
+import { painterConfigSchema } from "./painter";
 import { qaConfigSchema } from "./qa";
 import { routingRulesSchema } from "./routing";
 import { visionRubricConfigSchema } from "./rubric";
@@ -18,6 +21,9 @@ export const engineConfigSchema = z.object({
   qa: qaConfigSchema.prefault({}),
   loop: loopConfigSchema.prefault({}),
   models: modelRoutingSchema.prefault({}),
+  painter: painterConfigSchema.prefault({}),
+  layouts: layoutsConfigSchema.prefault({}),
+  execution: executionConfigSchema.prefault({}),
 });
 
 export type EngineConfig = z.infer<typeof engineConfigSchema>;
@@ -88,7 +94,12 @@ export {
 export {
   modelRoutingSchema,
   modelRoleSchema,
+  reasoningSettingSchema,
   defaultModelRouting,
   type ModelRouting,
   type ModelRole,
+  type ReasoningSetting,
 } from "./models";
+export { painterConfigSchema, defaultPainterConfig, type PainterConfig } from "./painter";
+export { layoutsConfigSchema, defaultLayoutsConfig, type LayoutsConfig } from "./layouts";
+export { executionConfigSchema, defaultExecutionConfig, type ExecutionConfig } from "./execution";

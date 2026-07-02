@@ -43,6 +43,8 @@ export const engineStateSchema = z.object({
   input: generateInputSchema,
   /** Which plan screen this run paints (0-based). The engine runs the graph once per screen. */
   screenIndex: z.number().int().nonnegative().default(0),
+  /** Stable id for the whole run (seeded by the engine); threaded to LLM calls for trace correlation. */
+  runId: z.string().optional(),
   plan: thinPlanSchema.optional(),
   theme: resolvedThemeSchema.optional(),
   /**

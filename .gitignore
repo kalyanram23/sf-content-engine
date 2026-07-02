@@ -35,3 +35,11 @@ real-output
 # Claude Code — personal, not shared (also in the user's global ignore)
 .claude/settings.local.json
 CLAUDE.local.md
+# Added by Braintrust Wizard
+.braintrust.json
+
+# Claude Agent SDK backend — shelved experiment (local-only, not shipped; excluded from verify)
+src/adapters/claudecode/
+scripts/try-claude.ts
+claude-output/
+debug-claude/

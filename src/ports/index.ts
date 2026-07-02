@@ -26,6 +26,7 @@ export type { VisionCritic, CritiqueRequest } from "./vision-critic";
 export type { LlmRepairer, LlmRepairRequest } from "./repairer";
 export type { ImageFetcher } from "./image-fetcher";
 export type { Clock, IdGenerator, Logger, DebugSink, DebugCapture } from "./services";
+export type { RequestCorrelation } from "./correlation";
 
 /**
  * Everything the engine depends on, injected at the composition root (build brief). The

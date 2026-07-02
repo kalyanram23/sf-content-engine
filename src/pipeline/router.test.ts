@@ -58,8 +58,8 @@ describe("route — hybrid policy (§5.6)", () => {
     expect(route({ findings: [contrast], iteration: 0 }, routing, loop)).toBe("repair");
   });
 
-  it("routes a structural-capacity finding to re-plan", () => {
-    expect(route({ findings: [capacity], iteration: 0 }, routing, loop)).toBe("plan");
+  it("routes a structural-capacity finding straight to freeze (re-paint/plan can't fix it)", () => {
+    expect(route({ findings: [capacity], iteration: 0 }, routing, loop)).toBe("freeze");
   });
 
   it("routes a high-severity PAINTABLE finding to paint, not plan (S1)", () => {
@@ -77,8 +77,8 @@ describe("route — hybrid policy (§5.6)", () => {
     expect(route({ findings: [visionMajor], iteration: 0 }, routing, loop)).toBe("paint");
   });
 
-  it("honours priority: capacity (plan) outranks a co-occurring contrast (repair)", () => {
-    expect(route({ findings: [contrast, capacity], iteration: 0 }, routing, loop)).toBe("plan");
+  it("honours priority: capacity (freeze) outranks a co-occurring contrast (repair)", () => {
+    expect(route({ findings: [contrast, capacity], iteration: 0 }, routing, loop)).toBe("freeze");
   });
 
   it("prefers repair over paint when both could match", () => {

@@ -234,3 +234,26 @@ or wires: `generateInputSchema` / `generateOutputSchema`, the **config schemas**
 shapes) are exported **types-only**. Defaults are **functions returning deeply-frozen
 objects** (`defaultEngineConfig()`, `defaultRoutingRules()`) so consumers can't mutate
 shared singletons. This keeps internal data shapes out of the semver contract.
+
+## D17 — Layout is a named-blueprint catalog (config data), not a hardcoded binary
+
+**Decision:** The painter's board layout was a hardcoded two-way branch (`isMatrixBoard` →
+matrix-first vs. photo-led grid) living in the OpenRouter adapter. It is now a **catalog of
+named layout blueprints as config-as-data** (`src/config/layouts.ts`, `LayoutBlueprint`),
+adapted from hyperframes' "frame treatments": each blueprint is `{ id, priority, appliesWhen,
+strategy, fixed[], free[] }`. Selection is a **pure function at paint time**
+(`selectBlueprint`, `src/planning/layout-strategy.ts`) — the planner's strict LLM contract is
+untouched (no `blueprint` field on `PlanLayout`/`thinPlan`). The two legacy branches ship as
+the `matrix-first` and `photo-led-grid` seed blueprints whose strategy text is **verbatim** the
+old prose (regression-pinned in `layout-strategy.test.ts`), so a board matching neither of the
+new niche blueprints (`hero-split`, `feature-sidebar`, `three-up-grid`, `price-ladder`) behaves
+exactly as before. Themes may override/extend the catalog by id via `themePreset.layouts`,
+mirroring the D14 motion-vocab precedent. The chosen blueprint is rendered as the painter's
+LAYOUT STRATEGY (with an explicit FIXED/FREE contract) **and** handed to the vision critic, so
+generator and judge reason about the same layout.
+
+**Why:** Turns "free-paint any layout" into "fill a named, vetted blueprint" — density-
+appropriate recipes for sparse-hero vs. dense-table boards, and cross-board variety — while the
+100% menu-coverage guarantee is untouched (blueprints are presentation, not allocation) and
+`fixed` invariants are visual-only and **never count-reducing** (item coverage stays enforced by
+the binding-integrity check). Adding a layout is a data edit, not an engine change.

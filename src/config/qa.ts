@@ -24,12 +24,39 @@ export const contrastConfigSchema = z.object({
 export const densityConfigSchema = z.object({
   minFill: z.number().min(0).max(1).default(0.4),
   maxFill: z.number().min(0).max(1).default(0.9),
+  /**
+   * Boards with at most this many planned items are held to `sparseMinFill` instead of
+   * `minFill`: an intentionally airy 3-item hero board is a design choice, not dead space,
+   * and must not burn the whole iteration budget failing a floor meant for full menus.
+   */
+  sparseItemCount: z.number().int().positive().default(6),
+  sparseMinFill: z.number().min(0).max(1).default(0.25),
+  /**
+   * Severity of the under-fill finding. `major` (default) drives a re-paint — the spec's
+   * acceptance #1 behaviour; tune to `minor` to make dead space advisory and let the vision
+   * critic own the "is this emptiness intentional?" judgment.
+   */
+  underFillSeverity: severitySchema.default("major"),
+});
+
+/**
+ * Legibility floors (px) for item-bound text at ~10–20 ft viewing. Deliberately BELOW the
+ * painter contract's target (text-lg/16px+) so the check catches genuine shrink-to-fit
+ * escapes without re-paint-storming borderline boards. Matrix price tables legitimately run
+ * smaller, so their cells get a relaxed floor.
+ */
+export const legibilityConfigSchema = z.object({
+  /** Floor for text inside an item node (name/price/description). */
+  itemMinPx: z.number().positive().default(14),
+  /** Relaxed floor for item text in a `matrix` section (dense price tables). */
+  matrixItemMinPx: z.number().positive().default(12),
 });
 
 export const qaConfigSchema = z.object({
   viewport: viewportConfigSchema.prefault({}),
   contrast: contrastConfigSchema.prefault({}),
   density: densityConfigSchema.prefault({}),
+  legibility: legibilityConfigSchema.prefault({}),
   /** Slack (px) before a box past the viewport edge counts as overflow. */
   overflowTolerancePx: z.number().min(0).default(1),
   /** Findings at/above this severity block a pass (and so drive the QA loop). */
@@ -45,6 +72,7 @@ export const qaConfigSchema = z.object({
 export type ViewportConfig = z.infer<typeof viewportConfigSchema>;
 export type ContrastConfig = z.infer<typeof contrastConfigSchema>;
 export type DensityConfig = z.infer<typeof densityConfigSchema>;
+export type LegibilityConfig = z.infer<typeof legibilityConfigSchema>;
 export type QaConfig = z.infer<typeof qaConfigSchema>;
 
 export const defaultQaConfig = (): QaConfig => deepFreeze(qaConfigSchema.parse({}));

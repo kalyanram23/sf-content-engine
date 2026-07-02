@@ -1,16 +1,19 @@
 import type OpenAI from "openai";
 
+import type { ReasoningSetting } from "../../config/models";
 import { planLayoutSchema, type PlanLayout } from "../../domain/contracts";
 import type { GenerateInput, ThinPlan } from "../../domain/types";
+import type { RequestCorrelation } from "../../ports/correlation";
 import type { Planner } from "../../ports/planner";
 import type { Logger } from "../../ports/services";
 import { buildMenuDigest, expandLayoutToPlan } from "../../planning/coverage";
 import { requestStructured } from "./client";
+import { buildBroadcast } from "./correlation";
 
 /** When `constraints.screens` is "auto", aim for roughly this many items per board. */
 const AUTO_ITEMS_PER_SCREEN = 40;
 
-const SYSTEM = `You are a layout planner for digital-signage menu screens. Given a menu summarised BY CATEGORY and a target number of screens, you decide how to lay the menu out — but you NEVER list individual item ids; you work at the category level. Deterministic code expands your plan to the real items and guarantees every item appears, so focus purely on grouping, ordering, and representation judgment.
+export const SYSTEM = `You are a layout planner for digital-signage menu screens. Given a menu summarised BY CATEGORY and a target number of screens, you decide how to lay the menu out — but you NEVER list individual item ids; you work at the category level. Deterministic code expands your plan to the real items and guarantees every item appears, so focus purely on grouping, ordering, and representation judgment.
 
 Return JSON matching the schema: an ordered list of "blocks". Each block has:
 - title: the heading shown on screen (e.g. "Biryani & Pulav", "Veg Curries").
@@ -37,9 +40,10 @@ export class OpenRouterPlanner implements Planner {
     private readonly client: OpenAI,
     private readonly model: string,
     private readonly logger?: Logger,
+    private readonly reasoning?: ReasoningSetting,
   ) {}
 
-  async plan(input: GenerateInput): Promise<ThinPlan> {
+  async plan(input: GenerateInput, correlation?: RequestCorrelation): Promise<ThinPlan> {
     const screens = resolveScreenCount(input);
     const digest = buildMenuDigest(input.items);
     const layout = await requestStructured<PlanLayout>(this.client, {
@@ -48,6 +52,8 @@ export class OpenRouterPlanner implements Planner {
       schemaName: "plan_layout",
       system: SYSTEM,
       user: describePlanRequest(digest, input, screens),
+      ...(this.reasoning !== undefined ? { reasoning: this.reasoning } : {}),
+      ...buildBroadcast(correlation, "plan"),
     });
     this.logger?.info(
       `planner: ${layout.blocks.length} block(s) over ${input.items.length} items → ${screens} screen(s)`,
@@ -58,13 +64,13 @@ export class OpenRouterPlanner implements Planner {
   }
 }
 
-function resolveScreenCount(input: GenerateInput): number {
+export function resolveScreenCount(input: GenerateInput): number {
   const requested = input.constraints.screens;
   if (typeof requested === "number") return requested;
   return Math.max(1, Math.ceil(input.items.length / AUTO_ITEMS_PER_SCREEN));
 }
 
-function describePlanRequest(
+export function describePlanRequest(
   digest: ReturnType<typeof buildMenuDigest>,
   input: GenerateInput,
   screens: number,

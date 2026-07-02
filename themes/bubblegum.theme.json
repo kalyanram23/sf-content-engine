@@ -1,7 +1,21 @@
 {
   "id": "bubblegum",
   "name": "Bubblegum",
-  "prompt": "You are an expert digital-signage screen designer creating ONE self-contained screen for a 1920x1080 TV that guests read across a room. Visual identity for this theme: BUBBLEGUM — bold, playful, candy-pop, with the loud energy of a fresh toy drop or a Saturday-morning cartoon. Lean on a deep grape 'stage' background and a candy accent set (coral, mint, sunny yellow); pair the heavy condensed Cooper-grotesque Anton display face (used for the screen title) with Inter for body text; keep text crisp near-white, and let the saturated colour and a fine film grain feel intentional and characterful rather than loud for its own sake. Design goals: FILL THE SCREEN — structure the root as a full-height column (min-h-screen flex flex-col) whose content area is flex-1 and uses a grid whose rows STRETCH so cards reach near the bottom edge; never leave the bottom half or any large band empty. Use large type and large, rounded sticker-like cards so the layout reads as full, with even, modest margins. Strong title-led hierarchy: the screen title dominates (confident, not oversized); section headers are clearly distinct from item names (larger and/or in a candy accent colour, with a playful divider); item names are large and high-contrast and may run long (multi-word regional dish names) — let them wrap to two or three lines rather than shrink or truncate. Within a stretched card, vertically centre the item's name + price block. SIGNATURE: set ONE giant Anton word behind the content — a single short, relevant word in uppercase, tracked tight, bleeding off the edges — as a low-contrast tonal ghost (a tint of the background, never competing with the menu); this oversized word is what anchors the screen. When a photo carousel cycles, cross-fade the photos and let the accent and background hue drift through the candy palette (coral → mint → pink → sky → yellow) so the screen changes mood as it rotates. DECORATION: there is no pre-supplied background image — author your own pop decoration as part of the design, drawn as inline SVG in the candy palette. Give the screen a very subtle film-grain overlay (inline SVG fractalNoise) sitting over everything, AND integrated accents that earn their place: a small starburst or sparkle flourish by the screen title, slim sparkle / dot / squiggle dividers between sections, a sticker-dot or star motif beside section headers, and an illustrative sticker / blob / star motif standing in for any item that has no photo. Use the full rounded radius on tags and controls so they read as glossy stickers. Keep it restrained and tasteful so it frames and elevates the menu rather than competing with the names and prices. Make it feel intentionally designed for THIS theme, not a generic grid — a guest should glance and immediately want to order.",
+  "design": {
+    "identity": "Visual identity for this theme: BUBBLEGUM — bold, playful, candy-pop, with the loud energy of a fresh toy drop or a Saturday-morning cartoon. Lean on a deep grape 'stage' background and a candy accent set (coral, mint, sunny yellow); pair the heavy condensed Cooper-grotesque Anton display face (used for the screen title) with Inter for body text; keep text crisp near-white, and let the saturated colour and a fine film grain feel intentional and characterful rather than loud for its own sake. Cards read as large, rounded, glossy stickers; use the full rounded radius on tags and controls. When a photo carousel cycles, cross-fade the photos and let the accent and background hue drift through the candy palette (coral → mint → pink → sky → yellow) so the screen changes mood as it rotates. DECORATION: there is no pre-supplied background image — author your own pop decoration as part of the design, drawn as inline SVG in the candy palette. Give the screen a very subtle film-grain overlay (inline SVG fractalNoise) sitting over everything, AND integrated accents that earn their place: a small starburst or sparkle flourish by the screen title, slim sparkle / dot / squiggle dividers between sections, a sticker-dot or star motif beside section headers, and an illustrative sticker / blob / star motif standing in for any item that has no photo. Keep it restrained and tasteful so it frames and elevates the menu rather than competing with the names and prices.",
+    "do": [
+      "Rotate the candy accents (coral, mint, sunny yellow) across sections so the board feels alive",
+      "Fully rounded, sticker-like cards, tags and pills — glossy, soft, high-energy",
+      "Heavy condensed display (Anton) for the screen title; names and prices crisp near-white",
+      "Playful section dividers — dots, sparkles, squiggles — in the candy palette"
+    ],
+    "dont": [
+      "No muted, earthy, or corporate colours — this theme is loud candy-pop",
+      "No sharp corners or thin hairline rules — everything reads soft and rounded",
+      "No formal serif type anywhere on the board",
+      "No grain or decoration strong enough to muddy text contrast"
+    ]
+  },
   "tokens": {
     "colors": {
       "bg": "#221a46",
@@ -44,6 +58,26 @@
         "interval": 5000,
         "fade": 800
       }
+    }
+  ],
+  "components": [
+    {
+      "id": "price-pill",
+      "role": "glossy price sticker",
+      "binds": { "text": "text", "bg": "accent-strong", "radius": "full" },
+      "rule": "Price on a fully-rounded candy sticker beside the name, on a solid surface (never on a photo). Keep prices in tabular-nums."
+    },
+    {
+      "id": "section-header",
+      "role": "section header with sticker mark",
+      "binds": { "text": "accent-strong", "rule": "accent" },
+      "rule": "One per section — Anton display with a sparkle/dot divider; clearly larger than item names."
+    },
+    {
+      "id": "sold-tag",
+      "role": "sold-out sticker",
+      "binds": { "text": "sold" },
+      "rule": "Only on unavailable items; muted despite the loud theme, never competing with available items."
     }
   ],
   "assets": {

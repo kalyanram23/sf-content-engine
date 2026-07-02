@@ -4,7 +4,9 @@ import { parseOrThrow } from "../../domain/parse";
 import { thinPlanSchema } from "../../domain/schemas";
 import type { QaFinding } from "../../domain/types";
 import { applyDeterministicRepairs, contrastIsFixable } from "../../repairs/index";
+import { describeLayoutStrategy } from "../../planning/layout-strategy";
 import { FindingKind, makeFinding } from "../../qa/finding";
+import { describeDesignIntent } from "../../theme/design-intent";
 import { runRenderedChecks, checkViewport } from "../../qa/rendered-checks";
 import { runStructuralChecks } from "../../qa/structural-checks";
 import { scoreScreen } from "../../qa/scoring";
@@ -12,7 +14,15 @@ import { resolveTheme } from "../../theme/resolve";
 import { isInlineImageRef, PLACEHOLDER_IMAGE_DATA_URI } from "../../util/placeholder-image";
 import { route } from "../router";
 import type { NodeContext, EngineState } from "../state";
-import { currentScreen, plannedSectionItemIds, resolveScreenItems } from "./shared";
+import { renderBlueprintStrategy } from "../../planning/layout-strategy";
+import {
+  blueprintFor,
+  boardCorrelation,
+  currentScreen,
+  plannedSectionItemIds,
+  resolveScreenItems,
+  runCorrelation,
+} from "./shared";
 
 /** plan: load the hand-authored plan from input, else ask the Planner port (spec §5.4). */
 export async function planNode(
@@ -21,7 +31,10 @@ export async function planNode(
 ): Promise<Partial<EngineState>> {
   // Prefer a plan already on state (the engine resolves it once and seeds it per screen),
   // else the caller's input plan, else the Planner port.
-  const raw = state.plan ?? state.input.plan ?? (await ctx.ports.planner.plan(state.input));
+  const raw =
+    state.plan ??
+    state.input.plan ??
+    (await ctx.ports.planner.plan(state.input, runCorrelation(state)));
   const plan = parseOrThrow(thinPlanSchema, raw, "thin plan");
   return { plan };
 }
@@ -90,12 +103,16 @@ export async function paintNode(
     `board ${state.screenIndex + 1}/${state.plan.screens.length} "${screen.id}": painting (attempt ${state.iteration + 1})`,
   );
 
+  const blueprint = blueprintFor(screen, items, state.theme, ctx.config.layouts);
   const html = await ctx.ports.painter.paint({
     planScreen: screen,
     items,
     theme: state.theme,
     constraints: state.input.constraints,
     viewport: { width: ctx.config.qa.viewport.width, height: ctx.config.qa.viewport.height },
+    antiPatterns: ctx.config.painter.antiPatterns,
+    blueprint,
+    correlation: boardCorrelation(state, screen.id),
     ...(state.html !== undefined ? { previousHtml: state.html } : {}),
     ...(state.findings.length > 0 ? { findings: state.findings } : {}),
   });
@@ -165,7 +182,7 @@ export async function deterministicQaNode(
       qa: ctx.config.qa,
       tokenLint: ctx.config.tokenLint,
     }),
-    ...runRenderedChecks(observation, ctx.config.qa),
+    ...runRenderedChecks(observation, ctx.config.qa, screen),
   ].map((f) =>
     // Re-mark contrast: a token swap only helps on a scopable selector over a solid bg. Contrast
     // over a photo (or a bare-tag selector) is NOT deterministically fixable → it routes to
@@ -205,6 +222,13 @@ export async function visionQaNode(
   if (state.findings.some((f) => f.hardGate)) return {};
 
   const screen = currentScreen(state.plan, state.screenIndex);
+  const items = state.resolvedItems ?? resolveScreenItems(screen, state.input.items);
+  // Grade against the SAME blueprint the painter was told to fill (falls back to the legacy
+  // strategy when the theme has no resolved theme, which shouldn't happen post-resolveTheme).
+  const layoutStrategy =
+    state.theme !== undefined
+      ? renderBlueprintStrategy(blueprintFor(screen, items, state.theme, ctx.config.layouts))
+      : describeLayoutStrategy(screen);
   ctx.ports.logger?.info(
     `board ${state.screenIndex + 1}/${state.plan.screens.length} "${screen.id}": vision critique`,
   );
@@ -212,6 +236,11 @@ export async function visionQaNode(
     screenshotBase64: state.screenshotBase64,
     planScreen: screen,
     rubric: ctx.config.rubric,
+    ...(state.theme !== undefined
+      ? { designIntent: describeDesignIntent(state.theme, ctx.config.painter.antiPatterns) }
+      : {}),
+    layoutStrategy,
+    correlation: boardCorrelation(state, screen.id),
   });
   const vision = critique.findings.map(toVisionFinding);
   return { findings: [...state.findings, ...vision] };
@@ -289,10 +318,14 @@ export async function repairNode(
     return { html: deterministic.html, iteration: state.iteration + 1 };
   }
   if (ctx.ports.llmRepairer) {
+    const correlation = state.plan
+      ? boardCorrelation(state, currentScreen(state.plan, state.screenIndex).id)
+      : runCorrelation(state);
     const repaired = await ctx.ports.llmRepairer.repair({
       html: state.html,
       theme: state.theme,
       findings: state.findings,
+      correlation,
     });
     return { html: repaired.html, iteration: state.iteration + 1 };
   }
