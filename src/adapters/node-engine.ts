@@ -3,8 +3,9 @@ import { randomUUID } from "node:crypto";
 import { initLogger } from "braintrust";
 
 import { loadEngineConfig } from "../config/index";
-import type { ThinPlan } from "../domain/types";
+import type { GenerateOutput, ThinPlan } from "../domain/types";
 import { createEngine, type ContentEngine } from "../pipeline/engine";
+import { normalizeBrandLogo } from "./image/asset-resolver";
 import type { EnginePorts } from "../ports/index";
 import type { Planner } from "../ports/planner";
 import type { Clock, DebugSink, IdGenerator, Logger } from "../ports/services";
@@ -136,5 +137,15 @@ export function createNodeEngine(options: NodeEngineOptions): ContentEngine {
     ...(options.debug ? { debug: options.debug } : {}),
   };
 
-  return createEngine(ports, options.config);
+  const engine = createEngine(ports, options.config);
+  // Resolve any brand logo (URL / fs path) to a data-URI before the pure, hermetic core runs.
+  // `plan()` doesn't touch brand, so it delegates unchanged (no needless fetch/read).
+  return {
+    async generate(input: unknown): Promise<GenerateOutput> {
+      return engine.generate(await normalizeBrandLogo(input));
+    },
+    plan(input: unknown): Promise<ThinPlan> {
+      return engine.plan(input);
+    },
+  };
 }
