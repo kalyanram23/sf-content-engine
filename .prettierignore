@@ -1,6 +1,7 @@
 dist
 coverage
 node_modules
+.superpowers
 playground-output
 package-lock.json
 docs
