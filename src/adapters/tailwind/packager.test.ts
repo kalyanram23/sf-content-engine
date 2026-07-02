@@ -60,6 +60,19 @@ describe("TailwindPackager (real compile, hermetic)", () => {
     expect(checkSelfContained(parse(packaged))).toEqual([]);
   }, 60_000);
 
+  it("inlines the brand logo data-URI into the [data-brand-logo] placeholder", async () => {
+    const logo = "data:image/png;base64,AAAABBBB";
+    const html = '<main><header><img data-brand-logo alt="Acme"></header></main>';
+    const packaged = await new TailwindPackager().package({
+      html,
+      theme,
+      items: [],
+      brandLogoDataUri: logo,
+    });
+    expect(packaged).toContain(`src="${logo}"`);
+    expect(packaged).toContain("data-brand-logo");
+  }, 60_000);
+
   it("defers the motion runtime until the DOM is parsed (the runtime <script> lives in <head>)", async () => {
     // Regression: the runtime <script data-motion-runtime> is emitted inside <head>, so querying
     // for [data-motion] elements synchronously would match nothing (body not yet parsed) and the

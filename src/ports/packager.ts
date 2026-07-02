@@ -10,6 +10,9 @@ export interface PackageRequest {
    * the painter never emits a (remote) src and the artifact stays offline-safe (§5.1).
    */
   items: CanonicalItem[];
+  /** The resolved brand logo as a data-URI (already inlined by the Node root). The packager
+   * fills the painter's `<img data-brand-logo>` placeholder with it, offline-safe (D18). */
+  brandLogoDataUri?: string;
 }
 
 /**

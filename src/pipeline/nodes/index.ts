@@ -134,6 +134,9 @@ export async function packageNode(
     html: state.html,
     theme: state.theme,
     items,
+    ...(state.input.brand?.logo?.src !== undefined
+      ? { brandLogoDataUri: state.input.brand.logo.src }
+      : {}),
   });
   if (!packagedHtml || packagedHtml.trim() === "")
     throw new PackagingError("packager returned empty HTML.");

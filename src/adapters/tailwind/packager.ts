@@ -25,6 +25,7 @@ export class TailwindPackager implements Packager {
       // Fill every carousel/photo placeholder with a data-URI BEFORE serializing, so the
       // shipped artifact never carries a remote src (offline-safe, §5.1).
       inlineItemImages(root, request.items);
+      inlineBrandLogo(root, request.brandLogoDataUri);
       const useRuntimeMotion = usesRuntimeMotion(root, request.theme);
       const body = root.toString();
 
@@ -63,6 +64,14 @@ function inlineItemImages(root: HTMLElement, items: readonly CanonicalItem[]): v
     const idx = Number.isInteger(rawIdx) && rawIdx >= 0 ? rawIdx : 0;
     const uri = byId.get(id)?.images?.[idx];
     el.setAttribute("src", uri && uri.trim() !== "" ? uri : PLACEHOLDER_IMAGE_DATA_URI);
+  }
+}
+
+/** Fill the painter's `<img data-brand-logo>` header placeholder (no src) with the resolved brand
+ * logo data-URI, or the offline placeholder when no logo was provided (mirrors inlineItemImages). */
+function inlineBrandLogo(root: HTMLElement, dataUri: string | undefined): void {
+  for (const el of root.querySelectorAll("[data-brand-logo]")) {
+    el.setAttribute("src", dataUri && dataUri.trim() !== "" ? dataUri : PLACEHOLDER_IMAGE_DATA_URI);
   }
 }
 

@@ -14,7 +14,9 @@ import { PLACEHOLDER_IMAGE_DATA_URI } from "../../util/placeholder-image";
  */
 export class FakePackager implements Packager {
   package(request: PackageRequest): Promise<string> {
-    return Promise.resolve(packageHtml(request.html, request.theme, request.items));
+    return Promise.resolve(
+      packageHtml(request.html, request.theme, request.items, request.brandLogoDataUri),
+    );
   }
 }
 
@@ -26,6 +28,14 @@ function inlineItemImages(root: HTMLElement, items: readonly CanonicalItem[]): v
     const idx = Number.isInteger(rawIdx) && rawIdx >= 0 ? rawIdx : 0;
     const uri = byId.get(id)?.images?.[idx];
     el.setAttribute("src", uri && uri.trim() !== "" ? uri : PLACEHOLDER_IMAGE_DATA_URI);
+  }
+}
+
+/** Mirrors TailwindPackager's inlineBrandLogo (the fake cannot import from src/adapters/**,
+ * the hermetic boundary forbids it — so this small helper is duplicated intentionally). */
+function inlineBrandLogo(root: HTMLElement, dataUri: string | undefined): void {
+  for (const el of root.querySelectorAll("[data-brand-logo]")) {
+    el.setAttribute("src", dataUri && dataUri.trim() !== "" ? dataUri : PLACEHOLDER_IMAGE_DATA_URI);
   }
 }
 
@@ -53,9 +63,15 @@ function tokenStylesheet(theme: ResolvedTheme): string {
   );
 }
 
-function packageHtml(html: string, theme: ResolvedTheme, items: readonly CanonicalItem[]): string {
+function packageHtml(
+  html: string,
+  theme: ResolvedTheme,
+  items: readonly CanonicalItem[],
+  brandLogoDataUri?: string,
+): string {
   const root = parse(html);
   inlineItemImages(root, items);
+  inlineBrandLogo(root, brandLogoDataUri);
   return (
     `<!doctype html><html lang="en"><head><meta charset="utf-8">` +
     `<style>${tokenStylesheet(theme)}</style>` +
