@@ -18,6 +18,12 @@ export interface CritiqueRequest {
   designIntent?: string;
   /** The layout strategy the painter was told to follow — graded against, not guessed at. */
   layoutStrategy?: string;
+  /**
+   * The exact canvas the screenshot was rendered at + its aspect, so the critic judges fill,
+   * balance and hierarchy for THIS orientation (a portrait 9:16 board is composed and judged
+   * differently from a landscape 16:9 one). Derived from `constraints.aspect` (D19).
+   */
+  canvas?: { width: number; height: number; aspect: "16:9" | "9:16" };
   /** Observability correlation for this call (run/board/iteration), threaded to OpenRouter Broadcast. */
   correlation?: RequestCorrelation;
 }

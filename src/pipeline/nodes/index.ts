@@ -231,6 +231,8 @@ export async function visionQaNode(
 
   const screen = currentScreen(state.plan, state.screenIndex);
   const items = state.resolvedItems ?? resolveScreenItems(screen, state.input.items);
+  const aspect = state.input.constraints.aspect;
+  const viewport = orientViewport(ctx.config.qa.viewport, aspect);
   // Grade against the SAME blueprint the painter was told to fill (falls back to the legacy
   // strategy when the theme has no resolved theme, which shouldn't happen post-resolveTheme).
   const layoutStrategy =
@@ -248,6 +250,7 @@ export async function visionQaNode(
       ? { designIntent: describeDesignIntent(state.theme, ctx.config.painter.antiPatterns) }
       : {}),
     layoutStrategy,
+    canvas: { width: viewport.width, height: viewport.height, aspect },
     correlation: boardCorrelation(state, screen.id),
   });
   const vision = critique.findings.map(toVisionFinding);

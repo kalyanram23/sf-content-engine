@@ -22,6 +22,12 @@ export function rubricText(request: CritiqueRequest): string {
   if (request.layoutStrategy !== undefined) {
     sections.push(`LAYOUT STRATEGY the painter was told to follow:\n${request.layoutStrategy}`);
   }
+  if (request.canvas !== undefined) {
+    const { width, height, aspect } = request.canvas;
+    sections.push(
+      `Target canvas: ${width}x${height}px (aspect ${aspect}) — a fixed, non-scrolling signage poster. Judge fill, balance and hierarchy for this exact ${aspect === "9:16" ? "portrait" : "landscape"} frame.`,
+    );
+  }
   sections.push(`Plan:\n${JSON.stringify(request.planScreen)}`);
   return sections.join("\n\n");
 }
