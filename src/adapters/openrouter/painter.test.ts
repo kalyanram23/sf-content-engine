@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { describeLayoutStrategy, extractScreenHtml } from "./painter";
+import { brandUserLines, describeLayoutStrategy, extractScreenHtml } from "./painter";
 
 /**
  * Hermetic (no network): guards how we pull the screen markup out of a model response. The painter
@@ -85,5 +85,31 @@ describe("describeLayoutStrategy", () => {
       ],
     };
     expect(describeLayoutStrategy(board)).toContain("MATRIX/TABLE FIRST");
+  });
+});
+
+/**
+ * The brand-header instruction block appended to the painter's user prompt when a run has brand
+ * content. Uses the item-photo placeholder scheme (NO src) so the large logo data-URI never
+ * passes through the model.
+ */
+describe("brandUserLines", () => {
+  it("instructs the no-src placeholder and includes name/tagline/alt", () => {
+    const lines = brandUserLines({
+      logo: { src: "data:image/png;base64,AAAA", alt: "Acme logo" },
+      name: "Acme Diner",
+      tagline: "Fresh daily",
+    }).join("\n");
+    expect(lines).toContain("data-brand-logo");
+    expect(lines).toContain("NO src");
+    expect(lines).toContain("Acme Diner");
+    expect(lines).toContain("Fresh daily");
+    expect(lines).toContain("Acme logo");
+  });
+
+  it("omits absent fields", () => {
+    const lines = brandUserLines({ name: "Acme" }).join("\n");
+    expect(lines).toContain("Acme");
+    expect(lines).not.toContain("Tagline");
   });
 });

@@ -2,7 +2,7 @@ import type OpenAI from "openai";
 
 import type { ReasoningSetting } from "../../config/models";
 import { PaintError } from "../../domain/errors";
-import type { ResolvedTheme } from "../../domain/types";
+import type { BrandInput, ResolvedTheme } from "../../domain/types";
 import { describeLayoutStrategy, renderBlueprintStrategy } from "../../planning/layout-strategy";
 import type { Painter, PaintRequest } from "../../ports/painter";
 import type { Logger } from "../../ports/services";
@@ -126,6 +126,24 @@ function describeComponents(
   return `Component recipes — reuse these consistently across the board:\n${lines.join("\n")}`;
 }
 
+/** The brand-header instruction block appended to the painter's user prompt when a run has brand
+ * content. Uses the item-photo placeholder scheme so the large data-URI never passes through the
+ * model (an LLM can't reproduce a long base64 blob reliably). */
+export function brandUserLines(brand: BrandInput): string[] {
+  const lines: string[] = [
+    "BRAND HEADER — this run has brand content; render a header band at the TOP of the screen combining the brand with the screen title:",
+    "- Place the logo as <img data-brand-logo> with NO src attribute — the engine inlines the real image at package time. NEVER put a URL in src.",
+    "- Size the logo as a real header element (not a tiny thumbnail, not overpowering the menu), on a theme surface that suits it (transparent logos need an appropriate backing).",
+  ];
+  if (brand.logo?.alt !== undefined)
+    lines.push(`- Logo alt text: ${JSON.stringify(brand.logo.alt)}`);
+  if (brand.name !== undefined)
+    lines.push(`- Brand name (render as text in the header): ${JSON.stringify(brand.name)}`);
+  if (brand.tagline !== undefined)
+    lines.push(`- Tagline (smaller text near the name): ${JSON.stringify(brand.tagline)}`);
+  return lines;
+}
+
 export function describeRequest(request: PaintRequest): string {
   const tokens = request.theme.tokens;
   const motion = request.theme.motion
@@ -155,6 +173,9 @@ export function describeRequest(request: PaintRequest): string {
     lines.push(
       `Image slot — build a gallery-fade carousel cycling these item photos: ${JSON.stringify(request.planScreen.imageSlot)}`,
     );
+  }
+  if (request.brand !== undefined) {
+    lines.push(...brandUserLines(request.brand));
   }
   if (request.theme.components !== undefined && request.theme.components.length > 0) {
     lines.push(describeComponents(request.theme.components));

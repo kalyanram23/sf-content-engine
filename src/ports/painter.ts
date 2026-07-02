@@ -1,4 +1,5 @@
 import type {
+  BrandInput,
   CanonicalItem,
   GenerateConstraints,
   LayoutBlueprint,
@@ -36,6 +37,9 @@ export interface PaintRequest {
   findings?: QaFinding[];
   /** Observability correlation for this call (run/board/iteration), threaded to OpenRouter Broadcast. */
   correlation?: RequestCorrelation;
+  /** Optional brand content (logo + name/tagline). Present → the painter renders a header band;
+   * the logo uses the `data-brand-logo` no-src placeholder scheme (packager inlines it). */
+  brand?: BrandInput;
 }
 
 /**

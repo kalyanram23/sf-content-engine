@@ -115,6 +115,7 @@ export async function paintNode(
     correlation: boardCorrelation(state, screen.id),
     ...(state.html !== undefined ? { previousHtml: state.html } : {}),
     ...(state.findings.length > 0 ? { findings: state.findings } : {}),
+    ...(state.input.brand !== undefined ? { brand: state.input.brand } : {}),
   });
   if (!html || html.trim() === "") throw new PaintError("painter returned empty HTML.");
   return { html, iteration: state.iteration + 1 };
