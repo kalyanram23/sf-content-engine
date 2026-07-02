@@ -33,7 +33,17 @@ export async function resolveAssetToDataUri(src: string): Promise<string> {
     return `data:${mime};base64,${buffer.toString("base64")}`;
   }
 
-  const path = trimmed.startsWith("file://") ? fileURLToPath(trimmed) : trimmed;
+  let path: string;
+  if (trimmed.startsWith("file://")) {
+    try {
+      path = fileURLToPath(trimmed);
+    } catch (cause) {
+      throw new BrandAssetError(`brand logo path "${src}" is not a valid file URL.`, { cause });
+    }
+  } else {
+    path = trimmed;
+  }
+
   let buffer: Buffer;
   try {
     buffer = await readFile(path);

@@ -24,7 +24,13 @@ describe("resolveAssetToDataUri", () => {
   });
 
   it("throws BrandAssetError for a missing file", async () => {
-    await expect(resolveAssetToDataUri("/no/such/logo.png")).rejects.toBeInstanceOf(BrandAssetError);
+    await expect(resolveAssetToDataUri("/no/such/logo.png")).rejects.toBeInstanceOf(
+      BrandAssetError,
+    );
+  });
+
+  it("throws BrandAssetError for a malformed file:// URL", async () => {
+    await expect(resolveAssetToDataUri("file://%zz")).rejects.toBeInstanceOf(BrandAssetError);
   });
 });
 
