@@ -163,6 +163,13 @@ export const themeAssetSchema = z.object({
 export const themeFontSchema = z.object({
   family: z.string().min(1),
   dataUri: z.string().min(1),
+  /**
+   * The `font-weight` this face carries (e.g. "400", "700"). Optional; defaults to `normal` in
+   * the @font-face. Themes that embed two faces of the SAME family at different weights (e.g. a
+   * body face at 500 and 700) MUST set this, or both faces collide at `normal` and the bold never
+   * renders.
+   */
+  weight: z.string().min(1).optional(),
 });
 
 export const themeAssetsSchema = z.object({

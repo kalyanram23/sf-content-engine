@@ -103,7 +103,7 @@ function baseStyles(theme: ResolvedTheme): string {
   const fontFaces = theme.assets.fonts
     .map(
       (f) =>
-        `@font-face{font-family:'${f.family}';src:url(${f.dataUri}) format('woff2');font-display:swap;}`,
+        `@font-face{font-family:'${f.family}';font-weight:${f.weight ?? "normal"};src:url(${f.dataUri}) format('woff2');font-display:swap;}`,
     )
     .join("");
   const body = theme.tokens.fontFamilies["body"] ?? "system-ui, sans-serif";

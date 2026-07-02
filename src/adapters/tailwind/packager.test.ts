@@ -73,6 +73,31 @@ describe("TailwindPackager (real compile, hermetic)", () => {
     expect(packaged).toContain("data-brand-logo");
   }, 60_000);
 
+  it("emits @font-face with the declared font-weight (so two same-family faces don't collide)", async () => {
+    // A theme embedding one family at two weights: each face must carry its own font-weight, or
+    // both collapse to `normal` and the bold face never renders (B5 / bold-poster relies on this).
+    const weighted = {
+      ...theme,
+      assets: {
+        ...theme.assets,
+        fonts: [
+          { family: "Archivo", dataUri: "data:font/woff2;base64,AAAA", weight: "500" },
+          { family: "Archivo", dataUri: "data:font/woff2;base64,BBBB", weight: "700" },
+          { family: "Shrikhand", dataUri: "data:font/woff2;base64,CCCC" },
+        ],
+      },
+    };
+    const packaged = await new TailwindPackager().package({
+      html: '<main class="text-text">Hi</main>',
+      theme: weighted,
+      items: [],
+    });
+    expect(packaged).toContain("font-family:'Archivo';font-weight:500;");
+    expect(packaged).toContain("font-family:'Archivo';font-weight:700;");
+    // A face with no declared weight defaults to normal.
+    expect(packaged).toContain("font-family:'Shrikhand';font-weight:normal;");
+  }, 60_000);
+
   it("defers the motion runtime until the DOM is parsed (the runtime <script> lives in <head>)", async () => {
     // Regression: the runtime <script data-motion-runtime> is emitted inside <head>, so querying
     // for [data-motion] elements synchronously would match nothing (body not yet parsed) and the
