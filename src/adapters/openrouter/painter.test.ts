@@ -121,6 +121,13 @@ describe("brandUserLines", () => {
     expect(lines).toContain("Acme");
     expect(lines).not.toContain("Tagline");
   });
+
+  it("omits the logo placeholder instruction when there is no logo", () => {
+    const lines = brandUserLines({ name: "Acme", tagline: "Fresh" }).join("\n");
+    expect(lines).not.toContain("data-brand-logo");
+    expect(lines).toContain("Acme");
+    expect(lines).toContain("Fresh");
+  });
 });
 
 const testTheme = parseOrThrow(

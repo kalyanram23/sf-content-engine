@@ -132,11 +132,17 @@ function describeComponents(
 export function brandUserLines(brand: BrandInput): string[] {
   const lines: string[] = [
     "BRAND HEADER — this run has brand content; render a header band at the TOP of the screen combining the brand with the screen title:",
-    "- Place the logo as <img data-brand-logo> with NO src attribute — the engine inlines the real image at package time. NEVER put a URL in src.",
-    "- Size the logo as a real header element (not a tiny thumbnail, not overpowering the menu), on a theme surface that suits it (transparent logos need an appropriate backing).",
   ];
-  if (brand.logo?.alt !== undefined)
-    lines.push(`- Logo alt text: ${JSON.stringify(brand.logo.alt)}`);
+  if (brand.logo !== undefined) {
+    lines.push(
+      "- Place the logo as <img data-brand-logo> with NO src attribute — the engine inlines the real image at package time. NEVER put a URL in src.",
+    );
+    lines.push(
+      "- Size the logo as a real header element (not a tiny thumbnail, not overpowering the menu), on a theme surface that suits it (transparent logos need an appropriate backing).",
+    );
+    if (brand.logo.alt !== undefined)
+      lines.push(`- Logo alt text: ${JSON.stringify(brand.logo.alt)}`);
+  }
   if (brand.name !== undefined)
     lines.push(`- Brand name (render as text in the header): ${JSON.stringify(brand.name)}`);
   if (brand.tagline !== undefined)

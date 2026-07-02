@@ -22,6 +22,8 @@ export type {
   ItemSize,
   ItemVariant,
   ThemeBrief,
+  BrandInput,
+  BrandLogo,
   Density,
   GenerateConstraints,
   GenerateInput,
@@ -56,6 +58,7 @@ export {
   LlmContractError,
   QaBudgetError,
   ConfigError,
+  BrandAssetError,
   type ContentEngineErrorCode,
 } from "./domain/errors";
 
