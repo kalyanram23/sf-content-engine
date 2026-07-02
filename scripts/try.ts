@@ -7,6 +7,7 @@
  *   npx playwright install chromium                              # one-time: the browser binary
  *   npm run try -- samples/menu.json --screens=6                 # 6 boards, all items, 16:9
  *   npm run try -- samples/menu.json --screens=6 --aspect=9:16   # portrait
+ *   npm run try -- samples/menu.json --preset=blockframe         # pick a theme (default bubblegum)
  *   npm run try -- samples/menu.json --screens=6 --prompt "combine biryani and pulav as a price table"
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -49,6 +50,9 @@ const flagValue = (name: string): string | undefined =>
   flags.find((f) => f.startsWith(`--${name}=`))?.split("=")[1];
 const SCREENS = Number(flagValue("screens") ?? "6");
 const ASPECT: "16:9" | "9:16" = flagValue("aspect") === "9:16" ? "9:16" : "16:9";
+// Which theme preset to paint against — any id under themes/ (botanical, bubblegum, blockframe,
+// bold-poster). Defaults to bubblegum.
+const PRESET = flagValue("preset") ?? "bubblegum";
 // Names the run for observability: OpenRouter Broadcast traces carry session_id
 // "<restaurant>:<board>:<runId>". Defaults to the menu filename; override with --restaurant=.
 const RESTAURANT = flagValue("restaurant") ?? basename(MENU_PATH).replace(/\.json$/i, "");
@@ -167,7 +171,7 @@ async function main(): Promise<void> {
   mkdirSync(outDir, { recursive: true });
 
   const brief = {
-    presetId: "bubblegum",
+    presetId: PRESET,
     density: "balanced" as const,
     restaurant: RESTAURANT,
     ...(PROMPT ? { notes: PROMPT } : {}),
