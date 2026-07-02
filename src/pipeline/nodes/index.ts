@@ -3,6 +3,7 @@ import { PackagingError, PaintError, RenderError, ThemeNotFoundError } from "../
 import { parseOrThrow } from "../../domain/parse";
 import { thinPlanSchema } from "../../domain/schemas";
 import type { QaFinding } from "../../domain/types";
+import { orientViewport } from "../../config/qa";
 import { applyDeterministicRepairs, contrastIsFixable } from "../../repairs/index";
 import { describeLayoutStrategy } from "../../planning/layout-strategy";
 import { FindingKind, makeFinding } from "../../qa/finding";
@@ -103,13 +104,14 @@ export async function paintNode(
     `board ${state.screenIndex + 1}/${state.plan.screens.length} "${screen.id}": painting (attempt ${state.iteration + 1})`,
   );
 
+  const viewport = orientViewport(ctx.config.qa.viewport, state.input.constraints.aspect);
   const blueprint = blueprintFor(screen, items, state.theme, ctx.config.layouts);
   const html = await ctx.ports.painter.paint({
     planScreen: screen,
     items,
     theme: state.theme,
     constraints: state.input.constraints,
-    viewport: { width: ctx.config.qa.viewport.width, height: ctx.config.qa.viewport.height },
+    viewport: { width: viewport.width, height: viewport.height },
     antiPatterns: ctx.config.painter.antiPatterns,
     blueprint,
     correlation: boardCorrelation(state, screen.id),
@@ -157,18 +159,19 @@ export async function deterministicQaNode(
   const screen = currentScreen(state.plan, state.screenIndex);
   const theme = state.theme;
   const items = state.resolvedItems ?? resolveScreenItems(screen, state.input.items);
-  const { width, height } = ctx.config.qa.viewport;
+  const viewport = orientViewport(ctx.config.qa.viewport, state.input.constraints.aspect);
+  const { width, height } = viewport;
   ctx.ports.logger?.info(
     `board ${state.screenIndex + 1}/${state.plan.screens.length} "${screen.id}": rendering ${width}×${height} + QA checks`,
   );
 
   const { observation, screenshotBase64 } = await ctx.ports.browser.render({
     html: state.packagedHtml,
-    viewport: ctx.config.qa.viewport,
+    viewport,
   });
 
   // Hard precondition: the render must match the target viewport/DPR (§5.6a) — fail loudly.
-  const viewportFinding = checkViewport(observation, ctx.config.qa);
+  const viewportFinding = checkViewport(observation, viewport);
   if (viewportFinding) {
     throw new RenderError(
       viewportFinding.message,
@@ -348,7 +351,7 @@ export async function freezeNode(
     throw new RenderError("freeze requires a plan, theme, and a scored best candidate.");
   }
   const screen = currentScreen(state.plan, state.screenIndex);
-  const { viewport } = ctx.config.qa;
+  const viewport = orientViewport(ctx.config.qa.viewport, state.input.constraints.aspect);
   const best = state.best;
   ctx.ports.logger?.info(
     `board ${state.screenIndex + 1} "${screen.id}": frozen — passed=${best.passed}, iterations=${best.iterations}`,

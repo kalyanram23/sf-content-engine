@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ConfigError } from "../domain/errors";
+import { orientViewport, viewportForAspect } from "./qa";
 import { defaultEngineConfig, loadEngineConfig } from "./index";
 
 describe("loadEngineConfig", () => {
@@ -72,5 +73,57 @@ describe("loadEngineConfig", () => {
     expect(config.models.reasoning.paint).toEqual({ maxTokens: 4000 });
     // plan keeps its default even though only paint was overridden (per-field defaults)
     expect(config.models.reasoning.plan).toEqual({ enabled: true });
+  });
+});
+
+/**
+ * orientViewport (D19): aspect owns ORIENTATION, qa.viewport owns RESOLUTION + DPR. It swaps the
+ * configured viewport's dimensions only when the requested aspect disagrees with the configured
+ * orientation — so a 9:16 request renders portrait for EVERY caller, not just scripts/try.ts.
+ */
+describe("orientViewport", () => {
+  it("leaves a landscape viewport untouched for a 16:9 request", () => {
+    expect(orientViewport({ width: 1920, height: 1080, dpr: 1 }, "16:9")).toEqual({
+      width: 1920,
+      height: 1080,
+      dpr: 1,
+    });
+  });
+
+  it("swaps a landscape default to portrait for a 9:16 request", () => {
+    expect(orientViewport({ width: 1920, height: 1080, dpr: 1 }, "9:16")).toEqual({
+      width: 1080,
+      height: 1920,
+      dpr: 1,
+    });
+  });
+
+  it("preserves a higher resolution + DPR while re-orienting (resolution stays the caller's)", () => {
+    expect(orientViewport({ width: 3840, height: 2160, dpr: 2 }, "9:16")).toEqual({
+      width: 2160,
+      height: 3840,
+      dpr: 2,
+    });
+  });
+
+  it("leaves an already-portrait viewport untouched for a 9:16 request", () => {
+    expect(orientViewport({ width: 1080, height: 1920, dpr: 1 }, "9:16")).toEqual({
+      width: 1080,
+      height: 1920,
+      dpr: 1,
+    });
+  });
+
+  it("never swaps a square viewport", () => {
+    expect(orientViewport({ width: 1000, height: 1000, dpr: 1 }, "9:16")).toEqual({
+      width: 1000,
+      height: 1000,
+      dpr: 1,
+    });
+  });
+
+  it("agrees with viewportForAspect on the default resolution", () => {
+    const fromDefault = orientViewport({ width: 1920, height: 1080, dpr: 1 }, "9:16");
+    expect(fromDefault).toEqual(viewportForAspect("9:16"));
   });
 });

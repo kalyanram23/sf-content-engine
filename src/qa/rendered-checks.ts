@@ -1,4 +1,4 @@
-import type { QaConfig } from "../config/qa";
+import type { QaConfig, ViewportConfig } from "../config/qa";
 import type { PlanScreen, QaFinding } from "../domain/types";
 import type { RenderObservation } from "../ports/browser";
 import { contrastRatio, requiredRatio } from "./contrast";
@@ -14,8 +14,8 @@ import { FindingKind, makeFinding } from "./finding";
  * viewport + DPR, or every downstream rendered check is meaningless. Returns a finding on
  * mismatch (the node turns it into a loud `RenderError`).
  */
-export function checkViewport(obs: RenderObservation, qa: QaConfig): QaFinding | null {
-  const { width, height, dpr } = qa.viewport;
+export function checkViewport(obs: RenderObservation, viewport: ViewportConfig): QaFinding | null {
+  const { width, height, dpr } = viewport;
   const a = obs.actualViewport;
   if (a.width === width && a.height === height && a.dpr === dpr) return null;
   return makeFinding({
@@ -25,7 +25,7 @@ export function checkViewport(obs: RenderObservation, qa: QaConfig): QaFinding |
     tag: "structural",
     hardGate: true,
     message: `Rendered viewport ${a.width}x${a.height}@${a.dpr} does not match target ${width}x${height}@${dpr}.`,
-    data: { actual: a, expected: qa.viewport },
+    data: { actual: a, expected: viewport },
   });
 }
 

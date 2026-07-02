@@ -270,3 +270,25 @@ package time (reusing the item-photo placeholder scheme). Unlike item photos (wh
 placeholder), an unreadable logo throws `BrandAssetError` — a logo the caller explicitly pointed at
 that can't be read is a real misconfiguration. A `brand-binding` structural check guarantees the
 logo renders and stays inlined.
+
+## D19 — The render viewport is derived from `constraints.aspect`; `qa.viewport` is the resolution knob
+
+**Decision:** The pipeline derives each board's render/QA/poster geometry by **orienting**
+`config.qa.viewport` to the request's `constraints.aspect` (`orientViewport`, `src/config/qa.ts`):
+when the configured viewport's orientation disagrees with the requested aspect, width/height are
+swapped (dpr unchanged; a square viewport is left alone). Aspect — a per-request constraint — owns
+**orientation**; `qa.viewport` — per-engine config — owns **resolution** (1080p vs 4K) and DPR.
+Every pipeline consumer uses the derived viewport: the painter's "Target canvas" and PORTRAIT
+composition guidance (`paintNode`), the browser render + the `checkViewport` hard precondition
+(`deterministicQaNode`), the vision-critic canvas (`visionQaNode`), and the frozen `meta`/poster
+geometry (`freezeNode`). So `meta.aspect` can never disagree with `meta.width/height`.
+
+**Why:** Previously only `scripts/try.ts` called `viewportForAspect`; a library caller setting
+`constraints.aspect: "9:16"` without also overriding `config.qa.viewport` rendered landscape while
+the painter was told portrait (and the frozen `meta` claimed 9:16 at 1920×1080). Deriving at the
+nodes — not at config load — keeps config parsing pure and sidesteps "was this field explicitly
+set?" detection, which Zod defaults erase. `checkViewport` now takes a `ViewportConfig` (the
+derived viewport) instead of the whole `QaConfig`, since orientation is per-request. The only
+breaking case is a caller who set a portrait `qa.viewport` while leaving `aspect` at the `"16:9"`
+default — they must now state the aspect, which `generateConstraintsSchema` always documented as
+driving the render viewport.

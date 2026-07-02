@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { UnsupportedConstraintError } from "../domain/errors";
+import { RenderError, UnsupportedConstraintError } from "../domain/errors";
 import { createFakeEngine } from "../testing/fakes/index";
 import {
   cleanObservation,
@@ -222,5 +222,34 @@ describe("createEngine — end-to-end pipeline (fakes)", () => {
     expect(screen.html).toContain(logo); // packager injected the resolved data-URI
     expect(screen.html).toContain("Acme Diner");
     expect(out.qaReport.screens[0]!.passed).toBe(true); // brand-binding check passes
+  });
+
+  it("derives a portrait render + frozen geometry from constraints.aspect (D19)", async () => {
+    // Default qa.viewport is landscape 1920×1080; aspect 9:16 must re-orient it to portrait for
+    // the render, the QA precondition, and the frozen meta/poster — for every caller, not just try.ts.
+    const engine = createFakeEngine({
+      observations: [cleanObservation({ width: 1080, height: 1920 })],
+    });
+    const out = await engine.generate({
+      ...fixtures.input,
+      constraints: { aspect: "9:16", screens: 1 },
+    });
+
+    const screen = out.screens[0]!;
+    expect(screen.meta.aspect).toBe("9:16");
+    expect(screen.meta.width).toBe(1080);
+    expect(screen.meta.height).toBe(1920);
+    expect(out.posters[0]!.width).toBe(1080);
+    expect(out.posters[0]!.height).toBe(1920);
+    expect(out.qaReport.screens[0]!.passed).toBe(true);
+  });
+
+  it("fails the viewport hard gate when the render disagrees with the aspect-derived target (D19)", async () => {
+    // aspect 9:16 derives a 1080×1920 target, but the (fake) browser renders landscape 1920×1080 —
+    // proving the derived viewport, not the raw qa.viewport, reaches the checkViewport precondition.
+    const engine = createFakeEngine({ observations: [cleanObservation()] });
+    await expect(
+      engine.generate({ ...fixtures.input, constraints: { aspect: "9:16", screens: 1 } }),
+    ).rejects.toBeInstanceOf(RenderError);
   });
 });

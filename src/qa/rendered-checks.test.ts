@@ -37,13 +37,13 @@ function baseObservation(overrides: Partial<RenderObservation> = {}): RenderObse
 
 describe("checkViewport", () => {
   it("passes when the rendered viewport matches the target", () => {
-    expect(checkViewport(baseObservation(), qa)).toBeNull();
+    expect(checkViewport(baseObservation(), qa.viewport)).toBeNull();
   });
 
   it("flags a DPR/size mismatch as a hard precondition failure", () => {
     const finding = checkViewport(
       baseObservation({ actualViewport: { width: 1920, height: 1080, dpr: 2 } }),
-      qa,
+      qa.viewport,
     );
     expect(finding?.kind).toBe("viewport");
     expect(finding?.hardGate).toBe(true);

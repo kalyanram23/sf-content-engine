@@ -14,7 +14,7 @@ export const painterConfigSchema = z.object({
     .array(z.string().min(1))
     .default([
       "Gradient-filled or background-clip text effects — headline text is a solid token colour",
-      "Pure black or pure white panels/text that ignore the theme's bg/surface/text tokens",
+      "Panels or text in default pure #000/#fff that visibly ignore the theme's palette — a theme's own near-white or near-black token values ARE the palette, not a violation",
       "Two rival hero blocks of equal visual weight — one clear focal point per board",
       "A 'hero' photo reduced to a small corner thumbnail — heroes are prominent or omitted",
     ]),

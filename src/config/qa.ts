@@ -87,3 +87,17 @@ export function viewportForAspect(aspect: "16:9" | "9:16"): {
     ? { width: 1080, height: 1920, dpr: 1 }
     : { width: 1920, height: 1080, dpr: 1 };
 }
+
+/**
+ * Orient the configured viewport to the requested aspect (D19): aspect — a per-request constraint —
+ * owns ORIENTATION, while `qa.viewport` owns RESOLUTION (1080p vs 4K) and DPR. When the configured
+ * viewport's orientation disagrees with the requested aspect, width/height are swapped (dpr passes
+ * through); a square viewport is left untouched. This is what makes a `constraints.aspect: "9:16"`
+ * request actually render portrait for every caller, not just `scripts/try.ts`.
+ */
+export function orientViewport(viewport: ViewportConfig, aspect: "16:9" | "9:16"): ViewportConfig {
+  const wantPortrait = aspect === "9:16";
+  const isPortrait = viewport.height > viewport.width;
+  if (viewport.width === viewport.height || wantPortrait === isPortrait) return viewport;
+  return { width: viewport.height, height: viewport.width, dpr: viewport.dpr };
+}
