@@ -28,6 +28,8 @@ export interface StructuralContext {
   theme: ResolvedTheme;
   qa: QaConfig;
   tokenLint: TokenLintRules;
+  /** True when the run supplied a brand logo — enables the brand-binding check. */
+  brandLogoRequested?: boolean;
 }
 
 const DATA_URI = /^(data:|#|blob:)/i;
@@ -365,6 +367,42 @@ export function checkSelfContained(root: HTMLElement, _ctx?: StructuralContext):
   return findings;
 }
 
+/** When a brand logo was requested, guarantee the painter actually rendered the header placeholder
+ * and that it was inlined (no leaked remote/relative src). Mirrors binding-integrity for items. */
+export function checkBrandBinding(root: HTMLElement, ctx: StructuralContext): QaFinding[] {
+  if (ctx.brandLogoRequested !== true) return [];
+  const logos = root.querySelectorAll("[data-brand-logo]");
+  if (logos.length === 0) {
+    return [
+      makeFinding({
+        kind: FindingKind.BrandBinding,
+        source: "deterministic",
+        severity: "major",
+        tag: "structural",
+        message:
+          "Brand logo was provided but no <img data-brand-logo> header element was rendered.",
+      }),
+    ];
+  }
+  const findings: QaFinding[] = [];
+  for (const el of logos) {
+    const src = (el.getAttribute("src") ?? "").trim();
+    if (src !== "" && !DATA_URI.test(src)) {
+      findings.push(
+        makeFinding({
+          kind: FindingKind.BrandBinding,
+          source: "deterministic",
+          severity: "major",
+          tag: "structural",
+          message: `Brand logo carries a non-inlined src="${src}"; it must be a data-URI.`,
+          data: { value: src },
+        }),
+      );
+    }
+  }
+  return findings;
+}
+
 /** Run every structural check: token-lint on the raw markup, the rest on the packaged artifact. */
 export function runStructuralChecks(ctx: StructuralContext): QaFinding[] {
   const pkgRoot = parse(ctx.html);
@@ -376,5 +414,6 @@ export function runStructuralChecks(ctx: StructuralContext): QaFinding[] {
     ...checkTokenLint(rawRoot, ctx),
     ...checkMotion(pkgRoot, ctx),
     ...checkSelfContained(pkgRoot, ctx),
+    ...checkBrandBinding(pkgRoot, ctx),
   ];
 }

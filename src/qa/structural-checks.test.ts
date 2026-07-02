@@ -5,6 +5,7 @@ import { defaultQaConfig } from "../config/qa";
 import { defaultTokenLintRules } from "../config/token-lint";
 import type { CanonicalItem, PlanScreen, ResolvedTheme } from "../domain/types";
 import {
+  checkBrandBinding,
   checkMotion,
   checkSelfContained,
   runStructuralChecks,
@@ -302,5 +303,41 @@ describe("runtime carousel motion (gallery-fade) is offline-safe", () => {
       `<main><script data-motion-runtime>window.location.href='/next';</script></main>`,
     );
     expect(checkSelfContained(root).some((f) => f.kind === "baked-player")).toBe(true);
+  });
+});
+
+describe("checkBrandBinding", () => {
+  const ctxWith = (extra: object) =>
+    ({
+      planScreen: { id: "s", sections: [] },
+      items: [],
+      theme: {},
+      qa: {},
+      tokenLint: {},
+      ...extra,
+    }) as never;
+
+  it("no findings when no brand logo was requested", () => {
+    const root = parse("<main></main>");
+    expect(checkBrandBinding(root, ctxWith({ brandLogoRequested: false }))).toHaveLength(0);
+  });
+
+  it("flags a requested logo that was not rendered", () => {
+    const root = parse("<main><h1>Menu</h1></main>");
+    const found = checkBrandBinding(root, ctxWith({ brandLogoRequested: true }));
+    expect(found).toHaveLength(1);
+    expect(found[0]!.kind).toBe("brand-binding");
+  });
+
+  it("passes when the placeholder carries an inlined data-URI src", () => {
+    const root = parse('<main><img data-brand-logo src="data:image/png;base64,AAAA"></main>');
+    expect(checkBrandBinding(root, ctxWith({ brandLogoRequested: true }))).toHaveLength(0);
+  });
+
+  it("flags a placeholder that leaked a non-inlined src", () => {
+    const root = parse('<main><img data-brand-logo src="https://x/logo.png"></main>');
+    const found = checkBrandBinding(root, ctxWith({ brandLogoRequested: true }));
+    expect(found).toHaveLength(1);
+    expect(found[0]!.kind).toBe("brand-binding");
   });
 });

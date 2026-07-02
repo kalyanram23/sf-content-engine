@@ -19,6 +19,7 @@ export const FindingKind = {
   SelfContained: "self-contained",
   BakedPlayer: "baked-player",
   Representation: "representation",
+  BrandBinding: "brand-binding",
 } as const;
 
 export interface FindingInput {

@@ -185,6 +185,7 @@ export async function deterministicQaNode(
       theme: state.theme,
       qa: ctx.config.qa,
       tokenLint: ctx.config.tokenLint,
+      brandLogoRequested: state.input.brand?.logo !== undefined,
     }),
     ...runRenderedChecks(observation, ctx.config.qa, screen),
   ].map((f) =>
