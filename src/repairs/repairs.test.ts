@@ -176,3 +176,91 @@ describe("contrastIsFixable (guards the repair from destructive / futile swaps)"
     expect(result.applied).toBe(false);
   });
 });
+
+describe("applyDeterministicRepairs — overflow shrink-to-fit (D31)", () => {
+  const overflowFinding: QaFinding = makeFinding({
+    kind: "overflow",
+    source: "deterministic",
+    severity: "major",
+    tag: "layout",
+    deterministicallyFixable: true,
+    message: "overflows",
+    data: { overshootX: 0, overshootY: 162, shrinkFactor: 0.869, overflowing: ["section.x"] },
+  });
+
+  it("injects a scoped shrink-to-fit style scaling the content root by the finding's factor", () => {
+    const result = applyDeterministicRepairs("<main>menu</main>", [overflowFinding], theme);
+    expect(result.applied).toBe(true);
+    expect(result.html).toContain('data-repair="fit"');
+    expect(result.html).toContain("transform:scale(0.869)");
+    // Pinned top-left so the scaled box never spills past the top/left edge.
+    expect(result.html).toContain("transform-origin:top left");
+  });
+
+  it("emits token-lint-clean CSS (no raw hex, no raw px — unitless scale + keyword origin)", () => {
+    const result = applyDeterministicRepairs("<main>menu</main>", [overflowFinding], theme);
+    const styleText = result.html.match(/<style data-repair="fit"[^>]*>([\s\S]*?)<\/style>/)![1]!;
+    expect(styleText).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(styleText).not.toMatch(/\d+px\b/);
+  });
+
+  it("does NOT shrink an overflow the check marked un-fixable (routes to re-paint instead)", () => {
+    const notFixable = makeFinding({
+      kind: "overflow",
+      source: "deterministic",
+      severity: "major",
+      tag: "layout",
+      // deterministicallyFixable defaults false; no shrinkFactor → the repair declines.
+      message: "overflows too much to shrink legibly",
+      data: { overshootY: 900 },
+    });
+    const result = applyDeterministicRepairs("<main>menu</main>", [notFixable], theme);
+    expect(result.applied).toBe(false);
+    expect(result.html).not.toContain('data-repair="fit"');
+  });
+
+  it("is idempotent + bounded: applying twice yields ONE fit block at the same factor", () => {
+    const once = applyDeterministicRepairs("<main>menu</main>", [overflowFinding], theme);
+    const twice = applyDeterministicRepairs(once.html, [overflowFinding], theme);
+    // Exactly one fit block — the second apply REPLACES rather than stacking a second transform.
+    expect((twice.html.match(/data-repair="fit"/g) ?? []).length).toBe(1);
+    expect(twice.html).toContain("transform:scale(0.869)");
+    // NOT compounded to 0.869×0.869 ≈ 0.755 — applying twice does not double-shrink.
+    expect(twice.html).not.toContain("scale(0.755");
+  });
+
+  it("fixes a contrast AND an overflow finding in one repair pass", () => {
+    const html = `<head></head><body><article data-item-id="id4"><span data-bind="price" style="color:#fff">$8.99</span></article></body>`;
+    const result = applyDeterministicRepairs(html, [contrastFinding, overflowFinding], theme);
+    expect(result.applied).toBe(true);
+    expect(result.html).toContain('data-repair="contrast"');
+    expect(result.html).toContain('data-repair="fit"');
+  });
+});
+
+describe("hasDeterministicRepair — overflow (D31)", () => {
+  it("detects a fixable overflow finding", () => {
+    const fixable = makeFinding({
+      kind: "overflow",
+      source: "deterministic",
+      severity: "major",
+      tag: "layout",
+      deterministicallyFixable: true,
+      message: "overflows",
+      data: { shrinkFactor: 0.9 },
+    });
+    expect(hasDeterministicRepair([fixable])).toBe(true);
+  });
+
+  it("ignores an overflow the check declined to mark fixable", () => {
+    const notFixable = makeFinding({
+      kind: "overflow",
+      source: "deterministic",
+      severity: "major",
+      tag: "layout",
+      message: "overflows",
+      data: { overshootY: 900 },
+    });
+    expect(hasDeterministicRepair([notFixable])).toBe(false);
+  });
+});
