@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { contentEngineErrorCodeSchema } from "./errors";
+
 /**
  * Domain schemas — Zod is the single source of truth; types are inferred (see types.ts).
  * These describe the engine's public input/output and internal value objects. Strict
@@ -66,6 +68,26 @@ export const generateConstraintsSchema = z.object({
 
 export const representationSchema = z.enum(["matrix", "variant-rows", "grid", "list"]);
 
+/**
+ * A cross-category comparison matrix COMPUTED at plan time (never returned by an LLM — this is
+ * bookkeeping code owns, mirroring the coverage guarantee). `columns` are the block's category
+ * names (e.g. `["Biryani","Pulav"]`); each row is a shared base dish and `cells[i]` is the
+ * canonical item id for `columns[i]`, or `null` (rendered as an em-dash) when that column has no
+ * match. Every item in the block appears in exactly ONE cell (asserted in `buildMatrix`). Distinct
+ * from the per-item size/price `matrix` REPRESENTATION (pizza 8″/10″/12″), which the representation
+ * oracle handles.
+ */
+export const sectionMatrixSchema = z.object({
+  columns: z.array(z.string().min(1)).min(1),
+  rows: z.array(
+    z.object({
+      label: z.string().min(1),
+      /** One entry per column: the item id at that column, or null for an em-dash cell. */
+      cells: z.array(z.string().min(1).nullable()),
+    }),
+  ),
+});
+
 export const planSectionSchema = z.object({
   title: z.string().min(1),
   representation: representationSchema,
@@ -76,6 +98,13 @@ export const planSectionSchema = z.object({
    * columns = Biryani | Pulav"). The painter free-paints from it; no fixed structure required.
    */
   layoutHint: z.string().optional(),
+  /**
+   * Optional computed comparison matrix (see {@link sectionMatrixSchema}). Attached by
+   * `expandLayoutToPlan` when the block combines multiple categories or is a `matrix`
+   * representation. NOT an LLM contract field — `thinPlan` is never sent to a model as a strict
+   * JSON schema (only `planLayout` is), so an optional field with a `null` union inside is safe.
+   */
+  matrix: sectionMatrixSchema.optional(),
 });
 
 export const planImageSlotSchema = z.object({
@@ -83,10 +112,23 @@ export const planImageSlotSchema = z.object({
   items: z.array(z.string().min(1)),
 });
 
+/**
+ * Deterministic density tier (D30) — how a board's row/item load compares to the per-canvas
+ * legibility budget: `comfortable` (≤ budget), `dense` (≤ `packedMultiplier`×budget), `packed`
+ * (beyond). Computed by `expandLayoutToPlan` and stamped on each screen so the painter switches to a
+ * progressively more compact price-list idiom and the critic judges a dense board AS a dense board.
+ * Optional: a hand-authored plan never carries it, so consumers recompute it from the board's rows
+ * when absent. NOT an LLM contract field — `thinPlan` is never sent to a model as a strict JSON
+ * schema (only `planLayout` is), so an added optional enum is safe (mirrors the `matrix` field, D20).
+ */
+export const densityTierSchema = z.enum(["comfortable", "dense", "packed"]);
+
 export const planScreenSchema = z.object({
   id: z.string().min(1),
   imageSlot: planImageSlotSchema.optional(),
   sections: z.array(planSectionSchema).min(1),
+  /** Computed density tier (see {@link densityTierSchema}); optional for hand-authored plans. */
+  densityTier: densityTierSchema.optional(),
 });
 
 export const thinPlanSchema = z.object({
@@ -133,6 +175,14 @@ export const layoutBlueprintSchema = z.object({
   fixed: z.array(z.string().min(1)).default([]),
   /** Explicitly the painter's judgment, rendered as "FREE (your call)". */
   free: z.array(z.string().min(1)).default([]),
+  /**
+   * Optional theme-agnostic HTML skeleton establishing the REQUIRED DOM shape (the `data-*`
+   * attributes the deterministic checks + runtime patcher rely on) the painter must fill for this
+   * layout. Structure ONLY — no sizes or colours; Tailwind theme-token classes stay the painter's
+   * job. Rendered into the painter prompt as a FIXED shape when the board carries the matching
+   * structured data (e.g. a section `matrix`).
+   */
+  skeleton: z.string().min(1).optional(),
 });
 
 /* ------------------------------------------------------------------ theme (rails, §5.2/§5.3) */
@@ -303,22 +353,68 @@ export const qaFindingSchema = z.object({
   deterministicallyFixable: z.boolean().default(false),
 });
 
+/**
+ * A terminal per-board failure captured by the generate() bulkhead (D28). When a board's pipeline
+ * throws an unrecoverable error (PaintError after all retries, RenderError, LlmContractError, …)
+ * the other boards still complete and ship; the failed board carries this on its report and NO
+ * screen/poster is emitted for it. `code` is the stable {@link ContentEngineError} code.
+ */
+export const qaScreenErrorSchema = z.object({
+  code: contentEngineErrorCodeSchema,
+  message: z.string(),
+});
+
 export const qaScreenReportSchema = z.object({
   screenId: z.string(),
   passed: z.boolean(),
   /** Shipped despite not passing because the iteration budget was exhausted (§5.6). */
   flagged: z.boolean(),
   iterations: z.number().int().nonnegative(),
+  /**
+   * The INTERNAL comparator total (higher is better) — an encoded lexicographic order (hard gate,
+   * blocked, penalty, rubric), NOT a human fraction. Show a person {@link rubricScore} instead.
+   */
   score: z.number(),
+  /** The human-meaningful weighted rubric pass fraction in [0,1] (spec §5.6 vision pass). */
+  rubricScore: z.number().min(0).max(1),
+  /** Summed severity penalty of all findings (lower is better). */
+  penalty: z.number().nonnegative(),
   findings: z.array(qaFindingSchema),
   /** Routing decision per iteration — debuggability surface (§5.7). */
   routeHistory: z.array(z.string()),
+  /**
+   * Present ONLY when the board failed terminally (bulkhead, D28). `qaReport.screens` is the
+   * authoritative per-board record keyed by `screenId`; the screens/posters arrays hold only the
+   * boards that succeeded, so a consumer joins on `screenId` and treats `error !== undefined` as
+   * "no artifact shipped for this board".
+   */
+  error: qaScreenErrorSchema.optional(),
+});
+
+/**
+ * A single menu data-quality lint finding (D29) — the INPUT-side sanity layer. `kind` is a free
+ * string (rules-as-data, mirroring {@link qaFindingSchema}); the well-known kinds are exported as
+ * `MenuLintKind` constants in `planning/menu-lint`. Engine report state, NOT an LLM contract.
+ */
+export const menuLintFindingSchema = z.object({
+  kind: z.string().min(1),
+  /** The offending item's canonical id. */
+  itemId: z.string(),
+  message: z.string(),
+  /** The item's category, when set — disambiguates a `duplicate-name` within its category. */
+  category: z.string().optional(),
 });
 
 export const qaReportSchema = z.object({
   screens: z.array(qaScreenReportSchema),
   passedAll: z.boolean(),
   generatedAt: z.string(),
+  /**
+   * Run-level menu data-quality lint findings (D29). Present only when `config.menuLint.mode` is
+   * not `"off"` AND the menu had at least one issue — an omitted field means "lint clean" (or off).
+   * Surfaced so callers/evals can see what the input menu was flagged for (e.g. a `$0.00` price).
+   */
+  menuLint: z.array(menuLintFindingSchema).optional(),
 });
 
 /* ------------------------------------------------------------------ outputs (§3/§5.1) */

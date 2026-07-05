@@ -5,14 +5,15 @@ import { thinPlanSchema } from "../../domain/schemas";
 import type { QaFinding } from "../../domain/types";
 import { orientViewport } from "../../config/qa";
 import { applyDeterministicRepairs, contrastIsFixable } from "../../repairs/index";
-import { describeLayoutStrategy } from "../../planning/layout-strategy";
+import { describeLayoutStrategy, renderMatrixSummary } from "../../planning/layout-strategy";
 import { FindingKind, makeFinding } from "../../qa/finding";
+import { decideGate } from "../../qa/gate";
 import { describeDesignIntent } from "../../theme/design-intent";
 import { runRenderedChecks, checkViewport } from "../../qa/rendered-checks";
 import { runStructuralChecks } from "../../qa/structural-checks";
 import { scoreScreen } from "../../qa/scoring";
 import { resolveTheme } from "../../theme/resolve";
-import { isInlineImageRef, PLACEHOLDER_IMAGE_DATA_URI } from "../../util/placeholder-image";
+import { isInlineImageRef } from "../../util/placeholder-image";
 import { route } from "../router";
 import type { NodeContext, EngineState } from "../state";
 import { renderBlueprintStrategy } from "../../planning/layout-strategy";
@@ -20,9 +21,13 @@ import {
   blueprintFor,
   boardCorrelation,
   currentScreen,
+  densityTierFor,
+  effectiveScreen,
   plannedSectionItemIds,
   resolveScreenItems,
   runCorrelation,
+  sizeDirectiveFor,
+  typeScaleFor,
 } from "./shared";
 
 /** plan: load the hand-authored plan from input, else ask the Planner port (spec §5.4). */
@@ -60,6 +65,12 @@ export async function resolveThemeNode(
  * paint/QA/package/render only ever see `data:` URIs (spec §5.1, S9). Scoped to the current
  * screen's items (the graph runs once per board) — never the whole menu. Runs once before the
  * QA loop; data-URIs pass through untouched, so re-paint iterations pay no extra network.
+ *
+ * PHOTO TRUTH: a remote ref that fails to resolve is DROPPED from the item's images — never
+ * substituted with the 1×1 placeholder. A placeholder in `item.images` lies to the whole
+ * pipeline (the painter's photo allowlist, the plan's imageSlot, the crop check) and ships a
+ * stretched transparent pixel as a "hero" the paint loop can never fix. The placeholder remains
+ * only the PACKAGE-time fallback for dangling data-img refs (the packager guard, untouched).
  */
 export async function fetchImagesNode(
   ctx: NodeContext,
@@ -67,6 +78,7 @@ export async function fetchImagesNode(
 ): Promise<Partial<EngineState>> {
   if (!state.plan) return {};
   const screen = currentScreen(state.plan, state.screenIndex);
+  const boardTag = `board ${state.screenIndex + 1}/${state.plan.screens.length} "${screen.id}"`;
   const items = resolveScreenItems(screen, state.input.items);
 
   const remote = new Set<string>();
@@ -76,17 +88,22 @@ export async function fetchImagesNode(
   const resolvedByUrl =
     remote.size > 0 ? await ctx.ports.imageFetcher.fetch([...remote]) : new Map<string, string>();
   if (remote.size > 0) {
-    ctx.ports.logger?.info(
-      `board ${state.screenIndex + 1}/${state.plan.screens.length} "${screen.id}": inlined ${resolvedByUrl.size}/${remote.size} photo(s)`,
-    );
+    ctx.ports.logger?.info(`${boardTag}: inlined ${resolvedByUrl.size}/${remote.size} photo(s)`);
   }
 
   const resolvedItems = items.map((item) => {
     if (!item.images || item.images.length === 0) return item;
-    const images = item.images.map((ref) =>
-      isInlineImageRef(ref) ? ref : (resolvedByUrl.get(ref) ?? PLACEHOLDER_IMAGE_DATA_URI),
+    const images = item.images
+      .map((ref) => (isInlineImageRef(ref) ? ref : resolvedByUrl.get(ref)))
+      .filter((ref): ref is string => ref !== undefined);
+    if (images.length === item.images.length) return { ...item, images };
+    ctx.ports.logger?.warn(
+      `${boardTag}: images: "${item.name}" (${item.id}) photo failed to fetch — excluded from paint`,
     );
-    return { ...item, images };
+    // Drop the images key entirely when none survive (exactOptionalPropertyTypes — never pass
+    // `{ images: undefined }`) so `withPhotos`/imageSlot filters see a genuinely photo-less item.
+    const { images: _dropped, ...rest } = item;
+    return images.length > 0 ? { ...rest, images } : rest;
   });
   return { resolvedItems };
 }
@@ -98,8 +115,11 @@ export async function paintNode(
 ): Promise<Partial<EngineState>> {
   if (!state.plan || !state.theme)
     throw new PaintError("paint requires a resolved plan and theme.");
-  const screen = currentScreen(state.plan, state.screenIndex);
-  const items = state.resolvedItems ?? resolveScreenItems(screen, state.input.items);
+  const planned = currentScreen(state.plan, state.screenIndex);
+  const items = state.resolvedItems ?? resolveScreenItems(planned, state.input.items);
+  // Photo truth: paint against the EFFECTIVE screen — the imageSlot filtered to items that still
+  // carry a photo after fetch — so the painter never builds a carousel slide for a missing asset.
+  const screen = effectiveScreen(planned, items);
   ctx.ports.logger?.info(
     `board ${state.screenIndex + 1}/${state.plan.screens.length} "${screen.id}": painting (attempt ${state.iteration + 1})`,
   );
@@ -114,6 +134,8 @@ export async function paintNode(
     viewport: { width: viewport.width, height: viewport.height },
     antiPatterns: ctx.config.painter.antiPatterns,
     blueprint,
+    sizeDirective: sizeDirectiveFor(screen, viewport, ctx.config.planning),
+    densityTier: densityTierFor(screen, viewport, ctx.config.planning),
     correlation: boardCorrelation(state, screen.id),
     ...(state.html !== undefined ? { previousHtml: state.html } : {}),
     ...(state.findings.length > 0 ? { findings: state.findings } : {}),
@@ -179,6 +201,11 @@ export async function deterministicQaNode(
     );
   }
 
+  // Density + legibility are graded against the SAME sizing/tier output the painter was directed
+  // with (D26/D30): a board the PLAN forced over the comfortable budget is expected to be dense —
+  // warn on over-fill, don't major; a `packed` board's items get the relaxed compact-register floor.
+  const typeScale = typeScaleFor(screen, viewport, ctx.config.planning);
+  const tier = densityTierFor(screen, viewport, ctx.config.planning);
   const findings: QaFinding[] = [
     ...runStructuralChecks({
       html: state.packagedHtml,
@@ -190,7 +217,10 @@ export async function deterministicQaNode(
       tokenLint: ctx.config.tokenLint,
       brandLogoRequested: state.input.brand?.logo !== undefined,
     }),
-    ...runRenderedChecks(observation, ctx.config.qa, screen),
+    ...runRenderedChecks(observation, ctx.config.qa, screen, {
+      overBudget: typeScale.overBudget,
+      tier,
+    }),
   ].map((f) =>
     // Re-mark contrast: a token swap only helps on a scopable selector over a solid bg. Contrast
     // over a photo (or a bare-tag selector) is NOT deterministically fixable → it routes to
@@ -218,27 +248,42 @@ function toVisionFinding(f: CritiqueFinding): QaFinding {
 }
 
 /**
- * visionQA: the cheap-VLM rubric pass (spec §5.6). Skipped when a deterministic hard gate
- * already failed — no point critiquing aesthetics of a screen that fails contrast (the
- * cheap-vs-frontier cost split, §5.6/§9). Vision findings are appended to the deterministic set.
+ * visionQA: the cheap-VLM rubric pass (spec §5.6). Skipped when deterministic QA already
+ * GATE-BLOCKS this candidate — it can never pass this iteration and the blocking finding already
+ * selects the route, so the paid critique cannot change the outcome (D27, the cheap-vs-frontier
+ * cost split, §5.6/§9). With `qa.skipVisionWhenBlocking` off, only a hard gate skips (legacy
+ * behaviour). Vision findings are appended to the deterministic set.
  */
 export async function visionQaNode(
   ctx: NodeContext,
   state: EngineState,
 ): Promise<Partial<EngineState>> {
   if (!state.plan || !state.screenshotBase64) return {};
-  if (state.findings.some((f) => f.hardGate)) return {};
+  const skip = ctx.config.qa.skipVisionWhenBlocking
+    ? decideGate(state.findings, ctx.config.qa.blockingSeverity).blocking
+    : state.findings.some((f) => f.hardGate);
+  if (skip) return {};
 
-  const screen = currentScreen(state.plan, state.screenIndex);
-  const items = state.resolvedItems ?? resolveScreenItems(screen, state.input.items);
+  const planned = currentScreen(state.plan, state.screenIndex);
+  const items = state.resolvedItems ?? resolveScreenItems(planned, state.input.items);
+  // Photo truth: the critic judges the SAME effective screen the painter was given (imageSlot
+  // filtered to items whose photos actually resolved) — "two consumers, same text".
+  const screen = effectiveScreen(planned, items);
   const aspect = state.input.constraints.aspect;
   const viewport = orientViewport(ctx.config.qa.viewport, aspect);
   // Grade against the SAME blueprint the painter was told to fill (falls back to the legacy
   // strategy when the theme has no resolved theme, which shouldn't happen post-resolveTheme).
-  const layoutStrategy =
+  // Append the SAME matrix summary the painter saw so the critic judges the table against the
+  // exact pairing it was asked to render ("two consumers, same text").
+  const baseStrategy =
     state.theme !== undefined
       ? renderBlueprintStrategy(blueprintFor(screen, items, state.theme, ctx.config.layouts))
       : describeLayoutStrategy(screen);
+  const matrixSummary = renderMatrixSummary(screen, items);
+  const sizeDirective = sizeDirectiveFor(screen, viewport, ctx.config.planning);
+  const layoutStrategy = [baseStrategy, matrixSummary, sizeDirective]
+    .filter((s): s is string => s !== undefined)
+    .join("\n\n");
   ctx.ports.logger?.info(
     `board ${state.screenIndex + 1}/${state.plan.screens.length} "${screen.id}": vision critique`,
   );
@@ -250,6 +295,9 @@ export async function visionQaNode(
       ? { designIntent: describeDesignIntent(state.theme, ctx.config.painter.antiPatterns) }
       : {}),
     layoutStrategy,
+    // Judge a dense/packed board AS a dense board (D30): the compact register is required, not a flaw.
+    densityTier: densityTierFor(screen, viewport, ctx.config.planning),
+    itemCount: plannedSectionItemIds(screen).length,
     canvas: { width: viewport.width, height: viewport.height, aspect },
     correlation: boardCorrelation(state, screen.id),
   });
@@ -279,6 +327,10 @@ export async function scoreNode(
     screenshotBase64: state.screenshotBase64,
     findings: state.findings,
     score: score.total,
+    // Persist the human-meaningful rubric fraction + penalty alongside the comparator total, so the
+    // frozen report carries a 0..1 score a person can read, not just the internal ordering (D28).
+    rubricScore: score.rubricScore,
+    penalty: score.penalty,
     passed: score.passed,
     iterations: state.iteration,
   };
@@ -385,6 +437,8 @@ export async function freezeNode(
         flagged: !best.passed,
         iterations: best.iterations,
         score: best.score,
+        rubricScore: best.rubricScore,
+        penalty: best.penalty,
         findings: best.findings,
         routeHistory: state.routeHistory,
       },

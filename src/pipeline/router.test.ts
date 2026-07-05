@@ -84,4 +84,29 @@ describe("route — hybrid policy (§5.6)", () => {
   it("prefers repair over paint when both could match", () => {
     expect(route({ findings: [contrast, density], iteration: 0 }, routing, loop)).toBe("repair");
   });
+
+  it("routes a critical UNFIXABLE finding to paint even when a cosmetic fixable finding co-occurs", () => {
+    // A content-broken board: missing bindings (critical, no mechanical fix) plus one fixable
+    // overflow. Repair can't mend the bindings, so re-paint must outrank the mechanical-fix rule —
+    // otherwise the loop budget dies polishing the overflow while the board stays broken.
+    const bindingMissing = makeFinding({
+      kind: "binding-missing",
+      source: "deterministic",
+      severity: "critical",
+      tag: "structural",
+      deterministicallyFixable: false,
+      message: "required binding missing",
+    });
+    const overflowFixable = makeFinding({
+      kind: "overflow",
+      source: "deterministic",
+      severity: "major",
+      tag: "layout",
+      deterministicallyFixable: true,
+      message: "content overflows",
+    });
+    expect(
+      route({ findings: [bindingMissing, overflowFixable], iteration: 0 }, routing, loop),
+    ).toBe("paint");
+  });
 });

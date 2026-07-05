@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ConfigError } from "../domain/errors";
+import { modelRoleSchema } from "./models";
 import { orientViewport, viewportForAspect } from "./qa";
 import { defaultEngineConfig, loadEngineConfig } from "./index";
 
@@ -13,6 +14,25 @@ describe("loadEngineConfig", () => {
     expect(config.qa.requiredBindings).toEqual(["price"]);
     expect(config.routing.rules.map((r) => r.id)).toContain("mechanical-fix-to-repair");
     expect(config.rubric.dimensions.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it("the balance + intentional-design rubric wording names dead space explicitly (D33)", () => {
+    const dims = defaultEngineConfig().rubric.dimensions;
+    const balance = dims.find((d) => d.id === "balance");
+    const intentional = dims.find((d) => d.id === "intentional-design");
+    expect(balance?.description).toMatch(/dead space/i);
+    expect(intentional?.description).toMatch(/empty space/i);
+  });
+
+  it("defaults skipVisionWhenBlocking on (a gate-blocked candidate skips the paid critique, D27)", () => {
+    expect(defaultEngineConfig().qa.skipVisionWhenBlocking).toBe(true);
+  });
+
+  it("allows disabling skipVisionWhenBlocking (restores critic feedback on blocked iterations)", () => {
+    const config = loadEngineConfig({ qa: { skipVisionWhenBlocking: false } });
+    expect(config.qa.skipVisionWhenBlocking).toBe(false);
+    // untouched sibling QA fields keep their defaults
+    expect(config.qa.blockingSeverity).toBe("major");
   });
 
   it("deep-merges a partial over defaults (per-field defaults still apply)", () => {
@@ -73,6 +93,78 @@ describe("loadEngineConfig", () => {
     expect(config.models.reasoning.paint).toEqual({ maxTokens: 4000 });
     // plan keeps its default even though only paint was overridden (per-field defaults)
     expect(config.models.reasoning.plan).toEqual({ enabled: true });
+  });
+
+  it("defaults per-role max_tokens caps (generous — reasoning tokens count inside them)", () => {
+    expect(defaultEngineConfig().models.maxTokens).toEqual({
+      plan: 8000,
+      paint: 32000,
+      critique: 8000,
+      repair: 16000,
+    });
+  });
+
+  it("overrides one role's maxTokens while keeping sibling defaults", () => {
+    const config = loadEngineConfig({ models: { maxTokens: { paint: 20000 } } });
+    expect(config.models.maxTokens.paint).toBe(20000);
+    // plan keeps its default even though only paint was overridden (per-field defaults)
+    expect(config.models.maxTokens.plan).toBe(8000);
+  });
+
+  it("has retired the unused adjudicate role (owner decision)", () => {
+    const config = defaultEngineConfig();
+    expect(config.models).not.toHaveProperty("adjudicate");
+    expect(config.models.reasoning).not.toHaveProperty("adjudicate");
+    // The role enum no longer accepts it.
+    expect(modelRoleSchema.safeParse("adjudicate").success).toBe(false);
+    expect(modelRoleSchema.options).toEqual(["plan", "paint", "critique", "repair"]);
+  });
+
+  it("defaults the per-role resilience attempt budget (paint gets the extra retry)", () => {
+    const config = defaultEngineConfig();
+    expect(config.models.resilience).toEqual({
+      plan: { maxAttempts: 2 },
+      paint: { maxAttempts: 3 },
+      critique: { maxAttempts: 2 },
+      repair: { maxAttempts: 2 },
+    });
+  });
+
+  it("overrides one role's resilience budget while keeping sibling defaults", () => {
+    const config = loadEngineConfig({ models: { resilience: { plan: { maxAttempts: 4 } } } });
+    expect(config.models.resilience.plan.maxAttempts).toBe(4);
+    // paint keeps its default even though only plan was overridden (per-field defaults)
+    expect(config.models.resilience.paint.maxAttempts).toBe(3);
+  });
+
+  it("defaults a paint fallback model and no fallback for the other roles", () => {
+    const config = defaultEngineConfig();
+    expect(config.models.fallback.paint).toBe("anthropic/claude-sonnet-4.6");
+    expect(config.models.fallback.plan).toBeUndefined();
+    expect(config.models.fallback.critique).toBeUndefined();
+    expect(config.models.fallback.repair).toBeUndefined();
+  });
+
+  it("keeps the paint fallback default when only another role's fallback is set", () => {
+    const config = loadEngineConfig({ models: { fallback: { critique: "openai/gpt-5.4-mini" } } });
+    expect(config.models.fallback.critique).toBe("openai/gpt-5.4-mini");
+    // paint's field-level default survives a sibling override
+    expect(config.models.fallback.paint).toBe("anthropic/claude-sonnet-4.6");
+  });
+
+  it("validates a structured-role fallback against the allowlist at load (D11)", () => {
+    try {
+      loadEngineConfig({ models: { fallback: { repair: "some/unknown-fallback" } } });
+      expect.unreachable("should have thrown");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConfigError);
+      expect((error as ConfigError).message).toContain("repair.fallback=some/unknown-fallback");
+    }
+  });
+
+  it("accepts a structured-role fallback once it is on the allowlist", () => {
+    const config = loadEngineConfig({ models: { fallback: { repair: "openai/gpt-5.4-mini" } } });
+    expect(config.models.fallback.repair).toBe("openai/gpt-5.4-mini");
   });
 });
 

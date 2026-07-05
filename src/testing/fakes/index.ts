@@ -14,14 +14,16 @@ import { ScriptedVisionCritic } from "./vision-critic";
 
 export { FakeClock, FakeIdGenerator, ArrayLogger, noopLogger } from "./services";
 export { FakePlanner } from "./planner";
-export { FakePainter } from "./painter";
+export { FakePainter, type FakePainterOptions } from "./painter";
 export { FakePackager } from "./packager";
-export { FakeImageFetcher } from "./image-fetcher";
+export { FakeImageFetcher, type FakeImageFetcherOptions } from "./image-fetcher";
 export {
   ScriptedBrowser,
   cleanObservation,
   deadSpaceObservation,
   contrastFailObservation,
+  overflowObservation,
+  overflowClampObservation,
   PLACEHOLDER_PNG_BASE64,
   type ObservationOverrides,
 } from "./browser";

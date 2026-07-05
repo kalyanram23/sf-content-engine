@@ -4,7 +4,7 @@ import type { Packager } from "./packager";
 import type { Painter } from "./painter";
 import type { Planner } from "./planner";
 import type { LlmRepairer } from "./repairer";
-import type { Clock, DebugSink, IdGenerator, Logger } from "./services";
+import type { Clock, DebugSink, IdGenerator, Logger, UsageSink } from "./services";
 import type { ThemeRepository } from "./theme-repository";
 import type { VisionCritic } from "./vision-critic";
 
@@ -25,7 +25,15 @@ export type {
 export type { VisionCritic, CritiqueRequest } from "./vision-critic";
 export type { LlmRepairer, LlmRepairRequest } from "./repairer";
 export type { ImageFetcher } from "./image-fetcher";
-export type { Clock, IdGenerator, Logger, DebugSink, DebugCapture } from "./services";
+export type {
+  Clock,
+  IdGenerator,
+  Logger,
+  DebugSink,
+  DebugCapture,
+  UsageSink,
+  UsageEvent,
+} from "./services";
 export type { RequestCorrelation } from "./correlation";
 
 /**
@@ -47,5 +55,10 @@ export interface EnginePorts {
   logger?: Logger;
   /** Optional per-iteration artifact capture for debugging the QA loop. */
   debug?: DebugSink;
+  /**
+   * Optional structured per-call LLM token-usage telemetry. Ambient like {@link debug}: the pure
+   * core doesn't read it — the LLM adapters emit it — but it's injected at the same root (D15/D28).
+   */
+  usage?: UsageSink;
   llmRepairer?: LlmRepairer;
 }

@@ -31,6 +31,7 @@ export type {
   ThinPlan,
   PlanScreen,
   PlanSection,
+  SectionMatrix,
   Representation,
   ResolvedTheme,
   ThemePreset,
@@ -39,6 +40,8 @@ export type {
   QaFinding,
   QaReport,
   QaScreenReport,
+  QaScreenError,
+  MenuLintFinding,
   Severity,
   FindingSource,
   FindingTag,
@@ -73,7 +76,11 @@ export {
   defaultLoopConfig,
   defaultTokenLintRules,
   defaultModelRouting,
+  defaultMenuLintConfig,
   type EngineConfig,
+  type MenuLintConfig,
+  type MenuLintMode,
+  type ZeroPriceRender,
   type RoutingRules,
   type RoutingRule,
   type Route,
@@ -112,6 +119,8 @@ export type {
   Logger,
   DebugSink,
   DebugCapture,
+  UsageSink,
+  UsageEvent,
 } from "./ports/index";
 
 /* ----------------------------------------------------------------- themes + engine */

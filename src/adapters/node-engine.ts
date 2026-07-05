@@ -8,7 +8,7 @@ import { createEngine, type ContentEngine } from "../pipeline/engine";
 import { normalizeBrandLogo } from "./image/asset-resolver";
 import type { EnginePorts } from "../ports/index";
 import type { Planner } from "../ports/planner";
-import type { Clock, DebugSink, IdGenerator, Logger } from "../ports/services";
+import type { Clock, DebugSink, IdGenerator, Logger, UsageSink } from "../ports/services";
 import type { ThemeRepository } from "../ports/theme-repository";
 import { createDefaultThemeRepository } from "../theme/presets/index";
 import { NodeImageFetcher } from "./image/image-fetcher";
@@ -57,6 +57,12 @@ export interface NodeEngineOptions {
   /** Optional per-iteration artifact capture (HTML/screenshot/findings) for debugging. */
   debug?: DebugSink;
   /**
+   * Optional structured per-call LLM token-usage telemetry (cost visibility). Composed into every
+   * OpenRouter adapter alongside the existing `usage …` debug line (both fire); off by default and
+   * never affects output (D15/D28). The event carries role/model/tokens + attempt/fallback.
+   */
+  usage?: UsageSink;
+  /**
    * Opt into Braintrust tracing. When set, the engine initializes a Braintrust logger (under
    * `projectName`, default `"content-engine"`) and auto-instruments every LLM call via `wrapOpenAI`.
    * When omitted (default) Braintrust is NOT initialized — the only tracing is OpenRouter Broadcast
@@ -92,6 +98,19 @@ export function createNodeEngine(options: NodeEngineOptions): ContentEngine {
   if (options.appName) clientOptions.appName = options.appName;
   const client = createOpenRouterClient(clientOptions);
 
+  // Per-role resilience policy (config-as-data): attempt budget against the primary model + an
+  // optional fallback model tried once those attempts are spent. Spread into each LLM adapter so a
+  // single empty/non-conforming completion is a retry, not a fatal abort of the whole run.
+  const resilienceFor = (
+    role: "plan" | "paint" | "critique" | "repair",
+  ): { maxAttempts: number; fallback?: string } => {
+    const fallback = config.models.fallback[role];
+    return {
+      maxAttempts: config.models.resilience[role].maxAttempts,
+      ...(fallback !== undefined ? { fallback } : {}),
+    };
+  };
+
   const themeRepository =
     options.themeRepository ??
     (options.themesDir !== undefined
@@ -110,6 +129,10 @@ export function createNodeEngine(options: NodeEngineOptions): ContentEngine {
             config.models.plan,
             options.logger,
             config.models.reasoning.plan,
+            config.models.maxTokens.plan,
+            config.planning,
+            resilienceFor("plan"),
+            options.usage,
           )),
     themeRepository,
     painter: new OpenRouterPainter(
@@ -117,24 +140,36 @@ export function createNodeEngine(options: NodeEngineOptions): ContentEngine {
       config.models.paint,
       options.logger,
       config.models.reasoning.paint,
+      config.models.maxTokens.paint,
+      resilienceFor("paint"),
+      options.usage,
     ),
     packager: new TailwindPackager(),
     browser: new PlaywrightBrowser(options.browser ?? {}),
     visionCritic: new OpenRouterVisionCritic(
       client,
       config.models.critique,
+      options.logger,
       config.models.reasoning.critique,
+      config.models.maxTokens.critique,
+      resilienceFor("critique"),
+      options.usage,
     ),
     imageFetcher: new NodeImageFetcher(),
     llmRepairer: new OpenRouterRepairer(
       client,
       config.models.repair,
+      options.logger,
       config.models.reasoning.repair,
+      config.models.maxTokens.repair,
+      resilienceFor("repair"),
+      options.usage,
     ),
     clock: new SystemClock(),
     idGenerator: new SystemIdGenerator(),
     ...(options.logger ? { logger: options.logger } : {}),
     ...(options.debug ? { debug: options.debug } : {}),
+    ...(options.usage ? { usage: options.usage } : {}),
   };
 
   const engine = createEngine(ports, options.config);

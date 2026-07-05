@@ -39,6 +39,15 @@ export interface ImageObservation {
   ref: string;
   loaded: boolean;
   naturalWidth: number;
+  /**
+   * Geometry for the image-distortion / image-crop checks (§ Phase 4). Optional so older
+   * observations (and fakes that don't set them) stay valid; the geometry checks skip an image
+   * whose fields are absent. `objectFit` is the computed `object-fit` style.
+   */
+  naturalHeight?: number;
+  renderedWidth?: number;
+  renderedHeight?: number;
+  objectFit?: string;
 }
 
 export interface RenderObservation {

@@ -6,8 +6,10 @@ import { deepFreeze } from "../util/freeze";
 import { executionConfigSchema } from "./execution";
 import { layoutsConfigSchema } from "./layouts";
 import { loopConfigSchema } from "./loop";
+import { menuLintConfigSchema } from "./menu-lint";
 import { type ModelRouting, modelRoutingSchema } from "./models";
 import { painterConfigSchema } from "./painter";
+import { planningConfigSchema } from "./planning";
 import { qaConfigSchema } from "./qa";
 import { routingRulesSchema } from "./routing";
 import { visionRubricConfigSchema } from "./rubric";
@@ -22,8 +24,10 @@ export const engineConfigSchema = z.object({
   loop: loopConfigSchema.prefault({}),
   models: modelRoutingSchema.prefault({}),
   painter: painterConfigSchema.prefault({}),
+  planning: planningConfigSchema.prefault({}),
   layouts: layoutsConfigSchema.prefault({}),
   execution: executionConfigSchema.prefault({}),
+  menuLint: menuLintConfigSchema.prefault({}),
 });
 
 export type EngineConfig = z.infer<typeof engineConfigSchema>;
@@ -33,9 +37,15 @@ const STRUCTURED_OUTPUT_ROLES = ["plan", "critique", "repair"] as const;
 
 function assertStructuredOutputModels(models: ModelRouting): void {
   const allow = new Set(models.structuredOutputAllowlist);
-  const offenders = STRUCTURED_OUTPUT_ROLES.filter((role) => !allow.has(models[role])).map(
-    (role) => `${role}=${models[role]}`,
-  );
+  const offenders: string[] = [];
+  for (const role of STRUCTURED_OUTPUT_ROLES) {
+    if (!allow.has(models[role])) offenders.push(`${role}=${models[role]}`);
+    // A configured fallback for a structured role must also honour strict JSON (D11).
+    const fallback = models.fallback[role];
+    if (fallback !== undefined && !allow.has(fallback)) {
+      offenders.push(`${role}.fallback=${fallback}`);
+    }
+  }
   if (offenders.length > 0) {
     throw new ConfigError(
       `Model routing assigns roles that need structured output to models not on the allowlist: ${offenders.join(
@@ -95,11 +105,23 @@ export {
   modelRoutingSchema,
   modelRoleSchema,
   reasoningSettingSchema,
+  resiliencePolicySchema,
   defaultModelRouting,
   type ModelRouting,
   type ModelRole,
   type ReasoningSetting,
+  type ResiliencePolicy,
 } from "./models";
 export { painterConfigSchema, defaultPainterConfig, type PainterConfig } from "./painter";
+export { planningConfigSchema, defaultPlanningConfig, type PlanningConfig } from "./planning";
 export { layoutsConfigSchema, defaultLayoutsConfig, type LayoutsConfig } from "./layouts";
 export { executionConfigSchema, defaultExecutionConfig, type ExecutionConfig } from "./execution";
+export {
+  menuLintConfigSchema,
+  menuLintModeSchema,
+  zeroPriceRenderSchema,
+  defaultMenuLintConfig,
+  type MenuLintConfig,
+  type MenuLintMode,
+  type ZeroPriceRender,
+} from "./menu-lint";

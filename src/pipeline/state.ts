@@ -22,6 +22,10 @@ export const bestCandidateSchema = z.object({
   findings: z.array(qaFindingSchema),
   /** Comparable total from the scoring comparator; higher is better. */
   score: z.number(),
+  /** Human-meaningful weighted rubric pass fraction in [0,1] — persisted into the report (D28). */
+  rubricScore: z.number(),
+  /** Summed severity penalty of all findings — persisted into the report (D28). */
+  penalty: z.number(),
   passed: z.boolean(),
   iterations: z.number().int(),
 });

@@ -55,13 +55,77 @@ export function cleanObservation(overrides: ObservationOverrides = {}): RenderOb
       },
     ],
     fillRatio: overrides.fillRatio ?? 0.6,
-    images: [{ ref: "gallery-0", loaded: true, naturalWidth: 1200 }],
+    // Geometry defaults describe a well-proportioned, undistorted cover photo (§ Phase 4): a 3:2
+    // natural photo in a 3:2 box → no distortion, no over-crop.
+    images: [
+      {
+        ref: "gallery-0",
+        loaded: true,
+        naturalWidth: 1200,
+        naturalHeight: 800,
+        renderedWidth: 600,
+        renderedHeight: 400,
+        objectFit: "cover",
+      },
+    ],
   };
 }
 
 /** A render with dead space at the bottom (acceptance test #1 seed, spec §7). */
 export function deadSpaceObservation(): RenderObservation {
   return cleanObservation({ fillRatio: 0.22 });
+}
+
+/**
+ * A render whose content extends past the bottom edge (content ~15% taller than the viewport) —
+ * the "table cut off at the bottom" case a live vision judge rejected (D31). No item-bound text
+ * samples, so no legibility floor binds: a uniform ~0.87 shrink stays legible and the deterministic
+ * shrink-to-fit repair fixes it WITHOUT a re-paint. Tune the overshoot via `scrollHeight`.
+ */
+export function overflowObservation(overrides: ObservationOverrides = {}): RenderObservation {
+  const obs = cleanObservation(overrides);
+  const { width, height } = obs.actualViewport;
+  const scrollHeight = overrides.scrollHeight ?? Math.round(height * 1.15);
+  return {
+    ...obs,
+    scroll: { scrollWidth: width, scrollHeight, clientWidth: width, clientHeight: height },
+    overflowing: [
+      { ref: "section.beverages", bbox: { x: 0, y: height, width, height: scrollHeight - height } },
+    ],
+  };
+}
+
+/**
+ * An overflow that CANNOT be shrunk without dropping item text below the legibility floor: the
+ * content is 2× too tall AND carries item-bound price text at 20px, so the fit factor (~0.5) would
+ * render it at ~10px (< the 14px floor). {@link checkOverflow} marks it NOT deterministically
+ * fixable, so it escalates to the LLM re-paint path instead of a futile, illegible shrink (D31).
+ */
+export function overflowClampObservation(): RenderObservation {
+  const obs = cleanObservation();
+  const { width, height } = obs.actualViewport;
+  return {
+    ...obs,
+    scroll: {
+      scrollWidth: width,
+      scrollHeight: height * 2,
+      clientWidth: width,
+      clientHeight: height,
+    },
+    overflowing: [{ ref: "section.entrees", bbox: { x: 0, y: height, width, height } }],
+    textSamples: [
+      ...obs.textSamples,
+      {
+        ref: '[data-item-id="e-steak"] [data-bind="price"]',
+        itemId: "e-steak",
+        fg: BLACK,
+        bg: WHITE,
+        fontPx: 20,
+        bold: false,
+        bbox: { x: 0, y: 200, width: 100, height: 24 },
+      },
+    ],
+  };
 }
 
 /**

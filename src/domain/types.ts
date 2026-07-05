@@ -7,6 +7,7 @@ import type {
   canonicalItemSchema,
   componentRecipeSchema,
   densitySchema,
+  densityTierSchema,
   layoutBlueprintSchema,
   findingSourceSchema,
   findingTagSchema,
@@ -15,6 +16,7 @@ import type {
   generateOutputSchema,
   itemSizeSchema,
   itemVariantSchema,
+  menuLintFindingSchema,
   motionPresetSchema,
   planImageSlotSchema,
   planScreenSchema,
@@ -22,9 +24,11 @@ import type {
   posterSchema,
   qaFindingSchema,
   qaReportSchema,
+  qaScreenErrorSchema,
   qaScreenReportSchema,
   representationSchema,
   resolvedThemeSchema,
+  sectionMatrixSchema,
   selfContainedScreenSchema,
   severitySchema,
   themeBriefSchema,
@@ -46,6 +50,8 @@ export type BrandLogo = z.infer<typeof brandLogoSchema>;
 export type BrandInput = z.infer<typeof brandInputSchema>;
 
 export type Representation = z.infer<typeof representationSchema>;
+export type DensityTier = z.infer<typeof densityTierSchema>;
+export type SectionMatrix = z.infer<typeof sectionMatrixSchema>;
 export type PlanSection = z.infer<typeof planSectionSchema>;
 export type PlanImageSlot = z.infer<typeof planImageSlotSchema>;
 export type PlanScreen = z.infer<typeof planScreenSchema>;
@@ -65,6 +71,8 @@ export type Severity = z.infer<typeof severitySchema>;
 export type FindingSource = z.infer<typeof findingSourceSchema>;
 export type FindingTag = z.infer<typeof findingTagSchema>;
 export type QaFinding = z.infer<typeof qaFindingSchema>;
+export type MenuLintFinding = z.infer<typeof menuLintFindingSchema>;
+export type QaScreenError = z.infer<typeof qaScreenErrorSchema>;
 export type QaScreenReport = z.infer<typeof qaScreenReportSchema>;
 export type QaReport = z.infer<typeof qaReportSchema>;
 

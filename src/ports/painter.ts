@@ -1,6 +1,7 @@
 import type {
   BrandInput,
   CanonicalItem,
+  DensityTier,
   GenerateConstraints,
   LayoutBlueprint,
   PlanScreen,
@@ -29,6 +30,20 @@ export interface PaintRequest {
    * failure modes the painter must avoid; the vision critic sees the same list.
    */
   antiPatterns?: readonly string[];
+  /**
+   * The plan-time type-scale directive (§ Phase 3): the exact name/price size classes this board's
+   * row count fits in the canvas body height. Computed by the paint node from `sizing.ts`; the
+   * vision critic sees the same text. Absent → the painter uses the contract's generic minimums.
+   */
+  sizeDirective?: string;
+  /**
+   * The board's deterministic density tier (D30). For `dense`/`packed` boards the painter injects a
+   * compact multi-column price-list idiom (suppress heroes/decorative whitespace, truncate or drop
+   * descriptions, thumbnail-only or no item photos) instead of a boutique layout. Computed by the
+   * paint node (stamped on the plan, else recomputed); the vision critic sees the same tier. Absent
+   * or `comfortable` → no idiom shift.
+   */
+  densityTier?: DensityTier;
   /**
    * On a re-paint, the previous HTML and the findings to act on. The painter should make
    * the minimal change that resolves the findings (minimal-change-first, §10.6).

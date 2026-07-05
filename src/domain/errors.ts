@@ -4,18 +4,30 @@
  * Boundary validation failures wrap Zod issues; no silent failures (build brief).
  */
 
-export type ContentEngineErrorCode =
-  | "VALIDATION"
-  | "UNSUPPORTED_CONSTRAINT"
-  | "THEME_NOT_FOUND"
-  | "PAINT"
-  | "PACKAGING"
-  | "RENDER"
-  | "LLM_CONTRACT"
-  | "QA_BUDGET"
-  | "CONFIG"
-  | "BRAND_ASSET"
-  | "INTERNAL";
+import { z } from "zod";
+
+/**
+ * The stable error codes as a Zod enum — the single source of truth for the {@link
+ * ContentEngineErrorCode} union (inferred below). Exported so schemas can reuse it (e.g. the
+ * per-board error captured in a `QaScreenReport` when the generate() bulkhead contains a
+ * terminal failure — D28).
+ */
+export const contentEngineErrorCodeSchema = z.enum([
+  "VALIDATION",
+  "UNSUPPORTED_CONSTRAINT",
+  "THEME_NOT_FOUND",
+  "PAINT",
+  "PACKAGING",
+  "RENDER",
+  "LLM_CONTRACT",
+  "QA_BUDGET",
+  "CONFIG",
+  "BRAND_ASSET",
+  "MATRIX_COVERAGE",
+  "INTERNAL",
+]);
+
+export type ContentEngineErrorCode = z.infer<typeof contentEngineErrorCodeSchema>;
 
 export interface ContentEngineErrorOptions {
   readonly cause?: unknown;
@@ -108,5 +120,16 @@ export class ConfigError extends ContentEngineError {
 export class BrandAssetError extends ContentEngineError {
   constructor(message: string, options?: ContentEngineErrorOptions) {
     super("BRAND_ASSET", message, options);
+  }
+}
+
+/**
+ * A computed cross-category comparison matrix failed its coverage invariant — an item was
+ * dropped or double-placed. Mirrors the 100%-coverage philosophy of `expandLayoutToPlan`:
+ * bookkeeping a human can't be trusted with is asserted, and any gap throws loudly.
+ */
+export class MatrixCoverageError extends ContentEngineError {
+  constructor(message: string, options?: ContentEngineErrorOptions) {
+    super("MATRIX_COVERAGE", message, options);
   }
 }

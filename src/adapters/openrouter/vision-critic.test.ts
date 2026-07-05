@@ -37,3 +37,34 @@ describe("rubricText canvas block", () => {
     expect(text).toContain("landscape");
   });
 });
+
+/**
+ * The density block (D30): a dense/packed board must be judged AS a dense board — its compact,
+ * hero-less register is required by the plan, not a flaw. A comfortable board gets no block.
+ */
+describe("rubricText density block (D30)", () => {
+  const withDensity = (
+    densityTier: "comfortable" | "dense" | "packed",
+    itemCount?: number,
+  ): CritiqueRequest => ({
+    ...baseRequest(),
+    densityTier,
+    ...(itemCount !== undefined ? { itemCount } : {}),
+  });
+
+  it("omits the block for a comfortable board", () => {
+    expect(rubricText(withDensity("comfortable"))).not.toContain("DENSITY:");
+  });
+
+  it("tells the critic to judge a dense board as a well-executed dense board", () => {
+    const text = rubricText(withDensity("dense", 42));
+    expect(text).toContain("DENSITY:");
+    expect(text).toContain("DENSE board");
+    expect(text).toContain("42 menu items");
+    expect(text).toMatch(/WELL-EXECUTED dense board/i);
+  });
+
+  it("names the packed tier", () => {
+    expect(rubricText(withDensity("packed", 60))).toContain("PACKED board");
+  });
+});

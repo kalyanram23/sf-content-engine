@@ -1,5 +1,21 @@
-import type { BrandInput, CanonicalItem, PlanScreen, Representation } from "../../domain/types";
+import { PaintError } from "../../domain/errors";
+import type {
+  BrandInput,
+  CanonicalItem,
+  PlanScreen,
+  PlanSection,
+  Representation,
+} from "../../domain/types";
 import type { PaintRequest, Painter } from "../../ports/painter";
+
+export interface FakePainterOptions {
+  /**
+   * Board ids whose `paint()` rejects with a terminal {@link PaintError} — the "throw on board N"
+   * affordance for the per-board bulkhead tests (D28). A real painter can't retry its way out of
+   * these (the adapter's retries/fallbacks are already spent), so the failure reaches generate().
+   */
+  readonly failScreenIds?: readonly string[];
+}
 
 /**
  * A deterministic painter that emits genuinely valid, bindable HTML on the rails: token
@@ -8,7 +24,16 @@ import type { PaintRequest, Painter } from "../../ports/painter";
  * rendered issues (contrast/density) are simulated by the {@link ScriptedBrowser}.
  */
 export class FakePainter implements Painter {
+  constructor(private readonly options: FakePainterOptions = {}) {}
+
   paint(request: PaintRequest): Promise<string> {
+    if (this.options.failScreenIds?.includes(request.planScreen.id)) {
+      return Promise.reject(
+        new PaintError(
+          `fake painter forced terminal failure for board "${request.planScreen.id}".`,
+        ),
+      );
+    }
     return Promise.resolve(renderScreen(request.planScreen, request.items, request.brand));
   }
 }
@@ -46,13 +71,65 @@ function renderItem(item: CanonicalItem, representation: Representation): string
       .join("");
     body = `<div class="variant-rows grid gap-1">${rows}</div>`;
   } else {
-    const price = item.price ?? item.sizes?.[0]?.price ?? 0;
-    body = `<span class="text-price" data-bind="price">${money(price)}</span>`;
+    // Mirror the real painter's price contract: emit a data-bind="price" span ONLY when the item
+    // actually carries a price. Under zeroPriceRender:"hide" (D29) zero/missing prices are stripped
+    // upstream, so a priceless item renders WITHOUT a price element (never $0.00) — and the
+    // required-price-binding check exempts it, keeping the fake honest against real structural QA.
+    const price =
+      item.price ??
+      item.sizes?.[0]?.price ??
+      item.variants?.find((v) => v.price !== undefined)?.price;
+    body =
+      price !== undefined
+        ? `<span class="text-price" data-bind="price">${money(price)}</span>`
+        : "";
   }
 
   return (
     `<article class="menu-item rounded-md bg-surface p-3" data-item-id="${item.id}" ` +
     `data-available="${item.available}">${head}${body}</article>`
+  );
+}
+
+/**
+ * Render a section carrying a computed `matrix` as a TRUE row×column comparison table honouring the
+ * matrix-first skeleton: `data-matrix` container, one `data-matrix-row` per row, one
+ * `data-matrix-cell` per column, a filled cell carrying `data-item-id` + `data-available` + exactly
+ * one `<span data-bind="price">`, and a null cell an em-dash with NO price span. Token classes only.
+ */
+function renderMatrixSection(section: PlanSection, byId: Map<string, CanonicalItem>): string {
+  const matrix = section.matrix!;
+  const head =
+    `<div data-matrix-head class="row flex gap-2"><span></span>` +
+    matrix.columns.map((c) => `<span class="text-text">${escapeHtml(c)}</span>`).join("") +
+    `</div>`;
+  const body = matrix.rows
+    .map((row) => {
+      const cells = row.cells
+        .map((cell, i) => {
+          const column = escapeHtml(matrix.columns[i] ?? "");
+          if (cell === null) {
+            return `<div class="text-muted" data-matrix-cell="${column}">—</div>`;
+          }
+          const item = byId.get(cell);
+          const price = item?.price ?? item?.sizes?.[0]?.price ?? item?.variants?.[0]?.price ?? 0;
+          return (
+            `<div class="cell" data-matrix-cell="${column}" data-item-id="${cell}" ` +
+            `data-available="${item?.available ?? true}">` +
+            `<span class="text-price" data-bind="price">${money(price)}</span></div>`
+          );
+        })
+        .join("");
+      return (
+        `<div class="row flex gap-2" data-matrix-row="${escapeHtml(row.label)}">` +
+        `<span class="text-text">${escapeHtml(row.label)}</span>${cells}</div>`
+      );
+    })
+    .join("");
+  return (
+    `<section class="section p-4" data-motion="fade-in">` +
+    `<h2 class="text-xl text-accent-strong">${escapeHtml(section.title)}</h2>` +
+    `<div class="matrix grid gap-2" data-matrix>${head}${body}</div></section>`
   );
 }
 
@@ -106,6 +183,8 @@ function renderScreen(
   const byId = new Map(items.map((i) => [i.id, i]));
   const sections = screen.sections
     .map((section) => {
+      // A section with computed matrix data renders as a comparison table (skeleton shape).
+      if (section.matrix) return renderMatrixSection(section, byId);
       const cards = section.items
         .map((id) => byId.get(id))
         .filter((i): i is CanonicalItem => i !== undefined)

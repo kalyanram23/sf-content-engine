@@ -1,17 +1,26 @@
 import type OpenAI from "openai";
 
 import type { ReasoningSetting } from "../../config/models";
+import type { PlanningConfig } from "../../config/planning";
+import { viewportForAspect } from "../../config/qa";
 import { planLayoutSchema, type PlanLayout } from "../../domain/contracts";
 import type { GenerateInput, ThinPlan } from "../../domain/types";
 import type { RequestCorrelation } from "../../ports/correlation";
 import type { Planner } from "../../ports/planner";
-import type { Logger } from "../../ports/services";
+import type { Logger, UsageSink } from "../../ports/services";
 import { buildMenuDigest, expandLayoutToPlan } from "../../planning/coverage";
-import { requestStructured } from "./client";
+import {
+  buildUsageReporter,
+  requestStructured,
+  resilienceFields,
+  type RoleResilience,
+} from "./client";
 import { buildBroadcast } from "./correlation";
 
-/** When `constraints.screens` is "auto", aim for roughly this many items per board. */
-const AUTO_ITEMS_PER_SCREEN = 40;
+/** Fit defaults when no planning config is threaded (mirror `config.planning`). */
+const DEFAULT_LEGIBILITY_BUDGET = 24;
+const DEFAULT_MIN_ITEMS_PER_BOARD = 4;
+const DEFAULT_PACKED_MULTIPLIER = 2;
 
 export const SYSTEM = `You are a layout planner for digital-signage menu screens. Given a menu summarised BY CATEGORY and a target number of screens, you decide how to lay the menu out — but you NEVER list individual item ids; you work at the category level. Deterministic code expands your plan to the real items and guarantees every item appears, so focus purely on grouping, ordering, and representation judgment.
 
@@ -36,16 +45,36 @@ Rules:
  * the requested screen count) is deterministic.
  */
 export class OpenRouterPlanner implements Planner {
+  private readonly legibilityBudget: number;
+  private readonly minItemsPerBoard: number;
+  private readonly screensMode: PlanningConfig["screensMode"];
+  private readonly packedMultiplier: number;
+
   constructor(
     private readonly client: OpenAI,
     private readonly model: string,
     private readonly logger?: Logger,
     private readonly reasoning?: ReasoningSetting,
-  ) {}
+    private readonly maxTokens?: number,
+    planning?: Partial<
+      Pick<
+        PlanningConfig,
+        "legibilityBudget" | "minItemsPerBoard" | "screensMode" | "packedMultiplier"
+      >
+    >,
+    private readonly resilience?: RoleResilience,
+    private readonly usage?: UsageSink,
+  ) {
+    this.legibilityBudget = planning?.legibilityBudget ?? DEFAULT_LEGIBILITY_BUDGET;
+    this.minItemsPerBoard = planning?.minItemsPerBoard ?? DEFAULT_MIN_ITEMS_PER_BOARD;
+    this.screensMode = planning?.screensMode ?? "elastic";
+    this.packedMultiplier = planning?.packedMultiplier ?? DEFAULT_PACKED_MULTIPLIER;
+  }
 
   async plan(input: GenerateInput, correlation?: RequestCorrelation): Promise<ThinPlan> {
-    const screens = resolveScreenCount(input);
+    const screens = resolveScreenCount(input, this.legibilityBudget);
     const digest = buildMenuDigest(input.items);
+    const onUsage = buildUsageReporter(this.logger, this.usage, "plan", this.model);
     const layout = await requestStructured<PlanLayout>(this.client, {
       model: this.model,
       schema: planLayoutSchema,
@@ -53,21 +82,34 @@ export class OpenRouterPlanner implements Planner {
       system: SYSTEM,
       user: describePlanRequest(digest, input, screens),
       ...(this.reasoning !== undefined ? { reasoning: this.reasoning } : {}),
+      ...(this.maxTokens !== undefined ? { maxTokens: this.maxTokens } : {}),
+      ...resilienceFields(this.resilience),
+      ...(onUsage !== undefined ? { onUsage } : {}),
       ...buildBroadcast(correlation, "plan"),
     });
     this.logger?.info(
-      `planner: ${layout.blocks.length} block(s) over ${input.items.length} items → ${screens} screen(s)`,
+      `planner: ${layout.blocks.length} block(s) over ${input.items.length} items → hint ${screens} screen(s)`,
     );
+    // In "elastic" mode `screens` is a HINT the fit arithmetic in expandLayoutToPlan flexes against
+    // the per-board budget (tightened to the aspect's canvas) and the sparse floor (§ Phase 3); in
+    // "exact" mode (D26) it is law, capped only by the section count (categories are atomic, D25).
+    const { width, height } = viewportForAspect(input.constraints.aspect);
     return expandLayoutToPlan(layout, input.items, screens, {
-      warn: (message) => this.logger?.warn(message),
+      legibilityBudget: this.legibilityBudget,
+      minItemsPerBoard: this.minItemsPerBoard,
+      screensMode: this.screensMode,
+      packedMultiplier: this.packedMultiplier,
+      canvas: { width, height },
+      logger: { warn: (message) => this.logger?.warn(message) },
     });
   }
 }
 
-export function resolveScreenCount(input: GenerateInput): number {
+/** The board-count HINT: a requested number is used as-is; "auto" derives from the fit budget. */
+export function resolveScreenCount(input: GenerateInput, budget: number): number {
   const requested = input.constraints.screens;
   if (typeof requested === "number") return requested;
-  return Math.max(1, Math.ceil(input.items.length / AUTO_ITEMS_PER_SCREEN));
+  return Math.max(1, Math.ceil(input.items.length / budget));
 }
 
 export function describePlanRequest(

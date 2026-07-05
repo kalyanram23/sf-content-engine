@@ -1,6 +1,6 @@
 import type { VisionRubricConfig } from "../config/rubric";
 import type { CritiqueResponse } from "../domain/contracts";
-import type { PlanScreen } from "../domain/types";
+import type { DensityTier, PlanScreen } from "../domain/types";
 import type { RequestCorrelation } from "./correlation";
 
 export interface CritiqueRequest {
@@ -18,6 +18,15 @@ export interface CritiqueRequest {
   designIntent?: string;
   /** The layout strategy the painter was told to follow — graded against, not guessed at. */
   layoutStrategy?: string;
+  /**
+   * The board's density tier + item count (D30). For a `dense`/`packed` board the critic is told to
+   * judge theme-adherence and intentional-design against a COMPACT information-dense register (a
+   * well-executed dense price wall), not boutique-whitespace expectations — the density is forced by
+   * the plan, so a tight, hero-less board is correct, not a flaw. Absent/`comfortable` → no shift.
+   */
+  densityTier?: DensityTier;
+  /** The number of menu items on this board — context for judging the density tier. */
+  itemCount?: number;
   /**
    * The exact canvas the screenshot was rendered at + its aspect, so the critic judges fill,
    * balance and hierarchy for THIS orientation (a portrait 9:16 board is composed and judged
