@@ -35,9 +35,13 @@ export const routingRuleSchema = z.object({
  *     honest terminal is to ship the best candidate flagged after the first detection rather
  *     than burn the whole iteration budget (D17 rationale; the LLM planner also avoids this by
  *     packing into enough screens). Fix the allocation upstream (raise `screens`).
- *  2. a deterministically-fixable mechanical finding → repair (cheap/free, never the
+ *  2. a CRITICAL, deterministically-UNFIXABLE finding (e.g. a missing required binding) →
+ *     re-paint. A repair pass mechanically can't mend it, so it must outrank the mechanical-fix
+ *     rule below — otherwise a co-occurring cosmetic FIXABLE finding wins repair and the loop
+ *     budget dies polishing cosmetics on a content-broken board that never gets re-painted.
+ *  3. a deterministically-fixable mechanical finding → repair (cheap/free, never the
  *     painter — §5.6);
- *  3. any other actionable finding → re-paint (minimal-change-first default — §10.6).
+ *  4. any other actionable finding → re-paint (minimal-change-first default — §10.6).
  * No actionable findings (or budget exhausted) → freeze (handled by the evaluator).
  */
 export const routingRulesSchema = z.object({
@@ -47,6 +51,12 @@ export const routingRulesSchema = z.object({
       when: { kindAnyOf: ["overflow-capacity"] },
       route: "freeze",
       priority: 100,
+    },
+    {
+      id: "critical-unfixable-to-repaint",
+      when: { minSeverity: "critical", deterministicallyFixable: false },
+      route: "paint",
+      priority: 95,
     },
     {
       id: "mechanical-fix-to-repair",

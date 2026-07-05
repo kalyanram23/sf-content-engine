@@ -113,3 +113,39 @@ describe("isBetter — best-so-far never regresses (D12)", () => {
     expect(isBetter(manyMinor, gated)).toBe(true);
   });
 });
+
+describe("gate-blocked candidates sort below non-blocked ones (D27)", () => {
+  const visionMajors = (n: number): QaFinding[] =>
+    Array.from({ length: n }, (_, i) => visionMajor(`v${i}`));
+
+  it("ranks any non-blocked candidate above a gate-blocked one, regardless of penalty weight", () => {
+    // The blocked candidate is penalty-LIGHT (its vision critique was skipped): a single
+    // deterministic density major. The non-blocked candidate is loaded with vision penalties that
+    // never gate. Without the dedicated blocked term the light one would win the raw-penalty
+    // comparison and corrupt `best`.
+    const blockedLight = scoreScreen([densityFinding], rubric);
+    const nonBlockedHeavy = scoreScreen(visionMajors(8), rubric);
+    expect(nonBlockedHeavy.penalty).toBeGreaterThan(blockedLight.penalty);
+    expect(isBetter(nonBlockedHeavy, blockedLight)).toBe(true);
+    expect(isBetter(blockedLight, nonBlockedHeavy)).toBe(false);
+  });
+
+  it("preserves blocked-vs-blocked ordering (fewer/less-severe deterministic findings win)", () => {
+    const overflowFinding = makeFinding({
+      kind: "overflow",
+      source: "deterministic",
+      severity: "major",
+      tag: "layout",
+      message: "overflow",
+    });
+    const oneBlocking = scoreScreen([densityFinding], rubric);
+    const twoBlocking = scoreScreen([densityFinding, overflowFinding], rubric);
+    expect(isBetter(oneBlocking, twoBlocking)).toBe(true);
+  });
+
+  it("preserves clean-vs-clean ordering (no blocked term when nothing gates)", () => {
+    const cleaner = scoreScreen(visionMajors(1), rubric);
+    const messier = scoreScreen(visionMajors(2), rubric);
+    expect(isBetter(cleaner, messier)).toBe(true);
+  });
+});

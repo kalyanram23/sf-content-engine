@@ -367,6 +367,153 @@ export function checkSelfContained(root: HTMLElement, _ctx?: StructuralContext):
   return findings;
 }
 
+/** Locate the `[data-matrix]` container holding this section's items; falls back to the root when
+ * there is at most one matrix on the board (or none). */
+function findMatrixContainer(root: HTMLElement, itemIds: Set<string>): HTMLElement {
+  const containers = root.querySelectorAll("[data-matrix]");
+  if (containers.length <= 1) return containers[0] ?? root;
+  for (const container of containers) {
+    for (const cell of container.querySelectorAll("[data-matrix-cell]")) {
+      const id = cell.getAttribute("data-item-id");
+      if (id !== undefined && itemIds.has(id)) return container;
+    }
+  }
+  return containers[0] ?? root;
+}
+
+/**
+ * Matrix-structure check (§ Phase 4): for each plan section carrying computed `matrix` data, enforce
+ * the FIXED table DOM — every planned item id appears in exactly one `data-matrix-cell` of the right
+ * column, each `data-matrix-row` carries exactly `columns.length` cell slots, a filled cell has
+ * exactly one `data-bind="price"` span, and a null (em-dash) cell has none. Catches the observed
+ * failure where the painter rendered stacked name+price cards instead of a real comparison table.
+ */
+export function checkMatrixStructure(root: HTMLElement, plan: PlanScreen): QaFinding[] {
+  const findings: QaFinding[] = [];
+  for (const section of plan.sections) {
+    const matrix = section.matrix;
+    if (matrix === undefined) continue;
+    const cols = matrix.columns.length;
+
+    // Expected column per filled item id (from the computed matrix).
+    const expectedColumn = new Map<string, string>();
+    for (const row of matrix.rows) {
+      row.cells.forEach((cell, ci) => {
+        if (cell !== null) expectedColumn.set(cell, matrix.columns[ci] ?? "");
+      });
+    }
+    const filledIds = new Set(expectedColumn.keys());
+    const container = findMatrixContainer(root, filledIds);
+    const domRows = container.querySelectorAll("[data-matrix-row]");
+    const domCells = container.querySelectorAll("[data-matrix-cell]");
+
+    // The painter ignored the matrix skeleton entirely → one finding, not one-per-item noise.
+    if (domRows.length === 0 && domCells.length === 0) {
+      findings.push(
+        makeFinding({
+          kind: FindingKind.MatrixStructure,
+          source: "deterministic",
+          severity: "major",
+          tag: "layout",
+          region: section.title,
+          message: `Section "${section.title}" carries matrix data but no data-matrix table was rendered (render a true row×column comparison table).`,
+        }),
+      );
+      continue;
+    }
+
+    // 1. Each row carries exactly `cols` cell slots.
+    for (const rowEl of domRows) {
+      const cellCount = rowEl.querySelectorAll("[data-matrix-cell]").length;
+      if (cellCount !== cols) {
+        findings.push(
+          makeFinding({
+            kind: FindingKind.MatrixStructure,
+            source: "deterministic",
+            severity: "major",
+            tag: "layout",
+            region: section.title,
+            message: `Matrix row "${rowEl.getAttribute("data-matrix-row") ?? ""}" has ${cellCount} cell(s); expected ${cols} (one per column).`,
+            data: { expected: cols, actual: cellCount },
+          }),
+        );
+      }
+    }
+
+    // 2/3. Walk cells: filled cells → exactly one price span + correct column; null cells → none.
+    const seen = new Map<string, number>();
+    for (const cell of domCells) {
+      const id = cell.getAttribute("data-item-id");
+      const priceCount = cell.querySelectorAll('[data-bind="price"]').length;
+      if (id !== undefined && id !== "") {
+        seen.set(id, (seen.get(id) ?? 0) + 1);
+        if (priceCount !== 1) {
+          findings.push(
+            makeFinding({
+              kind: FindingKind.MatrixStructure,
+              source: "deterministic",
+              severity: "major",
+              tag: "content",
+              region: section.title,
+              itemId: id,
+              message: `Matrix cell for "${id}" has ${priceCount} data-bind="price" span(s); a filled cell needs exactly one.`,
+              data: { priceCount },
+            }),
+          );
+        }
+        const expected = expectedColumn.get(id);
+        const column = cell.getAttribute("data-matrix-cell") ?? "";
+        if (expected !== undefined && column !== expected) {
+          findings.push(
+            makeFinding({
+              kind: FindingKind.MatrixStructure,
+              source: "deterministic",
+              severity: "major",
+              tag: "content",
+              region: section.title,
+              itemId: id,
+              message: `Matrix cell for "${id}" is in column "${column}"; expected "${expected}".`,
+              data: { column, expected },
+            }),
+          );
+        }
+      } else if (priceCount > 0) {
+        findings.push(
+          makeFinding({
+            kind: FindingKind.MatrixStructure,
+            source: "deterministic",
+            severity: "major",
+            tag: "content",
+            region: section.title,
+            message: `An empty matrix cell in "${section.title}" has ${priceCount} price span(s); an em-dash cell must have none.`,
+            data: { priceCount },
+          }),
+        );
+      }
+    }
+
+    // 4. Every planned item appears in exactly one cell.
+    for (const id of filledIds) {
+      const count = seen.get(id) ?? 0;
+      if (count !== 1) {
+        findings.push(
+          makeFinding({
+            kind: FindingKind.MatrixStructure,
+            source: "deterministic",
+            severity: "major",
+            tag: "content",
+            region: section.title,
+            itemId: id,
+            message: `Matrix item "${id}" appears in ${count} matrix cell(s); expected exactly one.`,
+            data: { count },
+          }),
+        );
+      }
+    }
+  }
+  return findings;
+}
+
 /** When a brand logo was requested, guarantee the painter actually rendered the header placeholder
  * and that it was inlined (no leaked remote/relative src). Mirrors binding-integrity for items. */
 export function checkBrandBinding(root: HTMLElement, ctx: StructuralContext): QaFinding[] {
@@ -411,6 +558,7 @@ export function runStructuralChecks(ctx: StructuralContext): QaFinding[] {
     ...checkCapacity(ctx.planScreen, ctx.qa),
     ...checkBindings(pkgRoot, ctx),
     ...checkRepresentations(pkgRoot, ctx.planScreen, ctx.items),
+    ...checkMatrixStructure(pkgRoot, ctx.planScreen),
     ...checkTokenLint(rawRoot, ctx),
     ...checkMotion(pkgRoot, ctx),
     ...checkSelfContained(pkgRoot, ctx),

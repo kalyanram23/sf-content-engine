@@ -29,7 +29,11 @@ export const visionRubricConfigSchema = z.object({
     .default([
       {
         id: "balance",
-        description: "Visual balance; no dead space or crowding.",
+        description:
+          "Visual balance across the whole frame — no dead space (a large contiguous empty region, " +
+          "an empty band or hero zone above the content inside a card, or a bottom half/quarter left " +
+          "blank) and no crowding; content should fill the canvas, not cluster in one region floating " +
+          "in a void.",
         weight: 1,
         failAtSeverity: "major",
       },
@@ -55,7 +59,9 @@ export const visionRubricConfigSchema = z.object({
       {
         id: "intentional-design",
         description:
-          "Looks intentionally designed for THIS theme (see DESIGN INTENT), not AI-generic or templated.",
+          "Looks intentionally designed for THIS theme (see DESIGN INTENT), not AI-generic or " +
+          "templated — and uses the screen real estate on purpose: no content marooned in empty " +
+          "space, no card sized for a photo or description that isn't there.",
         weight: 0.75,
         failAtSeverity: "major",
       },

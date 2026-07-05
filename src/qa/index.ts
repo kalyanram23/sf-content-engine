@@ -13,7 +13,9 @@ export {
   checkOverflow,
   checkDensity,
   checkImages,
+  checkImageGeometry,
   runRenderedChecks,
+  type BoardSizing,
 } from "./rendered-checks";
 export {
   runStructuralChecks,
@@ -21,6 +23,7 @@ export {
   checkTokenLint,
   checkMotion,
   checkSelfContained,
+  checkMatrixStructure,
   type StructuralContext,
 } from "./structural-checks";
 export { checkCapacity, checkRepresentations } from "./representation";

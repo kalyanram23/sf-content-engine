@@ -11,6 +11,18 @@ import { decideGate } from "./gate";
 
 const SEVERITY_PENALTY: Record<Severity, number> = { info: 0, minor: 1, major: 3, critical: 10 };
 
+/**
+ * Ordering weights: a lexicographic (hardGate, blocked, penalty, rubric) total order — each tier
+ * strictly dominates the sum of every lower tier, assuming total penalty stays below ~1000 points
+ * (a handful of findings), the bound the hard-gate tier has always relied on. The `blocked` tier
+ * (D27) sits between the hard gate and the raw penalty so a GATE-BLOCKED candidate — which may be
+ * penalty-LIGHT because its vision critique was skipped when it already blocked (§5.6, D27) — can
+ * never outscore a non-blocked one and corrupt `best`.
+ */
+const HARD_GATE_WEIGHT = 1_000_000_000;
+const BLOCKED_WEIGHT = 1_000_000;
+const PENALTY_WEIGHT = 1_000;
+
 /** Default blocking threshold when none is supplied (matches `QaConfig.blockingSeverity`). */
 const DEFAULT_BLOCKING_SEVERITY: Severity = "major";
 
@@ -62,8 +74,14 @@ export function scoreScreen(
     (dim) => dim.blocking && dimensionFailed(findings, dim),
   );
   const passed = !blocking && !failedBlockingDimension && rubric01 >= rubric.passThreshold;
-  // Ordering: hard gates dominate, then total penalty, then rubric score as the tiebreak.
-  const total = -hardGateFailures * 1_000_000 - penalty * 1_000 + rubric01;
+  // Ordering: hard gates dominate, then gate-blocked (below every non-blocked candidate — a
+  // blocked candidate may be penalty-light because its critique was skipped, D27), then total
+  // penalty, then rubric score as the final tiebreak.
+  const total =
+    -hardGateFailures * HARD_GATE_WEIGHT -
+    (blocking ? BLOCKED_WEIGHT : 0) -
+    penalty * PENALTY_WEIGHT +
+    rubric01;
   return { total, rubricScore: rubric01, penalty, hardGateFailures, passed };
 }
 
