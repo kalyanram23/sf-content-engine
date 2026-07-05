@@ -23,6 +23,12 @@
 
     "noEmit": true
   },
-  "include": ["src", "tsup.config.ts", "vitest.config.ts", "eslint.config.js"],
-  "exclude": ["node_modules", "dist", "coverage", "src/adapters/claudecode"]
+  "include": ["src", "scripts", "tsup.config.ts", "vitest.config.ts", "eslint.config.js"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "coverage",
+    "src/adapters/claudecode",
+    "scripts/try-claude.ts"
+  ]
 }

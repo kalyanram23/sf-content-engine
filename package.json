@@ -44,7 +44,9 @@
     "test:live": "vitest run --config vitest.live.config.ts",
     "playground": "tsx src/playground/run.ts",
     "try": "tsx scripts/try.ts",
+    "try:debug": "tsx --inspect-brk scripts/try.ts",
     "try:claude": "tsx scripts/try-claude.ts",
+    "eval": "tsx scripts/evals/run.ts",
     "verify": "prettier --check . && eslint . && tsc --noEmit && vitest run"
   },
   "dependencies": {
@@ -79,7 +81,7 @@
     "@anthropic-ai/claude-agent-sdk": "^0.3.196",
     "@eslint/js": "^9.39.4",
     "@tailwindcss/node": "^4.3.1",
-    "@types/node": "^22.15.0",
+    "@types/node": "^22.20.0",
     "@vitest/coverage-v8": "^4.1.9",
     "esbuild": "0.27.7",
     "eslint": "^9.39.4",

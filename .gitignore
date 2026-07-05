@@ -43,3 +43,9 @@ src/adapters/claudecode/
 scripts/try-claude.ts
 claude-output/
 debug-claude/
+
+# Eval run artifacts (scripts/evals) — regenerated per run
+eval-output*/
+
+# Design-exploration scratch workspace (HTML mockups + verify script) — kept on disk, not shipped
+design-explorations/

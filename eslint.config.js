@@ -8,6 +8,12 @@ export default tseslint.config(
       "node_modules",
       "coverage",
       "playground-output",
+      // Untracked design-exploration scratch workspace (HTML + a Node verify script); kept on disk,
+      // out of the gate like the other scratch/shelved dirs below.
+      "design-explorations",
+      // Untracked one-off render-check scratch scripts (e.g. .rendercheck.tmp.mjs) — same scratch
+      // category as design-explorations above, just dropped at the repo root; keep out of the gate.
+      "*.tmp.mjs",
       "src/adapters/tailwind/motion-bundle.generated.ts",
       // Shelved Claude Agent SDK backend experiment — kept on disk, out of the gate (see .gitignore).
       "src/adapters/claudecode/**",
