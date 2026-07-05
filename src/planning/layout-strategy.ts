@@ -14,9 +14,13 @@ import type { CanonicalItem, LayoutBlueprint, PlanScreen, PlanSection } from "..
 export const MATRIX_FIRST_STRATEGY =
   "LAYOUT STRATEGY for this board: MATRIX/TABLE FIRST. Render the price table from the section " +
   "layoutHint as the PRIMARY layout (shared base dish down the rows, the named categories across the " +
-  "columns, one price cell per intersection). Use ONE shared compact rotating hero for the whole board " +
-  "— do NOT give each section its own hero (a dense table at this canvas has no room for one). A per-item " +
-  "photo grid is only a fallback for a non-matrix section that has spare room.";
+  "columns, one price cell per intersection). Use ONE shared rotating hero for the whole board — do NOT " +
+  "give each section its own hero. The shared hero must be a real visual anchor occupying roughly 12–15% " +
+  "of the canvas area: about a quarter of the board width beside the table, or a full-width band roughly " +
+  "a fifth of the canvas height on portrait. Keep its aspect between 4:3 and 2:1 — NEVER a thin >3:1 " +
+  "sliver band (which crops food photos into unappetising slivers) and never a corner thumbnail; use " +
+  "object-cover in a well-proportioned box. A per-item photo grid is only a fallback for a non-matrix " +
+  "section that has spare room.";
 
 export const PHOTO_LED_GRID_STRATEGY =
   "LAYOUT STRATEGY for this board: PHOTO-LED GRID. Give EVERY item its own large card filling the grid " +
@@ -122,4 +126,45 @@ export function renderBlueprintStrategy(blueprint: LayoutBlueprint): string {
     parts.push(`FREE (your call):\n${blueprint.free.map((f) => `- ${f}`).join("\n")}`);
   }
   return parts.join("\n");
+}
+
+/** A representative display price for a matrix cell (scalar price, else first size/variant). */
+function displayPrice(item: CanonicalItem | undefined): string | undefined {
+  if (!item) return undefined;
+  const price = item.price ?? item.sizes?.[0]?.price ?? item.variants?.[0]?.price;
+  return price !== undefined ? `$${price.toFixed(2)}` : undefined;
+}
+
+/**
+ * Render every matrix section's computed pairing as an explicit, readable table — the SAME text the
+ * painter and the vision critic both receive (the "two consumers, same text" principle). This is
+ * what makes the painter render a TRUE row×column comparison instead of stacked name+price cards:
+ * the pairing is decided in code (`buildMatrix`), not left to the LLM to infer from 34 names.
+ * Returns `undefined` when the board has no matrix section.
+ */
+export function renderMatrixSummary(
+  screen: { sections: readonly PlanSection[] },
+  items: readonly CanonicalItem[],
+): string | undefined {
+  const byId = new Map(items.map((i) => [i.id, i]));
+  const blocks: string[] = [];
+  for (const section of screen.sections) {
+    const matrix = section.matrix;
+    if (!matrix) continue;
+    const cols = matrix.columns.join(" | ");
+    const lines = [
+      `MATRIX DATA for "${section.title}" — render as a TRUE comparison table: ${matrix.columns.length} columns, one PRICE CELL per row×column intersection (NEVER stacked name+price cards). Columns left→right: ${cols}.`,
+      `Rows (label | ${cols}):`,
+    ];
+    for (const row of matrix.rows) {
+      const cells = row.cells.map((cell) => {
+        if (cell === null) return "—";
+        const price = displayPrice(byId.get(cell));
+        return `${price ?? ""} (${cell})`.trim();
+      });
+      lines.push(`- ${row.label} | ${cells.join(" | ")}`);
+    }
+    blocks.push(lines.join("\n"));
+  }
+  return blocks.length > 0 ? blocks.join("\n\n") : undefined;
 }

@@ -14,6 +14,30 @@ import { deepFreeze } from "../util/freeze";
  * id via `themePreset.layouts`. Adding a layout is a data edit, never an engine change.
  */
 
+/**
+ * The FIXED DOM shape of the base-dish comparison table (§ Phase 2). Theme-agnostic — no colour
+ * or size classes (those stay the painter's job), only the `data-*` attributes the matrix-structure
+ * check + runtime patcher require. The header row is `data-matrix-head` (NOT a `data-matrix-row`),
+ * so it is not counted as a data row.
+ */
+const MATRIX_SKELETON = `<div data-matrix>
+  <div data-matrix-head>
+    <div><!-- row-label column (blank) --></div>
+    <div>Biryani</div>
+    <div>Pulav</div>
+  </div>
+  <!-- ONE data-matrix-row per base dish; its value is the row label -->
+  <div data-matrix-row="Chicken Dum">
+    <div><!-- row label --> Chicken Dum</div>
+    <!-- a FILLED cell: the item's id + availability + EXACTLY ONE price span -->
+    <div data-matrix-cell="Biryani" data-item-id="ITEM_ID" data-available="true">
+      <span data-bind="price">$0.00</span>
+    </div>
+    <!-- an EMPTY cell: an em-dash, NO price span -->
+    <div data-matrix-cell="Pulav">—</div>
+  </div>
+</div>`;
+
 const DEFAULT_BLUEPRINTS: LayoutBlueprint[] = [
   // Seed 1/2 — the legacy matrix branch, verbatim.
   {
@@ -23,9 +47,17 @@ const DEFAULT_BLUEPRINTS: LayoutBlueprint[] = [
     strategy: MATRIX_FIRST_STRATEGY,
     fixed: [
       "The price table is the primary layout — one price cell per row×column intersection",
-      "ONE shared compact rotating hero for the whole board, never per-section heroes",
+      "ONE shared rotating hero for the whole board, never per-section heroes — roughly 12–15% of " +
+        "the canvas area (about a quarter of the board width, or a full-width band roughly a fifth " +
+        "of the height on portrait), aspect between 4:3 and 2:1; never a >3:1 sliver, never a " +
+        "corner thumbnail",
     ],
     free: ["Table styling and column emphasis", "Where the shared hero sits"],
+    // Theme-agnostic DOM shape for the base-dish price table (§ Phase 2). NO colour/size classes —
+    // those are the painter's job; only the data-* attributes the checks + patcher require are
+    // fixed. Filled from the MATRIX DATA handed alongside it: one row per base dish, one cell per
+    // column, exactly one price span in a filled cell, an em-dash and NO price span in an empty one.
+    skeleton: MATRIX_SKELETON,
   },
   // A tiny photo board reads best as one dominant hero + feature cards.
   {

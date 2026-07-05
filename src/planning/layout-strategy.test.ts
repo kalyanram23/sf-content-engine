@@ -8,6 +8,7 @@ import {
   describeLayoutStrategy,
   mergeBlueprints,
   renderBlueprintStrategy,
+  renderMatrixSummary,
   selectBlueprint,
 } from "./layout-strategy";
 
@@ -106,6 +107,42 @@ describe("mergeBlueprints", () => {
     ]);
     expect(merged.find((b) => b.id === "matrix-first")?.strategy).toBe("OVERRIDDEN");
     expect(merged.find((b) => b.id === "custom")).toBeDefined();
+  });
+});
+
+describe("renderMatrixSummary — the shared painter/critic matrix text", () => {
+  const items: CanonicalItem[] = [
+    { id: "b1", name: "Chicken Biryani", category: "Biryani", available: true, price: 12 },
+    { id: "b2", name: "Egg Biryani", category: "Biryani", available: true, price: 10 },
+    { id: "p1", name: "Chicken Pulav", category: "Pulav", available: true, price: 11 },
+  ];
+  const screen: PlanScreen = {
+    id: "s1",
+    sections: [
+      {
+        title: "Biryani & Pulav",
+        representation: "matrix",
+        items: ["b1", "b2", "p1"],
+        matrix: {
+          columns: ["Biryani", "Pulav"],
+          rows: [
+            { label: "Chicken", cells: ["b1", "p1"] },
+            { label: "Egg", cells: ["b2", null] },
+          ],
+        },
+      },
+    ],
+  };
+
+  it("renders columns, per-row prices/ids, and an em-dash for null cells", () => {
+    const text = renderMatrixSummary(screen, items)!;
+    expect(text).toContain("Columns left→right: Biryani | Pulav");
+    expect(text).toContain("- Chicken | $12.00 (b1) | $11.00 (p1)");
+    expect(text).toContain("- Egg | $10.00 (b2) | —");
+  });
+
+  it("returns undefined for a board with no matrix section", () => {
+    expect(renderMatrixSummary(board("grid", 3), items)).toBeUndefined();
   });
 });
 
