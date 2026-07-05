@@ -53,3 +53,36 @@ export interface DebugCapture {
 export interface DebugSink {
   capture(candidate: DebugCapture): void | Promise<void>;
 }
+
+/**
+ * One LLM call's token usage, as structured telemetry (cost visibility) — the machine-readable
+ * counterpart to the `logger.debug("usage …")` line. Ambient like {@link DebugSink}: emitted by the
+ * LLM adapters (Planner/Painter/VisionCritic/LlmRepairer) the engine drives through their ports, not
+ * by the pure core. `attempt`/`fallback` attribute a call's retry/re-ask/fallback re-spend (D28).
+ */
+export interface UsageEvent {
+  /** The engine role that made the call: `"plan" | "paint" | "critique" | "repair"`. */
+  role: string;
+  /** The model id that actually served the call (the fallback id when `fallback` is true). */
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  /** Prompt-cache hit tokens, when the provider reports them. */
+  cachedTokens?: number;
+  /** Thinking tokens billed inside the completion, when the provider reports them. */
+  reasoningTokens?: number;
+  /** 1-based attempt index within the call (a retry / re-ask / fallback re-spends). */
+  attempt?: number;
+  /** True when this call ran on the role's fallback model (the primary's attempts were spent). */
+  fallback?: boolean;
+}
+
+/**
+ * Optional sink for per-call LLM token usage, so a caller gets structured cost telemetry instead of
+ * regex-parsing log lines. Injected at the composition root like {@link DebugSink}; only invoked
+ * when present, so it never affects engine output (D15/D28).
+ */
+export interface UsageSink {
+  record(event: UsageEvent): void | Promise<void>;
+}
