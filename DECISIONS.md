@@ -292,3 +292,366 @@ derived viewport) instead of the whole `QaConfig`, since orientation is per-requ
 breaking case is a caller who set a portrait `qa.viewport` while leaving `aspect` at the `"16:9"`
 default — they must now state the aspect, which `generateConstraintsSchema` always documented as
 driving the render viewport.
+
+## D20 — Comparison matrices are computed at plan time, not inferred by the painter
+
+**Problem (verified on a real 9:16 run):** a "Biryani & Pulav" matrix of 34 items shipped as
+stacked name+price cards per protein group instead of a true row×column table. The plan carried
+only category names + a free-text `layoutHint`; pairing "Pachi Mirchi Chicken Biryani" ↔ "Pachi
+Mirchi Chicken Pulav" across 34 names was left to the painter, and blueprint prose ("one price cell
+per intersection") did not enforce it.
+
+**Decision:** A pure module (`src/planning/matrix.ts`, `buildMatrix`) computes the pairing at plan
+time and attaches a `SectionMatrix` (`{ columns, rows: [{ label, cells: (id|null)[] }] }`, a domain
+value object — **not** an LLM contract) to the section in `expandLayoutToPlan`. Row keys are derived
+by normalising each name (strip a trailing `*`, drop punctuation, remove the item's own category
+tokens); items across columns sharing a base share a row; a null cell renders as an em-dash. Two
+same-category items normalising to the same base never merge (separate, disambiguated rows), and an
+item-per-cell invariant is asserted (`MatrixCoverageError`) — mirroring the coverage guarantee.
+
+**thinPlan strict-contract check (asked in the build brief):** `contracts.ts` aliases
+`planResponseSchema = thinPlanSchema`, but **that alias is never sent through `toStrictJsonSchema`** —
+only `planLayoutSchema`/`critiqueResponseSchema`/`repairResponseSchema` reach the strict-mode
+converter (the planner returns the id-free `PlanLayout`, not a `thinPlan`). So the new optional
+`matrix` field — which contains a `string | null` union that strict mode couldn't express — is safe:
+`thinPlan` is validated only with `.safeParse`, where an optional field is a non-issue. Documented so
+a future change that _does_ strict-convert `thinPlan` knows to exclude `matrix`.
+
+## D21 — Blueprints carry an optional DOM skeleton; the painter renders a fixed structure
+
+**Decision:** `layoutBlueprint` gains an optional `skeleton` (config data, not an LLM contract). The
+`matrix-first` blueprint ships a theme-agnostic HTML skeleton fixing the `data-*` shape a comparison
+table must have — `data-matrix` container, `data-matrix-row="<label>"`, `data-matrix-cell="<column>"`,
+a filled cell carrying `data-item-id`/`data-available` + exactly one `<span data-bind="price">`, a
+null cell an em-dash with none. The painter prompt renders the computed matrix explicitly (columns +
+each row as `label | col: $price (id) | …`) plus the skeleton with "the DOM shape is FIXED, styling
+is yours"; the same matrix summary is appended to the vision critic's layout strategy (the "two
+consumers, same text" principle). Structure only — no sizes/colours — so token-lint and the theme's
+Tailwind classes stay the painter's job. The `FakePainter` emits matching skeleton markup so the e2e
+suite exercises the real structural check.
+
+## D22 — Screen count is elastic; one budget drives fit arithmetic and AUTO
+
+**Problem:** the planner packed 34–45 items per board against a hardcoded `LEGIBILITY_BUDGET = 24`
+while `screens` was fixed at the requested value, so content overflowed by 648px and the paint loop
+could not fix an impossible budget. A contradictory `AUTO_ITEMS_PER_SCREEN = 40` lived in the planner.
+
+**Decision:** `legibilityBudget` (24) and `minItemsPerBoard` (4) move to `config.planning`
+(rules-as-data); AUTO and the fit arithmetic both derive from `legibilityBudget`. In
+`expandLayoutToPlan` the requested `screens` becomes a **hint**: the board count RAISES to the
+arithmetic minimum `ceil(totalWeight / budget)` when content can't fit, and LOWERS toward that
+minimum when the request would leave boards below `minItemsPerBoard` (never below 1) — every
+adjustment logged with its numbers. A matrix section weighs its **rows** (paired items share a line),
+and a matrix taller than one board's budget splits by whole rows. A pure sizing helper
+(`src/planning/sizing.ts`) maps a board's row count + canvas to a type-scale directive (or "doesn't
+fit → split"); the planner tightens the budget to the canvas via `maxRowsForCanvas`, and the paint
+node passes the directive to both painter and critic. The engine's `constraints.screens`-must-match
+guard now applies **only to caller-authored plans** (D5) — a planner-produced count is authoritative.
+100% coverage stays asserted.
+
+## D23 — Image geometry is a deterministic QA check, not just "did it load?"
+
+**Decision:** the rendered `ImageObservation` gains `naturalHeight`/`renderedWidth`/`renderedHeight`/
+`objectFit` (optional — older observations/fakes skip the check). A new pure rendered check emits
+`image-distortion` (an `object-fit:fill|none` image whose rendered aspect deviates from natural
+beyond `distortionTolerance`) and `image-crop` (an `object-fit:cover` image whose container:natural
+aspect factor exceeds `maxCropFactor`, default 2.2 — a ~4:3 photo in a >3.5:1 band trips it).
+Thresholds are Zod config (`qa.image`). The matrix-first blueprint prose also pins hero bands to
+roughly a 2:1 max aspect so paints stop producing 3.5:1 slices.
+
+## D24 — Under-fill density is representation-aware; over-fill stays universal
+
+**Decision:** the `checkDensity` under-fill floor (`fillRatio < 0.4 → major`) becomes per-
+representation config: a board carrying a computed `matrix`, or dominated by TYPE-LED representations
+(`density.typeLedRepresentations`, default `matrix`/`list`), is held to the lower
+`density.typeLedMinFill` (default 0.2) — a price table legitimately breathes, and shouldn't burn the
+iteration budget failing a floor calibrated for photo grids. The lowest applicable floor wins (a
+sparse type-led board gets the most slack). The over-fill bound (`> maxFill`) stays universal. Pure
+config-data change interpreted by the evaluator — no engine-code branch.
+
+## D25 — Categories are atomic: a category NEVER spans two screens
+
+**Problem (verified on a real 9:16 blockframe run):** a 26-row "Biryani & Pulav" combined matrix
+exceeded the ~24-row legibility budget, so `splitOversizedMatrices` split it into "(1)"/"(2)"
+sections — and the packer then placed BOTH halves on the SAME screen: two header bands, two column-
+header rows, zero benefit. Splitting a category across screens also reads wrong on a wall of boards
+(guests scan by category).
+
+**Decision (reverses part of D22):** a category (draft section) is **atomic** — it never splits
+across screens, period. Multiple categories may share a screen; one category never spans two.
+`splitOversizedMatrices`, `splitDraft`/`matrixDraft` (the "(n)" title-suffix machinery), and
+`ensureAtLeast` (which split the largest sections when boards outnumbered sections) are **deleted**
+from `planning/coverage.ts`, along with `splitMatrixRows` in `planning/matrix.ts` (its only caller).
+Consequence: the board count is **capped at the number of draft sections** in every mode (logged when
+that lowers the requested/hinted count). An oversized category is the **caller's data problem**: it
+renders dense on ONE screen — the residual dense-board warning plus the over-budget sizing regime
+(D26) are the intended signal — never split, never silently overflowed (the rendered overflow check
+still hard-fails physical overflow).
+
+## D26 — Screen count has an "exact" mode; the legibility budget demotes to a layout advisor
+
+**Problem (same run):** the requested 6 screens were silently raised to 10 by `elasticBoards`;
+screen-1 still carried 26 rows while the sizing directive said "26 rows → text-2xl/3xl, FILL the
+height, never shrink" and the density check majored on "over-crammed (96% > 90%)" — jointly
+impossible, so the board burned all 3 iterations and shipped `passed=false`.
+
+**Decision (amends D22):** `config.planning.screensMode: "exact" | "elastic"` (default `"elastic"`
+for public-API back-compat; `scripts/try.ts` defaults to `"exact"` — a dev asking for 6 means 6).
+In **exact** mode `expandLayoutToPlan` skips the elastic raising AND lowering: boards = the requested
+count, capped only by the section count (D25 atomicity — asking for more screens than categories
+lowers to that max with a warning). Elastic mode keeps the D22 raise/lower behaviour minus the
+deleted splitting. The legibility budget is now a **layout advisor**, not a splitter: when a board's
+rows exceed the comfortable budget for the canvas, `computeTypeScale` enters an **over-budget
+regime** — it prescribes a TWO-COLUMN name+price layout (the portrait painter contract already
+permits two narrow columns; the directive now actively directs it) with per-row height math over
+`ceil(rows/2)`, stepping type down only to the engine floors (names ≥ text-lg preferred, absolute
+floor text-base) — and the density evaluator is graded against the SAME sizing output: a plan-forced
+over-budget board's over-fill finding is `density.planForcedOverFillSeverity` (default `minor` —
+pass with a warning-level note), never an unfixable major. Painter and critic still receive the
+identical directive text.
+
+## D27 — Skip the vision critique when deterministic QA already gate-blocks; blocked candidates sort below non-blocked in `best`
+
+**Problem:** `visionQaNode` skipped the paid, image-carrying critique only on a hard gate
+(`findings.some((f) => f.hardGate)`). But `decideGate` (qa/gate.ts) proves a candidate with ANY
+deterministic finding at/above `qa.blockingSeverity` (default `major`: overflow, density, missing
+bindings, token-lint, matrix-structure) can never pass this iteration, and that same blocking
+finding already selects the repair/re-paint route via the §5.6 routing rules — so the critique's
+verdict cannot change the outcome. On every such iteration the critique was pure spend (~1.1k image
+tokens + up to ~2MB payload + output) buying nothing.
+
+**Decision (amends the spec §5.6 skip condition):** `visionQaNode` skips whenever
+`decideGate(findings, qa.blockingSeverity).blocking` is true — this **subsumes** the old hard-gate
+check (a hard-gate failure always makes `decideGate` block). `config.qa.skipVisionWhenBlocking`
+(default `true`) gates the new behaviour; set `false` to restore the legacy hard-gate-only skip and
+get critic feedback on blocked iterations.
+
+**Safety companion (amends the D12 comparator):** a skipped critique means no vision findings, so a
+gate-blocked candidate is penalty-LIGHT and could out-score a genuinely better critiqued one,
+corrupting `best`. The scoring comparator (`qa/scoring.ts`) gains a dedicated **blocked** tier
+between the hard-gate term and the raw penalty — a lexicographic `(hardGate, blocked, penalty,
+rubric)` order (`HARD_GATE_WEIGHT` ≫ `BLOCKED_WEIGHT` ≫ `PENALTY_WEIGHT` ≫ rubric) — so **any**
+gate-blocked candidate sorts strictly below **every** non-blocked one, while blocked-vs-blocked and
+clean-vs-clean orderings (penalty then rubric) are preserved. The D12 property holds: `best` is an
+explicit max over this comparator, so a worse later iteration never overwrites it.
+
+## D28 — Per-board bulkhead: one bad board never sinks the fleet; reports carry the readable score + structured usage
+
+**Problem (verified on a live eval run):** 4 of 15 boards crashed terminally (empty painter
+output). Our own dev/eval scripts survived only because they call `generate()` once per board —
+the public API doesn't: with a multi-screen plan, one board's terminal failure aborted the whole
+call and the caller lost every finished board. Separately, `QaScreenReport.score` persisted only
+the internal comparator total (a huge encoded negative), not the human-meaningful 0..1 rubric
+fraction, and per-call token usage existed only as unstructured `logger.debug("usage …")` strings.
+
+**Decision:** `generate()` renders each board in an isolated worker; a _terminal per-board_
+failure (`PAINT`/`PACKAGING`/`RENDER`/`LLM_CONTRACT`/`QA_BUDGET`, i.e. after adapter retries and
+fallbacks are spent, D32) is **contained**: the failed board gets a `QaScreenReport` carrying a
+structured `error: { code, message }` + `passed:false` and no screen/poster, while every other
+board completes and ships. `qaReport.screens` is the authoritative per-board record keyed by
+`screenId`; `screens[]`/`posters[]` hold only successful boards; `passedAll` is false if any board
+errored. Run-level and invariant failures (input validation, `THEME_NOT_FOUND`, `CONFIG`,
+`MATRIX_COVERAGE`, the `INTERNAL` router-termination net) still throw and abort the whole call.
+`QaScreenReport` additionally persists `rubricScore` (0..1) and `penalty` (already computed by the
+score node, previously dropped at freeze), and an optional ambient `UsageSink { record(event) }`
+port emits structured per-call token usage (`role`, actual `model`, prompt/completion/total,
+optional cached/reasoning, `attempt`, `fallback`) — injected like `DebugSink`, composed alongside
+(not instead of) the existing debug log line, off by default, never affects output (D15).
+
+## D29 — Input-side menu lint; zero/missing prices are hidden, not shipped as $0.00
+
+**Problem (verified on a live eval run):** an independent vision judge flagged a shipped board
+showing `$0.00`. Root cause: the source menu genuinely carries items with 0/missing prices and the
+engine renders input verbatim — no input-data sanity layer existed, so garbage-in became
+garbage-on-a-TV.
+
+**Decision:** a pure core module (`src/planning/menu-lint.ts`, `runMenuLint`) inspects
+`CanonicalItem[]` and emits stable-kind findings (`price-missing`, `price-zero`, `name-overlong`,
+`description-overlong`, `duplicate-name`). A config block (`config.menuLint`) carries two
+orthogonal knobs: `mode` (`warn` default → log + surface on `qaReport.menuLint`, proceed |
+`reject` → `ValidationError` | `off`) and `zeroPriceRender` (`hide` default | `verbatim`). Lint
+runs once at the `generate()`/`plan()` boundary before planning. The hide leverage point:
+`applyMenuRenderPolicy` strips zero/missing prices from the menu that flows into paint AND QA, so
+the item renders without a price element and the required-`price` binding check exempts it
+(`expectedPrices() === []`) — paint and QA never fight the policy. The plan is still built from
+the original items, so `plan()` and `generate()` stay identical. Matrix-cell zero prices remain a
+documented residual (the matrix skeleton requires a price span per filled cell).
+
+## D30 — Board density is a deterministic tier that switches the design idiom and the judging register
+
+**Problem (verified on a live 241-item / 6-board exact-screens run):** boards carried 31–56 items
+against the ~20-row comfort budget. `expandLayoutToPlan` computed and _logged_ the over-budget
+warning, but nothing downstream consumed it: the painter attempted boutique hero layouts with 40+
+items, and the critic then failed those boards on theme-adherence/intentional-design (rubric
+0.36–0.55) — judging a forced-dense board against boutique whitespace. An independent judge
+shipped 3 of the 6: the density was acceptable; the engine designed and judged it wrong. Product
+decision: forced density IS the job (300 items / 5 screens must work) — dense boards need a dense
+idiom and fair judging, not fewer items.
+
+**Decision:** `expandLayoutToPlan` stamps each screen with a deterministic `densityTier`
+(`comfortable` ≤ budget, `dense` ≤ `packedMultiplier`×budget, `packed` beyond; multiplier is
+`planning` config, default 2) computed from the board's rows vs the same per-canvas legibility
+budget the fit arithmetic uses. The tier is an OPTIONAL `thinPlan` field (never an LLM contract —
+only `planLayout` is strict-converted, mirroring `matrix`, D20); hand-authored plans without it
+recompute it identically (`densityTierFor`). Three consumers key off the one classification: the
+**painter** injects a theme-agnostic compact price-list register for dense/packed (suppress
+heroes/whitespace, headers as structure, multi-column name+price rows, truncate→drop descriptions,
+thumbnail-only→no photos) layered on top of the selected blueprint (deliberately NOT a new
+blueprint — the tier is canvas-relative and cross-cutting, not a count-selected layout); the
+**vision critic** is told to judge a dense/packed board as a well-executed dense board; and **QA**
+relaxes the item legibility floor to the matrix floor for `packed` boards only. The over-fill
+demotion (D24/D26) already covers both over-budget tiers via `sizing.overBudget`.
+
+## D31 — Overflow has a deterministic shrink-to-fit repair; only a legible fit qualifies
+
+**Problem (verified on a live eval run):** 3 of 5 independent-judge rejections were content cut
+off at a board edge. The engine's `overflow` check _detected_ every one, but the finding routed to
+LLM re-paint, which reliably re-overflowed — boards exhausted their iterations and shipped with
+the overflow still present. Contrast already proved the better pattern: a pure deterministic
+repair applied without burning a paint iteration (D13 anticipated an "overflow trim").
+
+**Decision:** `checkOverflow` computes a uniform shrink factor
+`f = floor(min(clientW/scrollW, clientH/scrollH)·1000)/1000` and marks the finding
+`deterministicallyFixable` only when the fit stays LEGIBLE: `f` must remain at/above every
+item-bound sample's legibility floor (`minLegibleFactor = max(floor_i / fontPx_i)`; matrix/packed
+items use the relaxed 12px floor, mirroring `checkLegibility`) and above a hard
+`qa.overflowRepair.minShrinkFactor` (default 0.5 — a more aggressive fit signals a real allocation
+problem better fixed by re-paint/re-plan). The pure repair (`applyOverflowRepair`,
+`src/repairs/`) injects one scoped, idempotent block —
+`<style data-repair="fit">body>*{transform:scale(f);transform-origin:top left;}</style>` —
+replaced, never stacked, so it cannot compound. `transform: scale` is geometric (the transformed
+box counts in scroll size, so the overflow measurably clears), aspect-preserving, and token-lint
+clean (unitless factor, keyword origin). No new routing mechanism: the fixable mark makes the
+existing `mechanical-fix-to-repair` rule (priority 90) prefer the deterministic repair over
+re-paint automatically; `repair → package` re-QAs on what ships and the router's budget still
+bounds the loop.
+
+## D32 — LLM calls are unreliable infrastructure: one retry authority, per-role budgets, config fallback models; `adjudicate` retired
+
+**Problem (verified on a live eval run):** a single empty completion from the paint model — a
+failure mode the model config even documented — aborted the whole board (4 of 15 boards died this
+way), and one planner call returned invalid JSON, equally fatal. Separately, paint calls were
+observed running 5–11+ minutes despite `requestTimeoutMs: 300000`: the OpenAI SDK's `timeout` is
+per-attempt and its default `maxRetries` is 2, so a stalled call silently stacked up to 3× the
+configured timeout — multiplied again by our own transient-error retry loop.
+
+**Decision:** the OpenRouter client is constructed with `maxRetries: 0`, making the config-driven
+resilience loop the SOLE retry authority; each HTTP attempt respects `models.requestTimeoutMs`
+exactly and worst-case wall-clock is a legible `attempts × timeout`. New config
+(`models.resilience` / `models.fallback`): an empty completion or contract-invalid response is
+retried within a per-role `maxAttempts` budget (paint 3, others 2), and each role may declare an
+optional fallback model tried only after the primary exhausts its budget (paint defaults to
+`anthropic/claude-sonnet-4.6`). Structured-role fallbacks are validated against
+`structuredOutputAllowlist` at config load exactly like primaries (D11); non-transient errors
+(4xx) still propagate immediately. The unused `adjudicate` role is removed from the role enum,
+routing defaults, and reasoning config (product decision — no in-engine second-opinion judge;
+independent judging lives in the eval harness, offline).
+
+## D33 — Sparse boards get a scale-up register + a category-anchored image slot; dead space is designed out in the prompt, not caught by QA
+
+**Problem (visual audit of live eval boards):** even PASSING boards wasted screen real estate — a
+5-item board reserved a ~300px empty "hero zone" above the item names (content crammed into the
+card's bottom half); a portrait 9:16 board finished all 15 items at 45% of the canvas height with a
+blank lower half; a 3-item board passed QA with its bottom quarter dead; an all-text board filled
+the canvas but every card was ~50% internal whitespace (sized for a description/photo that wasn't
+there). D30's dense register packs beautifully — the failure mode is the comfortable/sparse end. An
+independent judge rejected several boards for exactly this.
+
+**Decision (mirror of D30 at the comfortable end, all prevention-side — a QA-caught issue burns a
+re-paint, a better prompt is free):**
+
+- **Painter — SPACE & SCALE directive:** a `comfortable`-tier board is injected a theme-agnostic
+  sparse register (structure/register only; colours/type from the theme): scale content UP to fill
+  the canvas, NO empty hero zones (never a vertical empty band above an item's name inside a card),
+  cards HUG their content (a name+price-only item gets a compact card, never a tall box sized for
+  an absent photo/description), tight line-gap discipline, and — when spare canvas + photos exist —
+  absorb the space with a category photo panel. Only `comfortable` boards get it (`dense`/`packed`
+  keep the D30 idiom).
+- **Fixed contract — image-slot anchoring:** every image slot / photo hero MUST render as PART OF a
+  section (inside or flush against it, sharing its frame/header, captioned with the category name —
+  e.g. "MANDI — from our kitchen"), never a free-floating hero belonging to no category. The
+  per-request slot line threads the resolved category NAME (the slot's `categoryId` — a category
+  name in this engine — else the shared item category, else the owning section title) so the
+  painter can caption it.
+- **Deterministic slot guarantee (`expandLayoutToPlan`):** when a board is `comfortable` with clear
+  spare canvas (rows ≤ half the per-canvas budget) and any items carry photos, and the matrix
+  synthesis didn't already supply a hero, a category-anchored `imageSlot` is populated (photo items
+  - the dominant category's name) — so a sparse board always HAS a photo to fill the void with.
+    Conservative: never on dense/packed (they suppress photos, D30), never on matrix boards (their
+    shared-hero rule owns those), never overriding an existing slot; fires for a single photo too.
+- **Portrait fill:** a 9:16 board is additionally told to compose top-to-bottom filling the FULL
+  height — the last section finishes near the bottom, never a blank lower half.
+- **Rubric wording:** `balance` and `intentional-design` now name dead space explicitly (large
+  contiguous empty regions, an empty band/hero zone inside a card, a bottom half left blank,
+  content marooned in a void, a card sized for an absent photo) so the existing critique scores it
+  — no new dimension, no weight/threshold change (the critique call already happens, so the wording
+  is free).
+
+**Why:** the sparse register + guaranteed slot are the exact inverse of D30 for the same single
+density classification, so the whole spectrum (packed → comfortable) now has a fair idiom and no
+dead zones. Prevention over correction keeps token cost flat: rubric wording is free, the plan-time
+slot is pure deterministic code, and the directives cost only prompt bytes on boards that already
+paint.
+
+## D34 — A truncated completion is a failed attempt, not a result
+
+**Problem (eval run 3, tiny-menu):** a paint call hit the 32k `max_tokens` cap exactly — 30,330 of
+those tokens were reasoning (glm-5.2 treats `reasoning: { effort: "low" }` as a suggestion, and no
+OpenRouter knob hard-caps its thinking) — so the returned HTML was a truncated stub. The D32
+resilience loop only retried EMPTY bodies, so the stub sailed through as a "success": zero retries,
+zero fallback, and a blank board shipped (all 5 items missing, judge: "blank purple background").
+
+**Decision:** the free-text request path treats `finish_reason: "length"` exactly like an empty
+body — the attempt is recorded as `truncated` and retried within the same D32 attempt/fallback
+budget (a fresh sample rarely runs away twice; the paint fallback is a different model entirely).
+On full exhaustion the last body is still returned so downstream QA/routing own the outcome. The
+structured path needs nothing: truncated JSON already fails schema validation and retries. This is
+model-agnostic — any future reasoning-heavy model gets the same protection.
+
+## D35 — A critical unfixable finding outranks mechanical repair in routing
+
+**Problem (same board):** routeHistory `repair → repair → freeze`. The stub board carried 5×
+`binding-missing` (critical, not deterministically fixable) AND one fixable overflow; the
+`mechanical-fix-to-repair` rule (priority 90) beat `actionable-to-repaint` (priority 10), so the
+whole iteration budget was spent polishing cosmetics on a content-broken board that needed a
+re-paint from iteration one.
+
+**Decision:** new default routing rule `critical-unfixable-to-repaint` at priority 95 (below
+capacity→freeze at 100, above mechanical→repair at 90): any finding that is `critical` and NOT
+deterministically fixable routes to `paint`. Repair-first still holds for boards whose only
+problems are mechanical. Pure config data — the rules-as-data mechanism doing its job.
+
+## D36 — QA captures the SETTLED frame: all animations are finished before observation + screenshot
+
+**Problem (eval run 3, portrait boards):** the painter authored a raw CSS entrance animation
+(`fadeIn` from `opacity: 0`) on the whole-board wrapper. Playwright's `reducedMotion: "reduce"`
+only flips the media query — it guards the engine's own motion runtime but not painter-authored
+keyframes — and the screenshot fired ~60ms after load, capturing the ENTIRE board at ~10% opacity.
+Consequence: the deterministic contrast check (computed styles — correct colours) passed while the
+vision critic and the offline judge (pixels — a washed beige ghost) rejected, i.e. two QA tiers
+graded different boards, and critic/judge calibration data was contaminated.
+
+**Decision:** the browser adapter renders, waits for fonts + image decode, then jumps every
+animation to its end state (`document.getAnimations().forEach(a => a.finish())`, skipping
+infinite-duration ones) BEFORE collecting the observation and the screenshot — and the observation
+now happens after those waits, not before. Rationale: the TV plays the entrance once and then shows
+the steady state forever; the settled frame is the only honest QA target. This kills the whole
+class (mid-fade captures, washed posters, ghost-frame critiques) without policing how a theme or
+painter chooses to animate.
+
+## D37 — Photo truth + card/row discipline are universal painter-contract lines
+
+**Problem (eval run 3):** an item without a photo got a photo-shaped card with a hand-drawn SVG
+star filling the image hole (judge: "unfinished"); a portrait board absorbed leftover canvas by
+inflating cards into hollow boxes (name at top, price marooned at the bottom, ~350px of empty
+interior). Both were prompt-contract gaps: the D33 "cards hug their content" / line-gap rules only
+fired on `comfortable`-tier boards, and nothing said a photo-less item must not LOOK like a photo
+card.
+
+**Decision (prevention over correction, per D33's rationale):** two lines added to the FIXED
+painter contract, every board, every tier: **PHOTO TRUTH** — an item without a photo gets a
+text-only treatment, never an image-shaped region/placeholder/icon standing in where a photo would
+go; mixed sections compose real photo cards and compact text cards side by side. **CARD & ROW
+DISCIPLINE** — every card hugs its actual content in every density register, and a name and its
+price must read as one connected unit (leader, rule, or adjacency), never a bare justify-between
+chasm. The tier-specific D30/D33 registers stay as-is; these two truths are register-independent.

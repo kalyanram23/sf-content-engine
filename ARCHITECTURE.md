@@ -169,7 +169,7 @@ some. Pass a hand-authored `plan` to bypass the LLM entirely (`StaticPlanner`).
 ```mermaid
 flowchart TD
     ITEMS["input.items: CanonicalItem[]"] --> DIG["buildMenuDigest()<br/>group by category · sample names<br/>(NO item ids leave here)"]
-    SCR["constraints.screens<br/>(number, or 'auto' → ceil(items / 40))"] --> UREQ
+    SCR["constraints.screens<br/>number or 'auto' → ceil(items / legibilityBudget)<br/>planning.screensMode: elastic (hint, D22) or exact (law, D26)"] --> UREQ
     NOTES["brief.notes (optional)<br/>user direction — overrides defaults"] --> UREQ
     DIG --> UREQ["describePlanRequest()<br/>user prompt: screens · aspect · digest JSON"]
 
@@ -177,7 +177,7 @@ flowchart TD
     UREQ --> LLM["Planner (LLM)<br/>requestStructured · planLayoutSchema"]
     LLM --> LAYOUT["PlanLayout: ordered blocks[]<br/>title · categories[] · representation · layoutHint"]
 
-    LAYOUT --> EXP["expandLayoutToPlan() — PURE<br/>1 resolve categories → real item ids<br/>2 append any category the LLM forgot<br/>3 linear-partition DP packs blocks → exactly N boards<br/>4 assert every item placed (throws on a gap)"]
+    LAYOUT --> EXP["expandLayoutToPlan() — PURE<br/>1 resolve categories → real item ids (+ compute SectionMatrix, D20)<br/>2 append any category the LLM forgot<br/>3 board count (elastic D22 or exact D26; sections are ATOMIC — never split, capped at section count, D25) + linear-partition DP (matrix weighs by rows)<br/>4 assert every item placed (throws on a gap)"]
     EXP --> PLAN["ThinPlan: screens[]<br/>each PlanScreen = sections + representation + layoutHint (+ imageSlot)"]
 
     classDef llm fill:#2b3a31,color:#f3efe6,stroke:#8a9a5b;
@@ -247,7 +247,7 @@ src/
     index.ts                # barrel + EnginePorts
     planner.ts theme-repository.ts painter.ts packager.ts image-fetcher.ts
     browser.ts              # BrowserPort + RenderObservation (sampled text fg/bg, fillRatio, scroll, images, actualViewport)
-    vision-critic.ts repairer.ts services.ts   # services = Clock, IdGenerator, Logger, DebugSink (D15)
+    vision-critic.ts repairer.ts services.ts   # services = Clock, IdGenerator, Logger, DebugSink (D15), UsageSink (D28)
     correlation.ts          # RequestCorrelation (run/board/iteration/restaurant) threaded to the LLM ports (§9)
 
   config/
@@ -255,7 +255,9 @@ src/
     routing.ts              # RoutingRules schema + defaultRoutingRules() + route evaluator data
     token-lint.ts           # TokenLintRules + defaults
     rubric.ts               # VisionRubricConfig + defaultRubric()
-    qa.ts                   # QaConfig (viewport+dpr, contrast, density, overflow, capacities, requiredBindings)
+    qa.ts                   # QaConfig (viewport+dpr, contrast, density [+ per-representation floors],
+                            #   image geometry, legibility, overflow, capacities, requiredBindings)
+    planning.ts             # PlanningConfig (legibilityBudget + minItemsPerBoard + screensMode, D22/D26)
     loop.ts                 # LoopConfig (maxIterations)
     models.ts               # ModelRouting (role→model id) + structured-output allowlist
 
@@ -267,11 +269,17 @@ src/
                             #   (externalized JSON themes live in themes/<id>.theme.json at the repo root
                             #    and override the bundled presets at runtime via FileThemeRepository)
 
+  planning/                 # pure plan-time logic (coverage guarantee lives here)
+    coverage.ts             # expandLayoutToPlan: layout → coverage-guaranteed ThinPlan; elastic/exact board count (D22/D26), atomic sections (D25)
+    matrix.ts               # buildMatrix: cross-category base-dish comparison matrices, item-per-cell invariant (D20)
+    sizing.ts               # computeTypeScale / maxRowsForCanvas: plan-time type-scale + "fits" signal (D22)
+    layout-strategy.ts      # blueprint selection + strategy/matrix-summary text (shared by painter + critic, D17/D21)
+
   qa/
     contrast.ts             # WCAG relative luminance + ratio (pure math over rgba)
     colors.ts               # css color string → rgba (pure)
-    rendered-checks.ts      # contrast/overflow/density/image/viewport checks over observations (pure)
-    structural-checks.ts    # binding integrity / token-lint / motion-vocab / self-contained+no-player (pure)
+    rendered-checks.ts      # contrast/overflow/density [per-representation]/image-geometry/viewport checks (pure, D23/D24)
+    structural-checks.ts    # binding integrity / token-lint / motion-vocab / matrix-structure / self-contained (pure, D21)
     representation.ts       # matrix / variant-rows / grid / list structural oracles (pure)
     scoring.ts              # findings → score + total-order comparator + pass/fail (pure)
     index.ts                # runStructuralQA / runRenderedQA composition
@@ -404,17 +412,17 @@ export type { ContentEngine } from "..."; // { generate(input): Promise<Generate
 
 ## 5. Interfaces per swappable concern
 
-| Port                                       | Responsibility                                                                        | Real adapter                                                      | Fake                           |
-| ------------------------------------------ | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------ |
-| `Planner` 🧠                               | menu digest → category `PlanLayout`, expanded to a coverage-guaranteed `ThinPlan`     | `OpenRouterPlanner` (default) · `StaticPlanner` when `plan` given | scripted plan                  |
-| `ThemeRepository`                          | preset id → `ThemePreset` (tokens + motion + assets)                                  | `FileThemeRepository` over bundled `InMemoryThemeRepository`      | in-memory                      |
-| `ImageFetcher`                             | remote photo URLs → `data:` URIs (so paint/QA/render stay offline)                    | `NodeImageFetcher`                                                | deterministic map              |
-| `Painter` 🧠                               | plan-slice + theme → bespoke HTML (Tailwind + data-motion + bindings)                 | `OpenRouterPainter`                                               | scenario-scripted HTML         |
-| `Packager`                                 | HTML + theme → self-contained artifact (Tailwind→CSS, inline assets + Motion runtime) | `TailwindPackager`                                                | deterministic inline transform |
-| `BrowserPort`                              | render at exact viewport/dpr (offline) → sampled observations + screenshot            | `PlaywrightBrowser`                                               | scripted observations          |
-| `VisionCritic` 🧠                          | screenshot + plan + rubric → structured findings                                      | `OpenRouterVisionCritic`                                          | scenario-scripted findings     |
-| `LlmRepairer` 🧠                           | LLM-backed repair (optional; deterministic repairs are pure-core, D13)                | `OpenRouterRepairer`                                              | deterministic patch            |
-| `Clock`/`IdGenerator`/`Logger`/`DebugSink` | time / ids (incl. thread_id) / logs / optional per-candidate capture (D15)            | system impls                                                      | fixed clock, counter ids, noop |
+| Port                                                   | Responsibility                                                                                                                  | Real adapter                                                      | Fake                           |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------ |
+| `Planner` 🧠                                           | menu digest → category `PlanLayout`, expanded to a coverage-guaranteed `ThinPlan`                                               | `OpenRouterPlanner` (default) · `StaticPlanner` when `plan` given | scripted plan                  |
+| `ThemeRepository`                                      | preset id → `ThemePreset` (tokens + motion + assets)                                                                            | `FileThemeRepository` over bundled `InMemoryThemeRepository`      | in-memory                      |
+| `ImageFetcher`                                         | remote photo URLs → `data:` URIs (so paint/QA/render stay offline)                                                              | `NodeImageFetcher`                                                | deterministic map              |
+| `Painter` 🧠                                           | plan-slice + theme → bespoke HTML (Tailwind + data-motion + bindings)                                                           | `OpenRouterPainter`                                               | scenario-scripted HTML         |
+| `Packager`                                             | HTML + theme → self-contained artifact (Tailwind→CSS, inline assets + Motion runtime)                                           | `TailwindPackager`                                                | deterministic inline transform |
+| `BrowserPort`                                          | render at exact viewport/dpr (offline) → sampled observations + screenshot                                                      | `PlaywrightBrowser`                                               | scripted observations          |
+| `VisionCritic` 🧠                                      | screenshot + plan + rubric → structured findings                                                                                | `OpenRouterVisionCritic`                                          | scenario-scripted findings     |
+| `LlmRepairer` 🧠                                       | LLM-backed repair (optional; deterministic repairs are pure-core, D13)                                                          | `OpenRouterRepairer`                                              | deterministic patch            |
+| `Clock`/`IdGenerator`/`Logger`/`DebugSink`/`UsageSink` | time / ids (incl. thread_id) / logs / optional per-candidate capture (D15) / optional structured per-call LLM token usage (D28) | system impls                                                      | fixed clock, counter ids, noop |
 
 🧠 = LLM-backed. Each port is narrow (1–3 methods), typed by domain Zod types.
 `Planner`/`Painter`/`VisionCritic`/`LlmRepairer` are vendor-agnostic; OpenRouter is one
@@ -438,12 +446,31 @@ route, priority }`. The router picks the highest-priority match; falls through t
 severityScale, passThreshold }`. Doubles as the critic's structured-output schema +
   scoring weights.
 - **`QaConfig`** — `{ viewport:{width,height,dpr}, contrast:{minNormal:4.5,minLarge:3.0},
-density:{minFill:0.4,maxFill:0.85}, overflowTolerancePx, blockingSeverity:"major",
-requiredBindings:["price"], capacities:{ matrix, "variant-rows", grid, list } }`
-  (`blockingSeverity` is the pass/fail threshold the scorer applies — config, not code).
+density:{minFill:0.4,maxFill:0.9, typeLedRepresentations:["matrix","list"], typeLedMinFill:0.2},
+image:{distortionTolerance:0.15,maxCropFactor:2.2}, legibility, overflowTolerancePx,
+blockingSeverity:"major", requiredBindings:["price"], capacities:{ matrix, "variant-rows", grid,
+list }, overflowRepair:{minShrinkFactor:0.5} }` (`blockingSeverity` is the pass/fail threshold the
+  scorer applies; the density under-fill floor is per-representation, D24; image-geometry thresholds
+  guard distortion/over-crop, D23; `overflowRepair` bounds the deterministic shrink-to-fit repair,
+  D31 — all config, not code).
+- **`PlanningConfig`** — `{ legibilityBudget:24, minItemsPerBoard:4, screensMode:"elastic",
+packedMultiplier:2 }` — the per-board items/rows budget (also the `screens:"auto"` target and the
+  over-budget sizing threshold, D26), the sparse floor (D22), the screens mode (`"exact"` =
+  requested count is law, capped only by the section count — categories are atomic and never
+  split, D25/D26), and the `dense`→`packed` density-tier boundary (each plan screen is stamped
+  with a deterministic `densityTier` that switches the painter idiom, the critic's judging
+  register, and the packed legibility floor, D30).
+- **`MenuLintConfig`** — `{ mode:"warn"|"reject"|"off", zeroPriceRender:"hide"|"verbatim",
+maxNameChars, maxDescriptionChars }` — input-side data-quality lint at the `generate()`/`plan()`
+  boundary; findings surface on `qaReport.menuLint`; zero/missing prices render without a price
+  element instead of `$0.00` (D29).
 - **`LoopConfig`** — `{ maxIterations:3 }`.
-- **`ModelRouting`** — `{ plan, paint, critique, repair, adjudicate }` OpenRouter model ids
-  - `structuredOutputAllowlist` checked at config load (D11).
+- **`ModelRouting`** — `{ plan, paint, critique, repair }` OpenRouter model ids (`adjudicate`
+  retired, D32) — `structuredOutputAllowlist` checked at config load (D11). Per-role
+  `resilience:{maxAttempts}` retry budgets and optional `fallback` models (tried after the primary
+  exhausts its budget; validated against the allowlist like primaries) make the client the sole
+  retry authority with `maxRetries:0` on the SDK, so each attempt respects `requestTimeoutMs`
+  exactly (D32).
 
 ## 7. Determinism & testing strategy
 
