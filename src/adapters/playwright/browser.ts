@@ -60,17 +60,37 @@ export class PlaywrightBrowser implements BrowserPort {
       // harmless under runtimes that don't inject `__name`.
       await page.evaluate("globalThis.__name = globalThis.__name || function (f) { return f; };");
 
-      const grid = this.options.fillGrid ?? { cols: 48, rows: 27 };
-      const observation = (await page.evaluate(collectObservation, grid)) as RenderObservation;
-      // Motion is suppressed (reducedMotion above), but fonts/images still finish asynchronously;
-      // wait for them so the screenshot — which feeds the vision critic and the poster — isn't
-      // caught mid-paint (FOUT / undecoded data: images).
+      // Settle BEFORE observing/screenshotting: fonts/images finish asynchronously, and any
+      // painter-authored entrance animation must be jumped to its end — so the observation AND the
+      // screenshot (which feed the vision critic and the poster) both reflect the final frame, not a
+      // mid-paint one (FOUT / undecoded data: images / a t≈0 opacity:0 entrance frame).
       await page.evaluate(() => document.fonts.ready.then(() => undefined));
       await page.evaluate(() =>
         Promise.all(
           (Array.from(document.images) as any[]).map((img) => img.decode().catch(() => undefined)),
         ).then(() => undefined),
       );
+      // Jump every animation to its end state. Playwright's `reducedMotion: "reduce"` only flips the
+      // media query — it does NOT stop a painter-authored RAW CSS entrance animation (e.g.
+      // [data-motion="fade-in"] { animation: fadeIn 0.6s } with from{opacity:0}) sitting on the board
+      // wrapper. The screenshot fires ~60ms after load, so such a board would be captured at ~10%
+      // opacity — a washed ghost frame the vision critic and the offline judge grade as broken, while
+      // the deterministic contrast check (computed styles) sees the correct final colours and passes.
+      // The TV plays the entrance once then shows the settled frame forever, so that settled
+      // steady-state frame is the honest QA target. Infinite-duration animations can't finish() (the
+      // reduced-motion guard already stops the engine's own runtime loops), so leave them.
+      await page.evaluate(() => {
+        (document.getAnimations() as any[]).forEach((a) => {
+          try {
+            a.finish();
+          } catch {
+            /* infinite-duration animations cannot finish(); leave them. */
+          }
+        });
+      });
+
+      const grid = this.options.fillGrid ?? { cols: 48, rows: 27 };
+      const observation = (await page.evaluate(collectObservation, grid)) as RenderObservation;
       const screenshot = await page.screenshot({ type: "png" });
       return { observation, screenshotBase64: screenshot.toString("base64") };
     } catch (error) {
@@ -190,11 +210,18 @@ function collectObservation(grid: { cols: number; rows: number }): unknown {
     }
   }
 
-  const images = (Array.from(document.querySelectorAll("img")) as any[]).map((img, i) => ({
-    ref: img.getAttribute("data-ref") || `img-${i}`,
-    loaded: img.complete && img.naturalWidth > 0,
-    naturalWidth: img.naturalWidth,
-  }));
+  const images = (Array.from(document.querySelectorAll("img")) as any[]).map((img, i) => {
+    const rect = img.getBoundingClientRect();
+    return {
+      ref: img.getAttribute("data-ref") || `img-${i}`,
+      loaded: img.complete && img.naturalWidth > 0,
+      naturalWidth: img.naturalWidth,
+      naturalHeight: img.naturalHeight,
+      renderedWidth: rect.width,
+      renderedHeight: rect.height,
+      objectFit: getComputedStyle(img).objectFit,
+    };
+  });
 
   return {
     actualViewport: { width: vw, height: vh, dpr: window.devicePixelRatio },
