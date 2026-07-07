@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseOrThrow } from "../../domain/parse";
 import { generateConstraintsSchema, resolvedThemeSchema } from "../../domain/schemas";
 import type { PaintRequest } from "../../ports/painter";
+import { ICON_GLYPH_NAMES } from "../../theme/icon-glyphs";
 import { FindingKind, makeFinding } from "../../qa/finding";
 import {
   REF_INSTRUCTION,
@@ -133,6 +134,12 @@ describe("brandUserLines", () => {
     expect(lines).toContain("Acme");
     expect(lines).toContain("Fresh");
   });
+
+  it("places the brand on the RIGHT of the masthead band (board title stays left)", () => {
+    const lines = brandUserLines({ name: "Acme" }).join("\n");
+    expect(lines).toContain("RIGHT side of the masthead band");
+    expect(lines).toContain("board title stays on the left");
+  });
 });
 
 const testTheme = parseOrThrow(
@@ -210,6 +217,68 @@ describe("buildSystem", () => {
     // Cards hug their content in every register; name+price read as one connected unit.
     expect(system).toContain("CARD & ROW DISCIPLINE");
   });
+
+  it("carries the CARD INTERIOR stacking rule (the desc↔price gap fix)", () => {
+    const system = buildSystem(testTheme);
+    // Name/description/price stack as ONE tight cluster; extra height goes OUTSIDE the cluster.
+    expect(system).toContain("CARD INTERIOR");
+    expect(system).toContain("ONE TIGHT CLUSTER");
+    expect(system).toContain("never a name pinned top-left with its price marooned bottom-right");
+  });
+
+  it("fills the screen with big content, not stretched rows (the eval-4 contradiction fix)", () => {
+    const system = buildSystem(testTheme);
+    // FILL THE SCREEN stays a goal, but the means are large type + content-hugging cards…
+    expect(system).toContain("FILL THE SCREEN");
+    expect(system).toContain("content-hugging cards");
+    expect(system).toContain("never 1fr-stretched or flex-grown");
+    // …and the old commands that CAUSED the stretched-cell failure class are gone.
+    expect(system).not.toContain("rows STRETCH");
+    expect(system).not.toContain("stretched card");
+  });
+
+  it("carries the eval-4 visual-audit contract lines (stretched rows, window chrome, markers, wrapped leaders)", () => {
+    const system = buildSystem(testTheme);
+    // 1. Stretched rows/cells + inflated between-row voids — the biggest visual failure class.
+    expect(system).toContain("VERTICAL RHYTHM");
+    // 2. TV sign, not an app window — no close glyph / scrollbar / cursor.
+    expect(system).toContain("NO WINDOW CHROME");
+    // 3. No unexplained marker glyph on an item name without an on-board legend.
+    expect(system).toContain("MARKER LEGENDS");
+    // 4. A wrapped-name row keeps the same name↔price leader treatment as its neighbours.
+    expect(system).toContain("aligns on the last line");
+  });
+
+  it("carries the COLUMN BALANCE contract line (never clip one column while a sibling has empty space)", () => {
+    const system = buildSystem(testTheme);
+    expect(system).toContain("COLUMN BALANCE");
+    // Sibling multi-column sections end within about one row of each other, never clipped at the edge.
+    expect(system).toContain("sibling columns end within about one row");
+    expect(system).toContain("overflow-hidden container");
+  });
+
+  it("carries the MASTHEAD contract line (title left / brand right, no invented restaurant name)", () => {
+    const system = buildSystem(testTheme);
+    expect(system).toContain("MASTHEAD");
+    expect(system).toContain("board title (the plan's `title`) on the LEFT");
+    expect(system).toContain("NEVER invent a restaurant name, logo, or tagline");
+  });
+
+  it("carries the COPY WHITELIST contract line (no invented badges / theme name as copy)", () => {
+    const system = buildSystem(testTheme);
+    expect(system).toContain("COPY WHITELIST");
+    // The filler-badge examples the painter must never invent.
+    expect(system).toContain("MADE TO ORDER");
+    expect(system).toContain("FRESH · HOT · DAILY");
+    // The theme's own name must never leak onto the board as on-screen copy.
+    expect(system).toContain("The theme's name must never appear as on-screen copy");
+  });
+
+  it("points the image-slot anchoring bullet at the per-request orientation rules", () => {
+    const system = buildSystem(testTheme);
+    expect(system).toContain("Slot PLACEMENT");
+    expect(system).toContain("portrait vs. landscape category heroes");
+  });
 });
 
 /**
@@ -234,6 +303,74 @@ describe("describeRequest aspect guidance", () => {
     const user = describeRequest(makeRequest("16:9"));
     expect(user).not.toContain("PORTRAIT (9:16) COMPOSITION");
     expect(user).not.toContain("PORTRAIT FILL");
+  });
+});
+
+/**
+ * Orientation-aware CATEGORY hero + subtitle placement: a landscape board sits the hero photo BESIDE
+ * its category title (title + description as a subtitle alongside), a portrait board stacks it ABOVE
+ * the title with the description subtitle BELOW. The two branches never leak into each other.
+ */
+describe("describeRequest orientation-aware category heroes", () => {
+  it("gives a landscape board the beside-the-title hero rule (not the portrait one)", () => {
+    const user = describeRequest(makeRequest("16:9"));
+    expect(user).toContain("LANDSCAPE CATEGORY HEROES");
+    expect(user).toContain("BESIDE its category title");
+    expect(user).not.toContain("PORTRAIT CATEGORY HEROES");
+  });
+
+  it("gives a portrait board the above-the-title hero + subtitle-below rule (not the landscape one)", () => {
+    const user = describeRequest(makeRequest("9:16"));
+    expect(user).toContain("PORTRAIT CATEGORY HEROES");
+    expect(user).toContain("sits ABOVE the category title");
+    expect(user).toContain("subtitle sits BELOW the title");
+    expect(user).not.toContain("LANDSCAPE CATEGORY HEROES");
+  });
+});
+
+/**
+ * The masthead title line: when the plan screen carries a `title` (stamped by the coverage planner)
+ * the user prompt names it explicitly near the plan JSON so the painter renders it in the masthead
+ * band. A screen with no title (hand-authored plans) carries no such line.
+ */
+describe("describeRequest masthead title", () => {
+  function titledRequest(): PaintRequest {
+    const request = makeRequest("16:9");
+    request.planScreen = {
+      id: "screen-1",
+      title: "Mandi · Non Veg Appetizers",
+      sections: [{ title: "MAINS", representation: "list", items: ["a"] }],
+    };
+    return request;
+  }
+
+  it("emits the masthead title line when the plan screen has a title", () => {
+    expect(describeRequest(titledRequest())).toContain(
+      'Masthead title: "Mandi · Non Veg Appetizers"',
+    );
+  });
+
+  it("omits the masthead title line when the plan screen has no title", () => {
+    expect(describeRequest(makeRequest("16:9"))).not.toContain("Masthead title:");
+  });
+});
+
+/**
+ * Board-family context: a board that belongs to a multi-screen SET is told its position and that it
+ * shares ONE visual system with its siblings (masthead, section headers, price treatment, canvas
+ * background). A lone board (no `board` field) carries no such directive.
+ */
+describe("describeRequest board family", () => {
+  it("emits the BOARD FAMILY directive with the screen position when board context is present", () => {
+    const request: PaintRequest = { ...makeRequest("16:9"), board: { index: 2, total: 3 } };
+    const user = describeRequest(request);
+    expect(user).toContain("BOARD FAMILY — this is screen 2 of 3");
+    expect(user).toContain("share ONE visual system");
+    expect(user).toContain("title left / brand right");
+  });
+
+  it("omits the BOARD FAMILY directive for a lone board (no board context)", () => {
+    expect(describeRequest(makeRequest("16:9"))).not.toContain("BOARD FAMILY");
   });
 });
 
@@ -350,6 +487,176 @@ describe("image slot anchoring (D33)", () => {
 });
 
 /**
+ * The category-images requirement: every category on a board carries a visual anchor. The engine
+ * contract requires a `data-image-slot` marker on every slot container (per-category name, or
+ * "shared" for the board-level slot), describes the deliberate food-icon panel for a photo-less
+ * category, and scopes PHOTO TRUTH to per-item cards so it composes with the icon-slot exception.
+ */
+describe("buildSystem category-image contract", () => {
+  it("requires a data-image-slot marker on every slot container (per-category + shared)", () => {
+    const system = buildSystem(testTheme);
+    expect(system).toContain('data-image-slot="<category name>"');
+    expect(system).toContain('data-image-slot="shared"');
+    // The per-category food-icon panel is one of the enumerated container types.
+    expect(system).toContain("a per-category food-icon panel");
+  });
+
+  it("scopes PHOTO TRUTH to per-item cards so it composes with category icon slots", () => {
+    const system = buildSystem(testTheme);
+    expect(system).toContain("PHOTO TRUTH (per-item cards)");
+    expect(system).toContain("This governs per-ITEM cards ONLY");
+  });
+
+  it("no longer emits the icon-render guidance in the always-on contract (moved to the per-section slot line, A1)", () => {
+    const system = buildSystem(testTheme);
+    // The 13-name glyph list, the icon-panel proportion rule, and the empty-glyph marker are now
+    // emitted ONLY in the conditional per-section icon-slot line — never inert in the system prompt.
+    expect(system).not.toContain(ICON_GLYPH_NAMES.join(", "));
+    expect(system).not.toContain("ICON PANEL PROPORTION");
+    expect(system).not.toContain('<svg data-icon="<name>"></svg>');
+    // PILLS & VARIANT LABELS is now gated on the presence of sizes/variants (a user-prompt line).
+    expect(system).not.toContain("PILLS & VARIANT LABELS");
+  });
+});
+
+/**
+ * Re-paint self-check swap (C1): on a re-paint the from-scratch "re-check the WHOLE board against
+ * this contract" self-check contradicts the minimal-change instruction, so `buildSystem(theme, true)`
+ * swaps ONLY the tail FINAL SELF-CHECK bullet for a scoped one (fix each listed finding, no new
+ * violation, don't restyle what the findings don't name). It stays at the tail so the whole prompt
+ * PREFIX is byte-identical between paint and re-paint (OpenRouter prompt-cache prefix). The D34
+ * item-preservation safeguard survives both branches.
+ */
+describe("buildSystem re-paint self-check swap (C1)", () => {
+  it("swaps only the tail FINAL SELF-CHECK bullet; the whole prompt prefix stays byte-identical", () => {
+    const paint = buildSystem(testTheme, false);
+    const repaint = buildSystem(testTheme, true);
+    expect(paint).not.toBe(repaint);
+    // The prefix up to the FINAL SELF-CHECK bullet is identical (prompt-cache prefix invariant).
+    const idx = paint.indexOf("- FINAL SELF-CHECK");
+    expect(idx).toBeGreaterThan(0);
+    expect(repaint.indexOf("- FINAL SELF-CHECK")).toBe(idx);
+    expect(repaint.slice(0, idx)).toBe(paint.slice(0, idx));
+  });
+
+  it("first paint keeps the whole-board re-audit line; re-paint uses the scoped, finding-only line", () => {
+    const paint = buildSystem(testTheme, false);
+    const repaint = buildSystem(testTheme, true);
+    expect(paint).toContain("- FINAL SELF-CHECK: before returning, silently re-check");
+    expect(paint).not.toContain("FINAL SELF-CHECK (re-paint)");
+    expect(repaint).toContain(
+      "- FINAL SELF-CHECK (re-paint): confirm your edit resolves EACH listed finding",
+    );
+    expect(repaint).toContain("do NOT re-audit or restyle parts the findings do not name");
+    expect(repaint).not.toContain("silently re-check your HTML against this contract");
+    // D34 item-preservation safeguard is kept in BOTH branches.
+    expect(paint).toContain("NEVER drop, summarise, or shorten a planned item");
+    expect(repaint).toContain("NEVER drop, summarise, or shorten a planned item");
+  });
+
+  it("defaults isRepaint to false (back-compat with single-arg callers)", () => {
+    expect(buildSystem(testTheme)).toBe(buildSystem(testTheme, false));
+  });
+});
+
+/**
+ * The per-section image-slot directives (the category-images requirement): a comfortable board's
+ * sections each get a slot line — a CATEGORY PHOTO PANEL for a category with photos, else a
+ * deliberate FOOD-ICON panel — each tagged with data-image-slot="<category name>". The board-level
+ * shared slot (dense/packed / matrix hero) is tagged data-image-slot="shared".
+ */
+describe("describeRequest per-category image slots", () => {
+  function sectionSlotRequest(): PaintRequest {
+    const request = makeRequest("16:9");
+    request.planScreen = {
+      id: "screen-1",
+      densityTier: "comfortable",
+      sections: [
+        {
+          title: "MANDI",
+          representation: "grid",
+          items: ["a"],
+          imageSlot: { kind: "photos", items: ["a"] },
+        },
+        {
+          title: "DESSERTS",
+          representation: "grid",
+          items: ["b"],
+          imageSlot: { kind: "icon", items: [] },
+        },
+      ],
+    };
+    request.items = [
+      {
+        id: "a",
+        name: "Chicken Mandi",
+        category: "MANDI",
+        available: true,
+        price: 12,
+        images: ["data:image/png;base64,AAAA"],
+      },
+      { id: "b", name: "Kunafa", category: "DESSERTS", available: true, price: 8 },
+    ];
+    return request;
+  }
+
+  it("renders a photos slot line tagged with the category name", () => {
+    const user = describeRequest(sectionSlotRequest());
+    expect(user).toContain('Section image slot — "MANDI"');
+    expect(user).toContain('data-image-slot="MANDI"');
+    expect(user).toContain("CATEGORY PHOTO PANEL");
+  });
+
+  it("renders a food-icon slot line for a photo-less category (never a missing-photo box)", () => {
+    const user = describeRequest(sectionSlotRequest());
+    expect(user).toContain('Section image slot — "DESSERTS"');
+    expect(user).toContain('data-image-slot="DESSERTS"');
+    expect(user).toContain("FOOD-ICON panel");
+    expect(user).toContain("NEVER a blank or missing-photo box");
+  });
+
+  it("carries the curated glyph marker + name list + proportion in the icon-slot line (moved from the always-on contract, A1)", () => {
+    const user = describeRequest(sectionSlotRequest());
+    // The empty glyph marker, the "no hand-drawn art" rail, the offered name list, and the panel
+    // proportion rule now live ONLY on the per-section icon-slot line (not the system prompt).
+    expect(user).toContain('<svg data-icon="<name>"></svg>');
+    expect(user).toContain("NEVER hand-draw food art");
+    expect(user).toContain("platter-generic");
+    expect(user).toContain(ICON_GLYPH_NAMES.join(", "));
+    expect(user).toContain("ICON PANEL PROPORTION");
+  });
+
+  it("emits the 13-name glyph list EXACTLY ONCE across the assembled system + user prompt (de-dup, A1)", () => {
+    const glyphList = ICON_GLYPH_NAMES.join(", ");
+    const assembled = `${buildSystem(testTheme)}\n${describeRequest(sectionSlotRequest())}`;
+    expect(assembled.split(glyphList).length - 1).toBe(1);
+  });
+
+  it('tags the board-level shared slot data-image-slot="shared"', () => {
+    const request = makeRequest("16:9");
+    request.planScreen = {
+      id: "screen-1",
+      densityTier: "packed",
+      imageSlot: { items: ["a"] },
+      sections: [{ title: "MAINS", representation: "list", items: ["a"] }],
+    };
+    request.items = [
+      {
+        id: "a",
+        name: "Dish A",
+        category: "MAINS",
+        available: true,
+        price: 9,
+        images: ["data:image/png;base64,AAAA"],
+      },
+    ];
+    const user = describeRequest(request);
+    expect(user).toContain("board-level shared");
+    expect(user).toContain('data-image-slot="shared"');
+  });
+});
+
+/**
  * The re-paint block must (1) carry element-anchored findings (the serialized helper, not the old
  * stripped JSON) and (2) order the bulky Previous HTML FIRST with the actionable instruction +
  * findings LAST, so the model doesn't have to read past a 20KB blob to reach what to fix (Anthropic
@@ -397,8 +704,9 @@ describe("describeRequest re-paint block", () => {
 /**
  * Photo truth (D25-review fix 1): the painter's photo allowlist derives from `item.images` at
  * prompt-build time, so once fetchImages DROPS a failed ref the prompt self-corrects — the item
- * disappears from "Item ids WITH a photo" and its photoCount reads 0. Pinned so a future refactor
- * can't reintroduce a second source of photo truth.
+ * disappears from "Item ids WITH a photo". The allowlist is now the SOLE per-item photo signal
+ * (the redundant per-item `photoCount` was dropped, B5). Pinned so a future refactor can't
+ * reintroduce a second source of photo truth.
  */
 describe("describeRequest photo allowlist", () => {
   it("lists only items that still carry images after fetch", () => {
@@ -422,7 +730,252 @@ describe("describeRequest photo allowlist", () => {
     const user = describeRequest(request);
     expect(user).toContain("Item ids WITH a photo (only these may use <img>): a");
     expect(user).not.toMatch(/WITH a photo[^\n]*b/);
-    expect(user).toContain('"photoCount":1');
-    expect(user).toContain('"photoCount":0');
+    // The redundant per-item photoCount is gone — the allowlist is the only photo signal now.
+    expect(user).not.toContain("photoCount");
+  });
+});
+
+/**
+ * Slim plan echo (B1 + B5): the plan JSON echoed to the painter drops the redundant board-level
+ * `imageSlot` (the dedicated shared-slot directive carries its ids + semantics) and each NON-matrix
+ * section's `layoutHint` (a stale free-text hint the LAYOUT STRATEGY now supersedes). A matrix
+ * section KEEPS its layoutHint because MATRIX_FIRST_STRATEGY textually references it.
+ */
+describe("describeRequest slim plan echo", () => {
+  const planLine = (user: string): string =>
+    user.split("\n").find((l) => l.startsWith("Plan: ")) ?? "";
+
+  it("omits a non-matrix section's layoutHint from the serialized plan", () => {
+    const request = makeRequest("16:9");
+    request.planScreen = {
+      id: "screen-1",
+      sections: [
+        {
+          title: "CURRIES",
+          representation: "grid",
+          items: ["a"],
+          layoutHint: "two-column photo grid",
+        },
+      ],
+    };
+    const plan = planLine(describeRequest(request));
+    expect(plan).toContain("Plan: ");
+    expect(plan).not.toContain("layoutHint");
+    expect(plan).not.toContain("two-column photo grid");
+  });
+
+  it("keeps a matrix-representation section's layoutHint in the serialized plan", () => {
+    const request = makeRequest("16:9");
+    request.planScreen = {
+      id: "screen-1",
+      sections: [
+        {
+          title: "BIRYANI & PULAV",
+          representation: "matrix",
+          items: ["a"],
+          layoutHint: "rows = base dish, columns = Biryani | Pulav",
+        },
+      ],
+    };
+    const plan = planLine(describeRequest(request));
+    expect(plan).toContain("layoutHint");
+    expect(plan).toContain("rows = base dish, columns = Biryani | Pulav");
+  });
+
+  it("keeps the layoutHint of a section carrying a computed matrix even if its representation is grid", () => {
+    const request = makeRequest("16:9");
+    request.planScreen = {
+      id: "screen-1",
+      sections: [
+        {
+          title: "PRICES",
+          representation: "grid",
+          items: ["a"],
+          layoutHint: "a computed price table",
+          matrix: { columns: ["Biryani"], rows: [{ label: "Chicken", cells: ["a"] }] },
+        },
+      ],
+    };
+    expect(planLine(describeRequest(request))).toContain("a computed price table");
+  });
+
+  it("strips the board-level imageSlot from the serialized plan but keeps its ids in the shared-slot directive", () => {
+    const request = makeRequest("16:9");
+    request.planScreen = {
+      id: "screen-1",
+      imageSlot: { categoryId: "Mandi", items: ["a"] },
+      sections: [{ title: "MAINS", representation: "grid", items: ["a"] }],
+    };
+    const user = describeRequest(request);
+    // The raw plan echo no longer carries the imageSlot object …
+    expect(planLine(user)).not.toContain("imageSlot");
+    // … but the dedicated directive still carries the ids + placement/caption semantics.
+    expect(user).toContain("Image slot (board-level shared)");
+    expect(user).toContain('["a"]');
+  });
+});
+
+/**
+ * Slim item payload (B2 + B5): the serialized Items JSON drops the off-plan per-item `category`
+ * (a mis-cased upstream taxonomy the COPY WHITELIST could otherwise bless as a competing heading)
+ * and the redundant `photoCount`, while keeping the item's identity/name/price.
+ */
+describe("describeRequest slim item payload", () => {
+  it("drops the per-item category and photoCount from the serialized Items JSON", () => {
+    const request = makeRequest("16:9");
+    request.items = [
+      {
+        id: "a",
+        name: "Dish A",
+        category: "Falooda'S",
+        available: true,
+        price: 9.5,
+        images: ["data:image/png;base64,AAAA"],
+      },
+    ];
+    const itemsLine =
+      describeRequest(request)
+        .split("\n")
+        .find((l) => l.startsWith("Items: ")) ?? "";
+    expect(itemsLine).toContain("Items: ");
+    expect(itemsLine).not.toContain("category");
+    expect(itemsLine).not.toContain("Falooda");
+    expect(itemsLine).not.toContain("photoCount");
+    // The item itself is still present with its id / name / price.
+    expect(itemsLine).toContain('"id":"a"');
+    expect(itemsLine).toContain('"name":"Dish A"');
+    expect(itemsLine).toContain('"price":9.5');
+  });
+});
+
+/**
+ * PILLS & VARIANT LABELS gate (A1): the pill/variant composition directive is emitted ONLY when at
+ * least one item carries sizes or variants — a board of plain single-price items never sees it.
+ */
+describe("describeRequest PILLS gate", () => {
+  it("emits the PILLS directive when an item carries sizes", () => {
+    const request = makeRequest("16:9");
+    request.items = [
+      {
+        id: "a",
+        name: "Pizza",
+        category: "mains",
+        available: true,
+        sizes: [{ label: "10in", price: 12 }],
+      },
+    ];
+    expect(describeRequest(request)).toContain("PILLS & VARIANT LABELS");
+  });
+
+  it("emits the PILLS directive when an item carries variants", () => {
+    const request = makeRequest("16:9");
+    request.items = [
+      {
+        id: "a",
+        name: "Curry",
+        category: "mains",
+        available: true,
+        price: 9,
+        variants: [{ label: "Paneer" }, { label: "Chicken" }],
+      },
+    ];
+    expect(describeRequest(request)).toContain("PILLS & VARIANT LABELS");
+  });
+
+  it("omits the PILLS directive when no item has sizes or variants", () => {
+    expect(describeRequest(makeRequest("16:9"))).not.toContain("PILLS & VARIANT LABELS");
+  });
+});
+
+/**
+ * Shared-slot caption (B4): the board-level shared photo slot is captioned with its single category,
+ * but when its photo items span MORE THAN ONE category a one-category caption would mislabel the
+ * band, so the caption clause is dropped (the panel stays anchored to its section either way).
+ */
+describe("describeRequest shared-slot caption", () => {
+  function twoCategoryItems(): PaintRequest["items"] {
+    return [
+      {
+        id: "a",
+        name: "Chicken Mandi",
+        category: "Mandi",
+        available: true,
+        price: 12,
+        images: ["data:image/png;base64,AAAA"],
+      },
+      {
+        id: "b",
+        name: "Grilled Fish",
+        category: "Grills",
+        available: true,
+        price: 15,
+        images: ["data:image/png;base64,BBBB"],
+      },
+    ];
+  }
+
+  it("drops the caption clause when the shared slot spans more than one category", () => {
+    const request = makeRequest("16:9");
+    request.planScreen = {
+      id: "screen-1",
+      imageSlot: { items: ["a", "b"] },
+      sections: [
+        { title: "MANDI", representation: "grid", items: ["a"] },
+        { title: "GRILLS", representation: "grid", items: ["b"] },
+      ],
+    };
+    request.items = twoCategoryItems();
+    const user = describeRequest(request);
+    expect(user).toContain("Image slot (board-level shared)");
+    expect(user).not.toContain('and captioned "');
+  });
+
+  it("keeps the caption clause when the shared slot resolves to a single category", () => {
+    const request = makeRequest("16:9");
+    request.planScreen = {
+      id: "screen-1",
+      imageSlot: { items: ["a"] },
+      sections: [
+        { title: "MANDI", representation: "grid", items: ["a"] },
+        { title: "GRILLS", representation: "grid", items: ["b"] },
+      ],
+    };
+    request.items = twoCategoryItems();
+    expect(describeRequest(request)).toContain('and captioned "Mandi"');
+  });
+});
+
+/**
+ * Priceless items (D29-review Fix 3): an item with no renderable price — menu-lint's hide policy
+ * strips $0/missing prices upstream, or it is a genuine price-on-request item — is MARKED
+ * "priceless":true in the digest JSON, and a directive tells the painter to render it name-only,
+ * never an empty price chip. A board whose items are all priced carries neither.
+ */
+describe("describeRequest priceless items", () => {
+  function pricelessRequest(): PaintRequest {
+    const request = makeRequest("16:9");
+    request.planScreen = {
+      id: "screen-1",
+      sections: [{ title: "MAINS", representation: "list", items: ["a", "b"] }],
+    };
+    request.items = [
+      { id: "a", name: "Market Fish", category: "mains", available: true },
+      { id: "b", name: "Dish B", category: "mains", available: true, price: 11 },
+    ];
+    return request;
+  }
+
+  it('marks a priceless item "priceless":true in the digest and carries the name-only directive', () => {
+    const user = describeRequest(pricelessRequest());
+    expect(user).toContain('"priceless":true');
+    expect(user).toContain("PRICELESS ITEMS");
+    expect(user).toContain("NAME-ONLY");
+    expect(user).toContain("never a hollow price slot");
+  });
+
+  it("omits the priceless marker + directive when every item is priced", () => {
+    const user = describeRequest(makeRequest("16:9"));
+    expect(user).not.toContain('"priceless":true');
+    expect(user).not.toContain("PRICELESS ITEMS");
   });
 });

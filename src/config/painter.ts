@@ -17,6 +17,9 @@ export const painterConfigSchema = z.object({
       "Panels or text in default pure #000/#fff that visibly ignore the theme's palette — a theme's own near-white or near-black token values ARE the palette, not a violation",
       "Two rival hero blocks of equal visual weight — one clear focal point per board",
       "A 'hero' photo reduced to a small corner thumbnail — heroes are prominent or omitted",
+      "Filler badge chips that carry no menu information (PRICE LIST, USD, ALL DAY, FRESH · HOT · DAILY, MADE TO ORDER)",
+      "An invented restaurant name, tagline, or fake establishment branding when no brand was provided",
+      "Abstract decorative placeholder graphics (crop marks, crosshairs, doodle boxes) filling a spare panel — spare space goes to menu content or bigger type, never placeholder art",
     ]),
 });
 
