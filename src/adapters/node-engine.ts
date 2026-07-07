@@ -92,6 +92,9 @@ export function createNodeEngine(options: NodeEngineOptions): ContentEngine {
   const clientOptions: OpenRouterClientOptions = {
     apiKey: options.openRouterApiKey,
     timeoutMs: config.models.requestTimeoutMs,
+    // A fallback model gets a longer per-attempt leash than the primary (it's slower-but-steadier and
+    // its healthy big-board generation legitimately exceeds the primary's 300s cap — see D42/D56).
+    fallbackTimeoutMs: config.models.fallbackRequestTimeoutMs,
     braintrust: braintrustEnabled,
   };
   if (options.appUrl) clientOptions.appUrl = options.appUrl;

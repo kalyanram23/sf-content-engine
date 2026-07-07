@@ -20,6 +20,7 @@ import type {
   motionPresetSchema,
   planImageSlotSchema,
   planScreenSchema,
+  planSectionImageSlotSchema,
   planSectionSchema,
   posterSchema,
   qaFindingSchema,
@@ -54,6 +55,7 @@ export type DensityTier = z.infer<typeof densityTierSchema>;
 export type SectionMatrix = z.infer<typeof sectionMatrixSchema>;
 export type PlanSection = z.infer<typeof planSectionSchema>;
 export type PlanImageSlot = z.infer<typeof planImageSlotSchema>;
+export type PlanSectionImageSlot = z.infer<typeof planSectionImageSlotSchema>;
 export type PlanScreen = z.infer<typeof planScreenSchema>;
 export type ThinPlan = z.infer<typeof thinPlanSchema>;
 

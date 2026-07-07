@@ -92,12 +92,55 @@ function renderItem(item: CanonicalItem, representation: Representation): string
 }
 
 /**
+ * A per-category image slot (the category-images requirement): a `data-image-slot="<category>"`
+ * container holding either a gallery-fade carousel of the category's photos (`kind: "photos"` — NO
+ * src, the packager inlines from `data-img-item`) or a deliberate inline-SVG food-icon panel
+ * (`kind: "icon"`, for a category whose items carry no photos). Token classes only, no external
+ * refs, so it stays bindable + offline-safe against real structural QA.
+ */
+function renderSectionSlot(section: PlanSection, byId: Map<string, CanonicalItem>): string {
+  const slot = section.imageSlot;
+  if (!slot) return "";
+  const label = escapeHtml(section.title);
+  if (slot.kind === "icon") {
+    // Emit the curated-glyph MARKER (the painter PICKS a name; the packager inlines the real glyph),
+    // deterministically choosing the generic platter so packaging/structural tests exercise the path.
+    return (
+      `<div class="section-slot relative w-full h-32" data-image-slot="${label}" data-motion="fade-in">` +
+      `<svg data-icon="platter-generic" class="w-full h-24 text-accent-strong" aria-hidden="true"></svg>` +
+      `<span class="text-text">${label}</span></div>`
+    );
+  }
+  const slides = slot.items
+    .map((id) => byId.get(id))
+    .filter((i): i is CanonicalItem => i !== undefined && (i.images?.length ?? 0) > 0)
+    .map((item, n) => {
+      const visibility = n === 0 ? "opacity-100" : "opacity-0";
+      return (
+        `<img class="absolute inset-0 w-full h-full object-cover ${visibility}" ` +
+        `data-img-item="${item.id}" data-img-index="0" data-ref="slot-${label}-${n}" ` +
+        `alt="${escapeHtml(item.name)}">`
+      );
+    })
+    .join("");
+  return (
+    `<div class="section-slot relative w-full h-32" data-image-slot="${label}" ` +
+    `data-motion="gallery-fade" data-motion-params="interval:5000;fade:800">${slides}` +
+    `<span class="text-text">${label}</span></div>`
+  );
+}
+
+/**
  * Render a section carrying a computed `matrix` as a TRUE row×column comparison table honouring the
  * matrix-first skeleton: `data-matrix` container, one `data-matrix-row` per row, one
  * `data-matrix-cell` per column, a filled cell carrying `data-item-id` + `data-available` + exactly
  * one `<span data-bind="price">`, and a null cell an em-dash with NO price span. Token classes only.
  */
-function renderMatrixSection(section: PlanSection, byId: Map<string, CanonicalItem>): string {
+function renderMatrixSection(
+  section: PlanSection,
+  byId: Map<string, CanonicalItem>,
+  slotHtml: string,
+): string {
   const matrix = section.matrix!;
   const head =
     `<div data-matrix-head class="row flex gap-2"><span></span>` +
@@ -129,7 +172,7 @@ function renderMatrixSection(section: PlanSection, byId: Map<string, CanonicalIt
   return (
     `<section class="section p-4" data-motion="fade-in">` +
     `<h2 class="text-xl text-accent-strong">${escapeHtml(section.title)}</h2>` +
-    `<div class="matrix grid gap-2" data-matrix>${head}${body}</div></section>`
+    `${slotHtml}<div class="matrix grid gap-2" data-matrix>${head}${body}</div></section>`
   );
 }
 
@@ -157,7 +200,7 @@ function renderCarousel(screen: PlanScreen, byId: Map<string, CanonicalItem>): s
     .join("");
   if (slides === "") return "";
   return (
-    `<div class="carousel relative w-full h-full" data-motion="gallery-fade" ` +
+    `<div class="carousel relative w-full h-full" data-image-slot="shared" data-motion="gallery-fade" ` +
     `data-motion-params="interval:5000;fade:800">${slides}</div>`
   );
 }
@@ -183,8 +226,10 @@ function renderScreen(
   const byId = new Map(items.map((i) => [i.id, i]));
   const sections = screen.sections
     .map((section) => {
+      // A per-category image slot (comfortable boards): a photo panel or a food-icon panel.
+      const slotHtml = renderSectionSlot(section, byId);
       // A section with computed matrix data renders as a comparison table (skeleton shape).
-      if (section.matrix) return renderMatrixSection(section, byId);
+      if (section.matrix) return renderMatrixSection(section, byId, slotHtml);
       const cards = section.items
         .map((id) => byId.get(id))
         .filter((i): i is CanonicalItem => i !== undefined)
@@ -193,7 +238,7 @@ function renderScreen(
       return (
         `<section class="section p-4" data-motion="fade-in">` +
         `<h2 class="text-xl text-accent-strong">${escapeHtml(section.title)}</h2>` +
-        `<div class="cards grid gap-3">${cards}</div></section>`
+        `${slotHtml}<div class="cards grid gap-3">${cards}</div></section>`
       );
     })
     .join("");

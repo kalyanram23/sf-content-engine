@@ -55,6 +55,13 @@ export interface PaintRequest {
   /** Optional brand content (logo + name/tagline). Present → the painter renders a header band;
    * the logo uses the `data-brand-logo` no-src placeholder scheme (packager inlines it). */
   brand?: BrandInput;
+  /**
+   * This board's 1-based position in a multi-screen SET: `index` of `total`. Present ONLY when the
+   * set has more than one board (`total > 1`) — a lone board has no siblings to harmonise with. Drives
+   * the BOARD FAMILY directive: every screen of a set shares one visual system (identical masthead,
+   * section-header recipe, price treatment, canvas background) so the boards read as one family.
+   */
+  board?: { index: number; total: number };
 }
 
 /**

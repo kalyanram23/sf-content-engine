@@ -28,6 +28,14 @@ export const bestCandidateSchema = z.object({
   penalty: z.number(),
   passed: z.boolean(),
   iterations: z.number().int(),
+  /**
+   * Whether this candidate's iteration was vision-critiqued (false when the paid pass was SKIPPED
+   * because deterministic QA already gate-blocked it — D27). Lets `freeze` distinguish an
+   * un-critiqued shipped candidate (which would otherwise ship with ZERO vision findings and a
+   * vacuous rubricScore of 1.00) from a critiqued-but-clean one, so it runs ONE make-good critique
+   * on the former only (freeze-path critique).
+   */
+  critiqued: z.boolean().default(false),
 });
 
 /** The frozen artifacts produced by the freeze node (spec §3 outputs, for one screen). */
@@ -65,6 +73,14 @@ export const engineStateSchema = z.object({
   screenshotBase64: z.string().optional(),
   /** Findings from the most recent QA passes (deterministic ∪ vision). */
   findings: z.array(qaFindingSchema).default([]),
+  /**
+   * Whether THIS iteration's candidate has been vision-critiqued. `deterministicQA` resets it to
+   * false each iteration (alongside the fresh findings); `visionQA` sets it true only when it
+   * actually runs the critic (it stays false when the paid pass is skipped on a gate-blocked
+   * iteration — D27). `score` snapshots it onto `best.critiqued` so `freeze` can run a single
+   * make-good critique on a shipped candidate that never received one.
+   */
+  visionCritiqued: z.boolean().default(false),
   /** Paint/repair cycles performed for this screen. */
   iteration: z.number().int().default(0),
   /** Most recent routing decision (set by the score node; read by the conditional edge). */

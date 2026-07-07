@@ -24,6 +24,7 @@ export {
   contrastFailObservation,
   overflowObservation,
   overflowClampObservation,
+  clippedItemObservation,
   PLACEHOLDER_PNG_BASE64,
   type ObservationOverrides,
 } from "./browser";

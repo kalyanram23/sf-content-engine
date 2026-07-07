@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PlanLayout } from "../../domain/contracts";
 import type { CanonicalItem, GenerateInput } from "../../domain/types";
 import type { UsageEvent, UsageSink } from "../../ports/services";
-import { OpenRouterPlanner } from "./planner";
+import { OpenRouterPlanner, SYSTEM } from "./planner";
 
 /** A fake OpenAI client whose completion returns `content` verbatim (hermetic — no network). */
 function mockClient(content: string): { client: OpenAI; create: ReturnType<typeof vi.fn> } {
@@ -144,5 +144,20 @@ describe("OpenRouterPlanner", () => {
         fallback: false,
       },
     ]);
+  });
+});
+
+/**
+ * The planner-facing representation enum (E1): "variant-rows" is dropped because the id-free menu
+ * digest carries no variant signal, so offering it would invite uninformed guessing. (The internal
+ * enum keeps it for `checkRepresentations` + hand-authored plans.)
+ */
+describe("planner SYSTEM prompt", () => {
+  it("no longer offers the undefined 'variant-rows' representation", () => {
+    expect(SYSTEM).not.toContain("variant-rows");
+  });
+
+  it("still offers matrix, grid, and list", () => {
+    expect(SYSTEM).toContain('"matrix", "grid", "list"');
   });
 });

@@ -24,6 +24,14 @@ describe("loadEngineConfig", () => {
     expect(intentional?.description).toMatch(/empty space/i);
   });
 
+  it("carries an invented-copy rubric dimension (filler badges / fake brand names / leaked theme name)", () => {
+    const dim = defaultEngineConfig().rubric.dimensions.find((d) => d.id === "invented-copy");
+    expect(dim).toBeDefined();
+    expect(dim?.failAtSeverity).toBe("major");
+    expect(dim?.description).toMatch(/theme's internal name/i);
+    expect(dim?.description).toMatch(/PRICE LIST/);
+  });
+
   it("defaults skipVisionWhenBlocking on (a gate-blocked candidate skips the paid critique, D27)", () => {
     expect(defaultEngineConfig().qa.skipVisionWhenBlocking).toBe(true);
   });
@@ -80,11 +88,31 @@ describe("loadEngineConfig", () => {
     expect(() => loadEngineConfig({ loop: { maxIterations: 0 } })).toThrow(/Invalid engine config/);
   });
 
-  it("defaults reasoning per role (plan thinks, paint is bounded) plus a request timeout", () => {
+  it("defaults reasoning per role (plan thinks, paint reasons at low effort) plus a request timeout", () => {
     const config = defaultEngineConfig();
     expect(config.models.reasoning.plan).toEqual({ enabled: true });
+    // paint reasoning is ON at effort:"low": effort does NOT cap GLM's reasoning (~70% of paint
+    // tokens) but reasoning-ON measurably improves contract compliance — hex/token-lint majors and
+    // malformed boards appeared only with it OFF (A/B'd across full runs, 2026-07-05). The
+    // runaway-token risk is contained downstream by D34/D42/D32. One line to change.
     expect(config.models.reasoning.paint).toEqual({ effort: "low" });
     expect(config.models.reasoning.critique).toBeUndefined();
+    expect(config.models.requestTimeoutMs).toBe(300000);
+  });
+
+  it("defaults a longer per-attempt timeout for the fallback model than the primary", () => {
+    const config = defaultEngineConfig();
+    // The fallback (anthropic/claude-sonnet-4.6) is slower-but-steadier: a big-board paint is >300s of
+    // healthy generation, so sharing the primary's 300s leash guillotined every big-board fallback
+    // attempt. It earns a 15-min leash; the primary keeps its short one.
+    expect(config.models.requestTimeoutMs).toBe(300000);
+    expect(config.models.fallbackRequestTimeoutMs).toBe(900000);
+    expect(config.models.fallbackRequestTimeoutMs).toBeGreaterThan(config.models.requestTimeoutMs);
+  });
+
+  it("overrides the fallback request timeout while keeping the primary default", () => {
+    const config = loadEngineConfig({ models: { fallbackRequestTimeoutMs: 600000 } });
+    expect(config.models.fallbackRequestTimeoutMs).toBe(600000);
     expect(config.models.requestTimeoutMs).toBe(300000);
   });
 

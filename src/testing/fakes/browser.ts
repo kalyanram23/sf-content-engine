@@ -1,5 +1,6 @@
 import type {
   BrowserPort,
+  ItemRect,
   RenderObservation,
   RenderRequest,
   RenderResult,
@@ -21,6 +22,22 @@ export interface ObservationOverrides {
   fillRatio?: number;
   scrollHeight?: number;
   scrollWidth?: number;
+  /** Per-grid-row fill counts (top→bottom); defaults to an all-filled grid (no dead band). */
+  rowFill?: number[];
+  /** Per-grid-row CONTENT fill counts (text/image samples); defaults to an all-content-filled grid.
+   * checkDeadBand keys on this, so a fake whose surface is filled but whose content is empty in a
+   * band sets a `rowContentFill` with a zero run while leaving `rowFill` full. */
+  rowContentFill?: number[];
+  /** Per-item layout rects; defaults to two rects sized to the canvas, both fully in-viewport (so
+   * checkItemCutoff stays silent). A clipped-item fake supplies its own out-of-viewport rect. */
+  itemRects?: ItemRect[];
+}
+
+/** The playwright fill grid samples `grid.rows - 1` interior rows (default grid.rows = 27). */
+const FAKE_GRID_ROWS = 26;
+/** An all-filled row grid — every sampled row lands on content, so checkDeadBand stays silent. */
+function filledRowGrid(rows: number = FAKE_GRID_ROWS): number[] {
+  return Array<number>(rows).fill(40);
 }
 
 /** A passing render: legible text, balanced fill, no overflow, images loaded. */
@@ -55,6 +72,30 @@ export function cleanObservation(overrides: ObservationOverrides = {}): RenderOb
       },
     ],
     fillRatio: overrides.fillRatio ?? 0.6,
+    // Two item rects sized as fractions of the canvas so they sit fully in-viewport in BOTH
+    // landscape (1920×1080) and portrait (1080×1920) — bottom ≤ 90% height, right ≤ 50% width — so a
+    // clean fake never trips checkItemCutoff regardless of the orientation override. A clipped-item
+    // fake (clippedItemObservation) appends a rect whose bottom exceeds the viewport.
+    itemRects: overrides.itemRects ?? [
+      {
+        id: "p-margherita",
+        top: 80,
+        bottom: Math.round(height * 0.5),
+        left: 40,
+        right: Math.round(width * 0.5),
+      },
+      {
+        id: "s-garlic-bread",
+        top: Math.round(height * 0.5),
+        bottom: Math.round(height * 0.9),
+        left: 40,
+        right: Math.round(width * 0.5),
+      },
+    ],
+    rowFill: overrides.rowFill ?? filledRowGrid(),
+    // Content-filled everywhere unless a story says otherwise — so a clean fake never trips
+    // checkDeadBand (which keys on rowContentFill). A dead-space fake supplies its own zero run.
+    rowContentFill: overrides.rowContentFill ?? filledRowGrid(),
     // Geometry defaults describe a well-proportioned, undistorted cover photo (§ Phase 4): a 3:2
     // natural photo in a 3:2 box → no distortion, no over-crop.
     images: [
@@ -66,31 +107,71 @@ export function cleanObservation(overrides: ObservationOverrides = {}): RenderOb
         renderedWidth: 600,
         renderedHeight: 400,
         objectFit: "cover",
+        // The front carousel slide / a lone photo is visible; a hidden-slide fixture scripts its own
+        // `visible: false` image so the crop check ignores it (Fix 2).
+        visible: true,
       },
     ],
   };
 }
 
-/** A render with dead space at the bottom (acceptance test #1 seed, spec §7). */
+/**
+ * A render with dead space at the bottom (acceptance test #1 seed, spec §7). The top ~half carries
+ * content and the bottom ~46% is a contiguous run of ZERO-fill grid rows — the localised empty band
+ * checkDeadBand flags — coherent with the low global fillRatio the density under-fill floor also sees.
+ */
 export function deadSpaceObservation(): RenderObservation {
-  return cleanObservation({ fillRatio: 0.22 });
+  const rowFill = [...Array<number>(14).fill(18), ...Array<number>(12).fill(0)];
+  // The empty band is genuinely empty of CONTENT too, so rowContentFill mirrors rowFill's zero run
+  // (checkDeadBand keys on rowContentFill).
+  return cleanObservation({ fillRatio: 0.22, rowFill, rowContentFill: rowFill });
 }
 
 /**
- * A render whose content extends past the bottom edge (content ~15% taller than the viewport) —
+ * A render whose content extends past the bottom edge (content ~8% taller than the viewport) —
  * the "table cut off at the bottom" case a live vision judge rejected (D31). No item-bound text
- * samples, so no legibility floor binds: a uniform ~0.87 shrink stays legible and the deterministic
- * shrink-to-fit repair fixes it WITHOUT a re-paint. Tune the overshoot via `scrollHeight`.
+ * samples, so no legibility floor binds: a uniform ~0.93 shrink stays legible AND above the config
+ * `minShrinkFactor` floor (0.9 — small trims only), so the deterministic shrink-to-fit repair fixes
+ * it WITHOUT a re-paint. Tune the overshoot via `scrollHeight`.
  */
 export function overflowObservation(overrides: ObservationOverrides = {}): RenderObservation {
   const obs = cleanObservation(overrides);
   const { width, height } = obs.actualViewport;
-  const scrollHeight = overrides.scrollHeight ?? Math.round(height * 1.15);
+  const scrollHeight = overrides.scrollHeight ?? Math.round(height * 1.08);
   return {
     ...obs,
     scroll: { scrollWidth: width, scrollHeight, clientWidth: width, clientHeight: height },
     overflowing: [
       { ref: "section.beverages", bbox: { x: 0, y: height, width, height: scrollHeight - height } },
+    ],
+  };
+}
+
+/**
+ * The QA-blindspot fixture: a board that is CLEAN by every existing check — the page does NOT scroll
+ * (scrollHeight == clientHeight, so checkOverflow stays silent) — yet a section's last item is
+ * visually cut off at the bottom edge inside an `overflow:hidden` container. Only its LAYOUT rect
+ * (`itemRects`) reveals it: item "e-last" has bottom past the viewport, so checkItemCutoff fires a
+ * major, NOT-deterministically-fixable finding that routes to re-paint. `overhangPx` tunes how far
+ * past the edge the item sits.
+ */
+export function clippedItemObservation(
+  overrides: ObservationOverrides & { overhangPx?: number } = {},
+): RenderObservation {
+  const { overhangPx = 90, ...obsOverrides } = overrides;
+  const obs = cleanObservation(obsOverrides);
+  const { width, height } = obs.actualViewport;
+  return {
+    ...obs,
+    itemRects: [
+      ...(obs.itemRects ?? []),
+      {
+        id: "e-last",
+        top: height - 60,
+        bottom: height + overhangPx,
+        left: 40,
+        right: Math.round(width * 0.5),
+      },
     ],
   };
 }

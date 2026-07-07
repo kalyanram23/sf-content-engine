@@ -35,6 +35,23 @@ export interface TextSample {
   bbox: BoundingBox;
 }
 
+/**
+ * The layout rectangle of a menu item (an element carrying `data-item-id`), in viewport pixels.
+ * Reported from `getBoundingClientRect`, so it is the element's LAYOUT box even when an ancestor's
+ * `overflow:hidden`/`clip` visually cuts it off — which is exactly why it catches SILENT clipping
+ * (content sliced at the screen edge inside a clipped container, where nothing scrolls, so the
+ * page-scroll {@link RenderObservation.scroll} overflow check stays blind). When an item id appears
+ * on more than one element, the browser records the UNION box (min top/left, max bottom/right) so
+ * there is exactly one rect per id.
+ */
+export interface ItemRect {
+  id: string;
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+}
+
 export interface ImageObservation {
   ref: string;
   loaded: boolean;
@@ -48,6 +65,14 @@ export interface ImageObservation {
   renderedWidth?: number;
   renderedHeight?: number;
   objectFit?: string;
+  /**
+   * Effective visibility of the image: `false` when it is provably hidden (computed `opacity:0` on
+   * itself or an ancestor, or `display:none` / `visibility:hidden`) — e.g. every non-front slide of
+   * a gallery-fade carousel. The image-crop check skips a non-visible image so a stack of hidden
+   * carousel slides doesn't flood the report. Optional so older observations / fakes stay valid; an
+   * ABSENT field is graded as before (treated as visible).
+   */
+  visible?: boolean;
 }
 
 export interface RenderObservation {
@@ -59,6 +84,29 @@ export interface RenderObservation {
   textSamples: TextSample[];
   /** Fraction of the viewport covered by non-background content, [0,1] (density, §5.6). */
   fillRatio: number;
+  /**
+   * Per-grid-row fill COUNTS (one entry per sampled grid row, top→bottom): how many of that row's
+   * grid samples landed on content. Feeds the dead-band check (a LOCALISED empty band the global
+   * `fillRatio` misses on a board whose other half is rich). Optional so older observations / fakes
+   * that don't set it stay valid — the check simply skips when it is absent.
+   */
+  rowFill?: number[];
+  /**
+   * Per-grid-row CONTENT fill counts (one entry per sampled grid row, top→bottom): how many of that
+   * row's samples landed on real CONTENT — text or an image/icon — as opposed to a merely painted
+   * surface. The dead-band check keys on THIS (falling back to {@link rowFill} for older
+   * observations) so a full-height tinted panel with content only in its top half is still read as
+   * dead space in its lower half. Optional so older observations / fakes that don't set it stay valid.
+   */
+  rowContentFill?: number[];
+  /**
+   * The LAYOUT rectangle of every menu item (element with `data-item-id`), one union rect per id —
+   * see {@link ItemRect}. Feeds the item-cutoff check, which flags an item whose box extends past the
+   * viewport edge even when nothing scrolls (silent clipping inside an `overflow:hidden` container).
+   * Optional so older observations / fakes that don't set it stay valid — the check simply skips when
+   * it is absent (backward compatible).
+   */
+  itemRects?: ItemRect[];
   images: ImageObservation[];
 }
 

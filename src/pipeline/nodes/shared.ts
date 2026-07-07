@@ -39,26 +39,53 @@ export function resolveScreenItems(
 
 /**
  * The EFFECTIVE screen a paint/critique should reason about, given the RESOLVED items (post
- * `fetchImages`, where failed photo refs have been dropped): the `imageSlot` is filtered down to
- * items that still carry ≥1 image, and dropped entirely when none remain — so the painter never
- * builds a carousel slide (and the critic never expects one) for a photo that failed to fetch.
- * Sections are untouched (photo truth changes presentation, never coverage). Pure; returns the
- * input screen unchanged when nothing needs filtering.
+ * `fetchImages`, where failed photo refs have been dropped): every image slot is filtered down to
+ * items that still carry ≥1 image — so the painter never builds a carousel slide (and the critic
+ * never expects one) for a photo that failed to fetch:
+ *  • the board-level `imageSlot` (matrix hero / dense-packed shared) keeps only surviving photos, and
+ *    is dropped entirely when none remain.
+ *  • a per-section `"photos"` slot keeps only surviving photos; a slot that lost ALL its photos falls
+ *    back to a `"icon"` panel so the category KEEPS its anchor (a food-icon panel — the product rule).
+ * Section item COVERAGE is untouched (photo truth changes presentation, never coverage). Pure;
+ * returns the input screen unchanged when nothing needs filtering.
  */
 export function effectiveScreen(screen: PlanScreen, items: readonly CanonicalItem[]): PlanScreen {
-  const slot = screen.imageSlot;
-  if (!slot) return screen;
   const withPhotos = new Set(items.filter((i) => (i.images?.length ?? 0) > 0).map((i) => i.id));
-  const slotItems = slot.items.filter((id) => withPhotos.has(id));
-  if (slotItems.length === slot.items.length) return screen;
+
+  // Per-section "photos" slots: drop failed photos; demote a fully-failed slot to a food-icon panel.
+  let sectionsChanged = false;
+  const nextSections = screen.sections.map((section) => {
+    const s = section.imageSlot;
+    if (s === undefined || s.kind !== "photos") return section;
+    const kept = s.items.filter((id) => withPhotos.has(id));
+    if (kept.length === s.items.length) return section;
+    sectionsChanged = true;
+    return {
+      ...section,
+      imageSlot:
+        kept.length > 0
+          ? { kind: "photos" as const, items: kept }
+          : { kind: "icon" as const, items: [] },
+    };
+  });
+
+  // Board-level slot: drop failed photos; remove the slot entirely when none survive.
+  const slot = screen.imageSlot;
+  const keptSlotItems = slot ? slot.items.filter((id) => withPhotos.has(id)) : [];
+  const slotChanged = slot !== undefined && keptSlotItems.length !== slot.items.length;
+
+  if (!sectionsChanged && !slotChanged) return screen;
+  const withSections = sectionsChanged ? { ...screen, sections: nextSections } : screen;
+  if (!slotChanged || slot === undefined) return withSections;
+
   // Rebuild without the slot (exactOptionalPropertyTypes — never `{ imageSlot: undefined }`).
-  const { imageSlot: _dropped, ...rest } = screen;
-  return slotItems.length > 0
+  const { imageSlot: _dropped, ...rest } = withSections;
+  return keptSlotItems.length > 0
     ? {
         ...rest,
         imageSlot: {
           ...(slot.categoryId !== undefined ? { categoryId: slot.categoryId } : {}),
-          items: slotItems,
+          items: keptSlotItems,
         },
       }
     : rest;

@@ -27,7 +27,7 @@ export const SYSTEM = `You are a layout planner for digital-signage menu screens
 Return JSON matching the schema: an ordered list of "blocks". Each block has:
 - title: the heading shown on screen (e.g. "Biryani & Pulav", "Veg Curries").
 - categories: one or more EXACT category names from the digest whose items fill this block.
-- representation: one of "matrix", "variant-rows", "grid", "list".
+- representation: one of "matrix", "grid", "list".
 - layoutHint: free-text direction for the painter, or "" when none.
 
 Rules:

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { representationSchema, severitySchema, thinPlanSchema } from "./schemas";
+import { severitySchema, thinPlanSchema } from "./schemas";
 
 /**
  * Strict LLM request/response contracts. These are SEPARATE from EngineState and the
@@ -27,7 +27,13 @@ export const planBlockSchema = z.object({
   title: z.string().min(1),
   /** One or more menu category names whose items fill this block (>1 = a combined/matrix block). */
   categories: z.array(z.string().min(1)).min(1),
-  representation: representationSchema,
+  /**
+   * The planner-facing representation enum (E1) — DELIBERATELY narrower than the internal
+   * `representationSchema`: it omits "variant-rows" because the id-free menu digest carries no
+   * variant signal, so a planner choice of "variant-rows" would be uninformed guessing. The
+   * internal enum keeps "variant-rows" for `checkRepresentations` + hand-authored plans.
+   */
+  representation: z.enum(["matrix", "grid", "list"]),
   /** Free-text painter direction (e.g. the price-table description); "" if none. */
   layoutHint: z.string(),
 });

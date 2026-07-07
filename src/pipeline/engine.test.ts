@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import type { PlanLayout } from "../domain/contracts";
+import type { CritiqueResponse, PlanLayout } from "../domain/contracts";
 import { UnsupportedConstraintError } from "../domain/errors";
 import type { CanonicalItem } from "../domain/types";
 import { expandLayoutToPlan } from "../planning/coverage";
 import type { Painter, PaintRequest } from "../ports/painter";
+import type { VisionCritic } from "../ports/vision-critic";
 import {
   createFakeEngine,
   FakeImageFetcher,
@@ -13,6 +14,7 @@ import {
 } from "../testing/fakes/index";
 import {
   cleanObservation,
+  clippedItemObservation,
   contrastFailObservation,
   deadSpaceObservation,
   overflowClampObservation,
@@ -128,6 +130,28 @@ describe("createEngine — end-to-end pipeline (fakes)", () => {
     expect(report.routeHistory[0]).toBe("paint");
     // No shrink style was injected, and the painter was re-invoked to re-lay-out the board.
     expect(out.screens[0]!.html).not.toContain('data-repair="fit"');
+    expect(spy.requests.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("re-paints a silently-clipped item that scored clean on scroll-overflow (QA blindspot fix)", async () => {
+    // Iteration 1: the page does NOT scroll (checkOverflow silent), but a section's last item is cut
+    // off at the bottom edge inside an overflow-hidden container — only its layout rect reveals it.
+    // The item-cutoff finding is a major, NOT-deterministically-fixable content defect, so it routes
+    // to a re-paint (never a shrink repair — a scale can't un-clip a clipped container). Iteration 2
+    // is clean and converges.
+    const spy = new SpyPainter();
+    const engine = createFakeEngine({
+      observations: [clippedItemObservation(), cleanObservation()],
+      ports: { painter: spy },
+    });
+    const out = await engine.generate(fixtures.input);
+
+    const report = out.qaReport.screens[0]!;
+    expect(report.passed).toBe(true);
+    // A silent clip re-paints (content, not a mechanical fix) — never a shrink repair.
+    expect(report.routeHistory[0]).toBe("paint");
+    expect(out.screens[0]!.html).not.toContain('data-repair="fit"');
+    // The painter ran again to re-lay-out the board so nothing clips.
     expect(spy.requests.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -255,6 +279,97 @@ describe("createEngine — end-to-end pipeline (fakes)", () => {
 
     expect(out.qaReport.screens[0]!.passed).toBe(true);
     expect(critic.callCount.value).toBe(2);
+  });
+
+  it("critiques the shipped candidate once at freeze when the loop never got to (freeze-path critique, Fix 1)", async () => {
+    // Every render shows dead space → a deterministic density MAJOR that gate-blocks, so the paid
+    // vision pass is SKIPPED on every iteration (D27). The board never converges and freezes flagged
+    // with a candidate carrying ZERO vision findings. Freeze must run ONE make-good critique and
+    // persist its findings + an honest (no longer vacuous) rubric on the report.
+    const critic = new ScriptedVisionCritic([
+      {
+        findings: [
+          {
+            dimension: "balance",
+            severity: "major" as const,
+            tag: "layout" as const,
+            region: "whole",
+            message: "large dead space at the bottom",
+          },
+        ],
+      },
+    ]);
+    const engine = createFakeEngine({
+      observations: [deadSpaceObservation()], // clamped → dead space on every render
+      ports: { visionCritic: critic },
+    });
+    const out = await engine.generate(fixtures.input);
+
+    const report = out.qaReport.screens[0]!;
+    // The loop skipped vision on every blocked iteration; the ONLY critic call is the freeze make-good.
+    expect(critic.callCount.value).toBe(1);
+    // The shipped board stays flagged — `passed` did not flip — but now carries the vision finding.
+    expect(report.passed).toBe(false);
+    expect(report.flagged).toBe(true);
+    const vision = report.findings.filter((f) => f.source === "vision");
+    expect(vision).toHaveLength(1);
+    expect(vision[0]!.kind).toBe("balance");
+    // The rubric is now honest: the failed balance dimension drops it below the vacuous 1.00.
+    expect(report.rubricScore).toBeLessThan(1);
+  });
+
+  it("does NOT re-critique at freeze a shipped candidate already vision-critiqued (Fix 1)", async () => {
+    // Clean render every iteration → vision runs each time; the critic keeps it below threshold so it
+    // never passes and freezes flagged — but the shipped candidate WAS critiqued, so freeze adds no call.
+    const critic = new ScriptedVisionCritic([
+      {
+        findings: ["balance", "hierarchy", "representation-clarity"].map((dimension) => ({
+          dimension,
+          severity: "major" as const,
+          tag: "layout" as const,
+          region: "whole",
+          message: "still off",
+        })),
+      },
+    ]);
+    const engine = createFakeEngine({
+      observations: [cleanObservation()],
+      ports: { visionCritic: critic },
+    });
+    const out = await engine.generate(fixtures.input);
+
+    const report = out.qaReport.screens[0]!;
+    expect(report.passed).toBe(false);
+    expect(report.flagged).toBe(true);
+    // Vision ran once per iteration (default budget 3); freeze added NO extra call.
+    expect(critic.callCount.value).toBe(3);
+  });
+
+  it("degrades gracefully when the freeze-path critique throws — report identical to today (Fix 1)", async () => {
+    // Same un-critiqued-shipped setup, but the critic throws. Freeze catches it and ships exactly
+    // today's report: deterministic findings only, the pre-critique (vacuous) rubric, still flagged.
+    class ThrowingCritic implements VisionCritic {
+      readonly callCount = { value: 0 };
+      critique(): Promise<CritiqueResponse> {
+        this.callCount.value += 1;
+        return Promise.reject(new Error("critic unavailable"));
+      }
+    }
+    const critic = new ThrowingCritic();
+    const engine = createFakeEngine({
+      observations: [deadSpaceObservation()],
+      ports: { visionCritic: critic },
+    });
+    const out = await engine.generate(fixtures.input);
+
+    const report = out.qaReport.screens[0]!;
+    // It tried exactly once at freeze, then shipped without the critique.
+    expect(critic.callCount.value).toBe(1);
+    expect(report.passed).toBe(false);
+    expect(report.flagged).toBe(true);
+    // No vision finding was merged; the rubric stays the pre-critique 1.00.
+    expect(report.findings.some((f) => f.source === "vision")).toBe(false);
+    expect(report.rubricScore).toBe(1);
   });
 
   it("renders every board in a caller-authored multi-screen plan", async () => {
@@ -477,6 +592,60 @@ describe("createEngine — end-to-end pipeline (fakes)", () => {
     expect(html).toContain(realPhoto);
     expect(html).not.toContain(PLACEHOLDER_IMAGE_BASE64);
     expect(out.qaReport.screens[0]!.passed).toBe(true);
+  });
+
+  it("renders a per-category image slot on every section of a comfortable board (photos + icon)", async () => {
+    // A comfortable, non-matrix board: the photo category gets a real photo panel, the photo-less
+    // category a deliberate food-icon panel — each tagged data-image-slot="<category>" so the
+    // category-images requirement is deterministically checkable in the shipped HTML.
+    const input = {
+      items: [
+        {
+          id: "a",
+          name: "Chicken Mandi",
+          category: "MANDI",
+          available: true,
+          price: 12,
+          images: ["data:image/png;base64,REALMANDI0000"],
+        },
+        { id: "b", name: "Kunafa", category: "DESSERTS", available: true, price: 8 },
+      ],
+      brief: { presetId: "botanical" },
+      constraints: { aspect: "16:9", screens: 1 } as const,
+      plan: {
+        screens: [
+          {
+            id: "screen-1",
+            densityTier: "comfortable" as const,
+            sections: [
+              {
+                title: "MANDI",
+                representation: "grid" as const,
+                items: ["a"],
+                imageSlot: { kind: "photos" as const, items: ["a"] },
+              },
+              {
+                title: "DESSERTS",
+                representation: "grid" as const,
+                items: ["b"],
+                imageSlot: { kind: "icon" as const, items: [] },
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const engine = createFakeEngine({ observations: [cleanObservation()] });
+    const out = await engine.generate(input);
+    const html = out.screens[0]!.html;
+
+    expect(out.qaReport.screens[0]!.passed).toBe(true);
+    // Both categories carry a data-image-slot anchor.
+    expect(html).toContain('data-image-slot="MANDI"');
+    expect(html).toContain('data-image-slot="DESSERTS"');
+    // The photo category renders a real photo (inlined data-URI); the icon category an inline SVG.
+    expect(html).toContain("REALMANDI0000");
+    expect(html).toContain("<svg");
   });
 
   it("passes a plan-forced dense over-budget board with a warning-level density note (D25/D26)", async () => {

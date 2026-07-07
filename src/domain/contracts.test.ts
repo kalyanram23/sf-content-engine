@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { critiqueResponseSchema, planResponseSchema, repairResponseSchema } from "./contracts";
+import {
+  critiqueResponseSchema,
+  planBlockSchema,
+  planResponseSchema,
+  repairResponseSchema,
+} from "./contracts";
 
 describe("LLM contract schemas", () => {
   it("accepts a valid plan response", () => {
@@ -39,5 +44,26 @@ describe("LLM contract schemas", () => {
       true,
     );
     expect(repairResponseSchema.safeParse({ html: "", note: "x" }).success).toBe(false);
+  });
+});
+
+/**
+ * The planner-facing representation enum (E1) is DELIBERATELY narrower than the internal
+ * `representationSchema`: it omits "variant-rows" because the id-free menu digest carries no variant
+ * signal, so a planner choice of it would be uninformed guessing.
+ */
+describe("planBlockSchema representation enum (E1)", () => {
+  const base = { title: "Curries", categories: ["Veg Curries"], layoutHint: "" };
+
+  it("accepts matrix, grid, and list", () => {
+    for (const representation of ["matrix", "grid", "list"] as const) {
+      expect(planBlockSchema.safeParse({ ...base, representation }).success).toBe(true);
+    }
+  });
+
+  it("rejects 'variant-rows'", () => {
+    expect(planBlockSchema.safeParse({ ...base, representation: "variant-rows" }).success).toBe(
+      false,
+    );
   });
 });

@@ -88,6 +88,21 @@ export const sectionMatrixSchema = z.object({
   ),
 });
 
+/**
+ * A per-category (per-section) visual anchor, synthesized by `expandLayoutToPlan` on a comfortable,
+ * non-matrix board so every category gets its own image slot (the category-images requirement).
+ * `kind: "photos"` carries up to a handful of that category's photo-item ids (a real photo
+ * panel/carousel); `kind: "icon"` carries an empty `items` and directs the painter to render a
+ * deliberate themed FOOD-ICON illustration panel for a category whose items have no photos — NOT a
+ * missing/broken-photo look. NOT an LLM contract field: the planner LLM never emits slots (they are
+ * synthesized in pure code, D2), so this optional addition is safe on the internal `thinPlan`.
+ */
+export const planSectionImageSlotSchema = z.object({
+  kind: z.enum(["photos", "icon"]),
+  /** Photo-item ids for `kind: "photos"`; empty for `kind: "icon"`. */
+  items: z.array(z.string().min(1)),
+});
+
 export const planSectionSchema = z.object({
   title: z.string().min(1),
   representation: representationSchema,
@@ -105,6 +120,12 @@ export const planSectionSchema = z.object({
    * JSON schema (only `planLayout` is), so an optional field with a `null` union inside is safe.
    */
   matrix: sectionMatrixSchema.optional(),
+  /**
+   * Optional per-category image slot (see {@link planSectionImageSlotSchema}). Attached by
+   * `expandLayoutToPlan` to every section of a comfortable, non-matrix board. Optional so
+   * hand-authored plans keep validating; not an LLM contract field.
+   */
+  imageSlot: planSectionImageSlotSchema.optional(),
 });
 
 export const planImageSlotSchema = z.object({
@@ -125,6 +146,13 @@ export const densityTierSchema = z.enum(["comfortable", "dense", "packed"]);
 
 export const planScreenSchema = z.object({
   id: z.string().min(1),
+  /**
+   * The board's masthead title — its section titles joined with " · " (e.g. "Mandi · Non Veg
+   * Appetizers"). Stamped deterministically by `expandLayoutToPlan` so every screen of a set has a
+   * stable title the painter renders in the masthead band. Optional so hand-authored plans keep
+   * validating; not an LLM contract field (`thinPlan` is never sent to a model as a strict schema).
+   */
+  title: z.string().min(1).optional(),
   imageSlot: planImageSlotSchema.optional(),
   sections: z.array(planSectionSchema).min(1),
   /** Computed density tier (see {@link densityTierSchema}); optional for hand-authored plans. */

@@ -15,6 +15,7 @@ import { scoreScreen } from "../../qa/scoring";
 import { resolveTheme } from "../../theme/resolve";
 import { isInlineImageRef } from "../../util/placeholder-image";
 import { route } from "../router";
+import type { CritiqueRequest } from "../../ports/vision-critic";
 import type { NodeContext, EngineState } from "../state";
 import { renderBlueprintStrategy } from "../../planning/layout-strategy";
 import {
@@ -126,6 +127,10 @@ export async function paintNode(
 
   const viewport = orientViewport(ctx.config.qa.viewport, state.input.constraints.aspect);
   const blueprint = blueprintFor(screen, items, state.theme, ctx.config.layouts);
+  // Board-family context: a board painted with knowledge it belongs to a multi-screen set so the
+  // painter keeps one shared visual system across siblings. Only when the set has >1 board (a lone
+  // board has no siblings) — spread conditionally (exactOptionalPropertyTypes).
+  const total = state.plan.screens.length;
   const html = await ctx.ports.painter.paint({
     planScreen: screen,
     items,
@@ -137,6 +142,7 @@ export async function paintNode(
     sizeDirective: sizeDirectiveFor(screen, viewport, ctx.config.planning),
     densityTier: densityTierFor(screen, viewport, ctx.config.planning),
     correlation: boardCorrelation(state, screen.id),
+    ...(total > 1 ? { board: { index: state.screenIndex + 1, total } } : {}),
     ...(state.html !== undefined ? { previousHtml: state.html } : {}),
     ...(state.findings.length > 0 ? { findings: state.findings } : {}),
     ...(state.input.brand !== undefined ? { brand: state.input.brand } : {}),
@@ -206,11 +212,17 @@ export async function deterministicQaNode(
   // warn on over-fill, don't major; a `packed` board's items get the relaxed compact-register floor.
   const typeScale = typeScaleFor(screen, viewport, ctx.config.planning);
   const tier = densityTierFor(screen, viewport, ctx.config.planning);
+  // Grade structural checks against the EFFECTIVE screen the painter/critic actually rendered — the
+  // imageSlot filtered (or dropped) for photos that failed to fetch (photo truth, shared with paint
+  // + vision). Coverage/sections/matrix are untouched by this, so only the image-slot presence check
+  // depends on it: without it, a board whose shared slot was dropped for missing photos would
+  // false-fire image-slot-missing against a slot the painter was correctly told NOT to render.
+  const paintedScreen = effectiveScreen(screen, items);
   const findings: QaFinding[] = [
     ...runStructuralChecks({
       html: state.packagedHtml,
       ...(state.html !== undefined ? { rawHtml: state.html } : {}),
-      planScreen: screen,
+      planScreen: paintedScreen,
       items,
       theme: state.theme,
       qa: ctx.config.qa,
@@ -233,7 +245,9 @@ export async function deterministicQaNode(
     `board ${state.screenIndex + 1} "${screen.id}": ${findings.length} deterministic finding(s)`,
     { findings: findings.map((f) => f.kind) },
   );
-  return { findings, screenshotBase64 };
+  // Reset the per-iteration vision flag alongside the fresh findings: visionQA sets it true only if
+  // it actually runs, so a shipped candidate whose vision pass was skipped is legible to freeze.
+  return { findings, screenshotBase64, visionCritiqued: false };
 }
 
 function toVisionFinding(f: CritiqueFinding): QaFinding {
@@ -248,11 +262,60 @@ function toVisionFinding(f: CritiqueFinding): QaFinding {
 }
 
 /**
+ * Build the vision-critic request for a candidate screenshot. Shared by `visionQA` (per iteration)
+ * and the `freeze` make-good critique so the request is constructed ONE way — no duplicated
+ * request-building. It grades against the SAME effective screen, blueprint strategy, matrix summary,
+ * size directive, density tier, item count, canvas and correlation the painter was directed with
+ * ("two consumers, same text"), and honours photo truth (the imageSlot filtered to items whose
+ * photos resolved). `screenshotBase64` is the candidate under judgement — the current render for
+ * `visionQA`, `best.screenshotBase64` at freeze.
+ */
+function buildCritiqueRequest(
+  ctx: NodeContext,
+  state: EngineState,
+  screenshotBase64: string,
+): CritiqueRequest {
+  if (!state.plan) throw new RenderError("vision critique requires a resolved plan.");
+  const planned = currentScreen(state.plan, state.screenIndex);
+  const items = state.resolvedItems ?? resolveScreenItems(planned, state.input.items);
+  const screen = effectiveScreen(planned, items);
+  const aspect = state.input.constraints.aspect;
+  const viewport = orientViewport(ctx.config.qa.viewport, aspect);
+  // Grade against the SAME blueprint the painter was told to fill (falls back to the legacy strategy
+  // when the theme isn't resolved, which shouldn't happen post-resolveTheme). Append the SAME matrix
+  // summary the painter saw so the critic judges the table against the exact pairing it rendered.
+  const baseStrategy =
+    state.theme !== undefined
+      ? renderBlueprintStrategy(blueprintFor(screen, items, state.theme, ctx.config.layouts))
+      : describeLayoutStrategy(screen);
+  const matrixSummary = renderMatrixSummary(screen, items);
+  const sizeDirective = sizeDirectiveFor(screen, viewport, ctx.config.planning);
+  const layoutStrategy = [baseStrategy, matrixSummary, sizeDirective]
+    .filter((s): s is string => s !== undefined)
+    .join("\n\n");
+  return {
+    screenshotBase64,
+    planScreen: screen,
+    rubric: ctx.config.rubric,
+    ...(state.theme !== undefined
+      ? { designIntent: describeDesignIntent(state.theme, ctx.config.painter.antiPatterns) }
+      : {}),
+    layoutStrategy,
+    // Judge a dense/packed board AS a dense board (D30): the compact register is required, not a flaw.
+    densityTier: densityTierFor(screen, viewport, ctx.config.planning),
+    itemCount: plannedSectionItemIds(screen).length,
+    canvas: { width: viewport.width, height: viewport.height, aspect },
+    correlation: boardCorrelation(state, screen.id),
+  };
+}
+
+/**
  * visionQA: the cheap-VLM rubric pass (spec §5.6). Skipped when deterministic QA already
  * GATE-BLOCKS this candidate — it can never pass this iteration and the blocking finding already
  * selects the route, so the paid critique cannot change the outcome (D27, the cheap-vs-frontier
  * cost split, §5.6/§9). With `qa.skipVisionWhenBlocking` off, only a hard gate skips (legacy
- * behaviour). Vision findings are appended to the deterministic set.
+ * behaviour). Vision findings are appended to the deterministic set; `visionCritiqued` records that
+ * this candidate WAS critiqued (so a skip is legible to freeze — Fix 1).
  */
 export async function visionQaNode(
   ctx: NodeContext,
@@ -265,44 +328,14 @@ export async function visionQaNode(
   if (skip) return {};
 
   const planned = currentScreen(state.plan, state.screenIndex);
-  const items = state.resolvedItems ?? resolveScreenItems(planned, state.input.items);
-  // Photo truth: the critic judges the SAME effective screen the painter was given (imageSlot
-  // filtered to items whose photos actually resolved) — "two consumers, same text".
-  const screen = effectiveScreen(planned, items);
-  const aspect = state.input.constraints.aspect;
-  const viewport = orientViewport(ctx.config.qa.viewport, aspect);
-  // Grade against the SAME blueprint the painter was told to fill (falls back to the legacy
-  // strategy when the theme has no resolved theme, which shouldn't happen post-resolveTheme).
-  // Append the SAME matrix summary the painter saw so the critic judges the table against the
-  // exact pairing it was asked to render ("two consumers, same text").
-  const baseStrategy =
-    state.theme !== undefined
-      ? renderBlueprintStrategy(blueprintFor(screen, items, state.theme, ctx.config.layouts))
-      : describeLayoutStrategy(screen);
-  const matrixSummary = renderMatrixSummary(screen, items);
-  const sizeDirective = sizeDirectiveFor(screen, viewport, ctx.config.planning);
-  const layoutStrategy = [baseStrategy, matrixSummary, sizeDirective]
-    .filter((s): s is string => s !== undefined)
-    .join("\n\n");
   ctx.ports.logger?.info(
-    `board ${state.screenIndex + 1}/${state.plan.screens.length} "${screen.id}": vision critique`,
+    `board ${state.screenIndex + 1}/${state.plan.screens.length} "${planned.id}": vision critique`,
   );
-  const critique = await ctx.ports.visionCritic.critique({
-    screenshotBase64: state.screenshotBase64,
-    planScreen: screen,
-    rubric: ctx.config.rubric,
-    ...(state.theme !== undefined
-      ? { designIntent: describeDesignIntent(state.theme, ctx.config.painter.antiPatterns) }
-      : {}),
-    layoutStrategy,
-    // Judge a dense/packed board AS a dense board (D30): the compact register is required, not a flaw.
-    densityTier: densityTierFor(screen, viewport, ctx.config.planning),
-    itemCount: plannedSectionItemIds(screen).length,
-    canvas: { width: viewport.width, height: viewport.height, aspect },
-    correlation: boardCorrelation(state, screen.id),
-  });
+  const critique = await ctx.ports.visionCritic.critique(
+    buildCritiqueRequest(ctx, state, state.screenshotBase64),
+  );
   const vision = critique.findings.map(toVisionFinding);
-  return { findings: [...state.findings, ...vision] };
+  return { findings: [...state.findings, ...vision], visionCritiqued: true };
 }
 
 /**
@@ -333,6 +366,10 @@ export async function scoreNode(
     penalty: score.penalty,
     passed: score.passed,
     iterations: state.iteration,
+    // Snapshot whether THIS iteration was vision-critiqued, so freeze can tell an un-critiqued
+    // shipped candidate (paid pass skipped on a gate-blocked iteration, D27) from a clean-critiqued
+    // one and run a single make-good critique only on the former (Fix 1).
+    critiqued: state.visionCritiqued,
   };
 
   // Maintain best-so-far: a worse later iteration never replaces the best (D12).
@@ -407,7 +444,43 @@ export async function freezeNode(
   }
   const screen = currentScreen(state.plan, state.screenIndex);
   const viewport = orientViewport(ctx.config.qa.viewport, state.input.constraints.aspect);
-  const best = state.best;
+  let best = state.best;
+
+  // Freeze-path make-good critique (Fix 1): the shipped candidate is `best`, which may have been
+  // chosen on an iteration whose paid vision pass was SKIPPED because deterministic QA gate-blocked
+  // it (D27) — so it would ship with ZERO vision findings and a vacuous rubricScore of 1.00. The
+  // per-iteration skip is correct (a blocked candidate can't pass that iteration), but the SHIPPED
+  // board must carry one honest critique. Critique `best` ONCE, merge the findings, and rescore for
+  // the REPORT only: this never re-selects `best` (the loop is over) and MUST NOT flip `passed` — a
+  // blocked board stays flagged and new vision findings never change routing. On any critic failure
+  // we ship exactly today's report (best untouched).
+  if (!best.critiqued) {
+    try {
+      ctx.ports.logger?.info(
+        `board ${state.screenIndex + 1} "${screen.id}": freeze-path vision critique (shipped candidate was never critiqued)`,
+      );
+      const critique = await ctx.ports.visionCritic.critique(
+        buildCritiqueRequest(ctx, state, best.screenshotBase64),
+      );
+      const findings = [...best.findings, ...critique.findings.map(toVisionFinding)];
+      const rescored = scoreScreen(findings, ctx.config.rubric, ctx.config.qa.blockingSeverity);
+      best = {
+        ...best,
+        findings,
+        score: rescored.total,
+        rubricScore: rescored.rubricScore,
+        penalty: rescored.penalty,
+        // Pin `passed` to the loop's decision — the freeze critique reports, it never re-routes.
+        passed: best.passed,
+        critiqued: true,
+      };
+    } catch (error) {
+      ctx.ports.logger?.warn(
+        `board ${state.screenIndex + 1} "${screen.id}": freeze-path critique failed — shipping without it: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
   ctx.ports.logger?.info(
     `board ${state.screenIndex + 1} "${screen.id}": frozen — passed=${best.passed}, iterations=${best.iterations}`,
   );
