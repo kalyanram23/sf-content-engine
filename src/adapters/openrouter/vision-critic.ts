@@ -2,6 +2,7 @@ import type OpenAI from "openai";
 
 import type { ReasoningSetting } from "../../config/models";
 import { critiqueResponseSchema, type CritiqueResponse } from "../../domain/contracts";
+import type { PlanScreen } from "../../domain/types";
 import type { Logger, UsageSink } from "../../ports/services";
 import type { CritiqueRequest, VisionCritic } from "../../ports/vision-critic";
 import {
@@ -16,6 +17,26 @@ export const SYSTEM = `You are a fair, experienced design critic for digital-sig
 Judge it the way a real viewer would from across a room — most professional menu boards are perfectly acceptable. Report a finding for a rubric dimension ONLY when there is a real, noticeable problem; if a dimension is acceptable, DO NOT invent a finding for it (an empty findings list is the correct answer for a good screen).
 When a DESIGN INTENT or LAYOUT STRATEGY is provided, judge theme-adherence and layout against THAT brief — not against your own taste or a generic notion of "designed".
 Calibrate severity honestly: "major" = a genuine problem most viewers would notice (e.g. text hard to read, clearly unbalanced, items missing); "minor" = a small nitpick; never report "major" for subjective polish. Use the layout/content tag as a fix hint. Be terse and specific; cite a region.`;
+
+/**
+ * Slim the plan for the critic (B1): strip each NON-matrix section's free-text `layoutHint`. The
+ * authoritative layout direction is the LAYOUT STRATEGY + DENSITY blocks above; a stale planner hint
+ * (e.g. "photo grid for X") on a type-led board contradicts them. Matrix sections keep it —
+ * MATRIX_FIRST_STRATEGY textually references "the section layoutHint". `imageSlot` is DELIBERATELY
+ * preserved (unlike the painter, which has a dedicated image-slot directive): the critic sees only
+ * this serialized plan, so it needs `imageSlot` to verify the required shared carousel (D38/D50).
+ */
+function slimPlanForCritic(planScreen: PlanScreen): PlanScreen {
+  return {
+    ...planScreen,
+    sections: planScreen.sections.map((section) => {
+      const isMatrix = section.matrix !== undefined || section.representation === "matrix";
+      if (isMatrix || section.layoutHint === undefined) return section;
+      const { layoutHint: _layoutHint, ...rest } = section;
+      return rest;
+    }),
+  };
+}
 
 export function rubricText(request: CritiqueRequest): string {
   const dims = request.rubric.dimensions
@@ -49,7 +70,10 @@ export function rubricText(request: CritiqueRequest): string {
       `Target canvas: ${width}x${height}px (aspect ${aspect}) — a fixed, non-scrolling signage poster. Judge fill, balance and hierarchy for this exact ${aspect === "9:16" ? "portrait" : "landscape"} frame.`,
     );
   }
-  sections.push(`Plan:\n${JSON.stringify(request.planScreen)}`);
+  sections.push(
+    "imageSlot lists the photo-item ids that feed the SINGLE shared photo panel/carousel for this board (up to ~8 across one compact band, D38) — it is NOT per-item photos and is consistent with a type-led 'no per-item photos' strategy.",
+  );
+  sections.push(`Plan:\n${JSON.stringify(slimPlanForCritic(request.planScreen))}`);
   return sections.join("\n\n");
 }
 
