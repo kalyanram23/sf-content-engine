@@ -46,6 +46,7 @@ debug-claude/
 
 # Eval run artifacts (scripts/evals) — regenerated per run
 eval-output*/
+eval-smoke*/
 
 # Design-exploration scratch workspace (HTML mockups + verify script) — kept on disk, not shipped
 design-explorations/

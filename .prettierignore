@@ -15,4 +15,5 @@ samples/menu_simple.json
 samples/plan.json
 samples/plan.full.json
 eval-output*
+eval-smoke*
 *.tmp.mjs
