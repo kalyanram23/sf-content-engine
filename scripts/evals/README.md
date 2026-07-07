@@ -11,6 +11,7 @@ realistic jobs, how many come out shippable, at what cost, and what goes wrong w
 npm run eval                              # full suite (real LLM calls — costs real money)
 npm run eval -- --case=tiny-menu          # one scenario
 npm run eval -- --fresh                   # redo everything (default: resume finished boards)
+npm run eval -- --fresh --case=tiny-menu  # redo ONLY tiny-menu, leave every other case cached
 npm run eval -- --no-judge                # skip the independent vision judge
 npm run eval -- --out=eval-output-run2    # a second run for comparing stability
 npm run eval -- --help                    # list every flag
@@ -38,7 +39,10 @@ npm run eval -- --board-parallel=1        # one board at a time inside each case
 - **`--board-parallel=M`** (default `2`) — how many boards of the _same_ scenario run at once.
 
 Resume is unchanged: a board whose `<screen>.board.json` already exists is reused, never re-run
-(use `--fresh` to force). When more than one case runs at a time, every log line is prefixed with
+(use `--fresh` to force). **`--fresh` is scoped by `--case`:** on its own it wipes the whole
+`--out` dir for a clean-slate suite run; combined with `--case=<id,…>` it deletes only those
+cases' subdirectories, so a targeted redo never throws away every other case's cached output.
+When more than one case runs at a time, every log line is prefixed with
 its case id (e.g. `[photo-heavy] board 2/2 …`) so interleaved output stays readable. The scorecard
 and `summary.json` are still written in case order regardless of who finishes first.
 
@@ -78,6 +82,10 @@ Seven frozen jobs, each probing a different way the pipeline could fail:
 The suite is **frozen on purpose** — same inputs every run, so two runs are comparable and a
 change to prompts/models/config shows up as a score change, not noise. Add new scenarios
 rather than editing existing ones.
+
+Each case's `restaurant` name is passed to the engine as the run **brand** (`brand: { name }`),
+so the real name renders in every board's masthead band — the painter no longer has to invent a
+fake establishment name to fill that slot, and the masthead is identical across a scenario's boards.
 
 ## How boards are graded (`graders.ts`)
 

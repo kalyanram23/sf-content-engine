@@ -27,6 +27,7 @@ import {
   balanceSpread,
   gradeBindingsInHtml,
   gradeCategoryAtomic,
+  gradeCategoryImages,
   gradePlanCoverage,
   gradePosterGeometry,
   gradeQaPassed,
@@ -401,7 +402,16 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  if (FRESH) rmSync(OUT_DIR, { recursive: true, force: true });
+  // --fresh forces a redo. Scope it to what was ASKED for: with --case (ONLY) set, wipe only the
+  // selected cases' subdirectories so every other case's cached output survives; without --case,
+  // wipe the whole out dir for a clean-slate suite run.
+  if (FRESH) {
+    if (ONLY === undefined) {
+      rmSync(OUT_DIR, { recursive: true, force: true });
+    } else {
+      for (const c of cases) rmSync(join(OUT_DIR, c.id), { recursive: true, force: true });
+    }
+  }
   mkdirSync(OUT_DIR, { recursive: true });
 
   const pricing = await fetchPricing();
@@ -476,6 +486,9 @@ async function main(): Promise<void> {
       density: "balanced" as const,
       restaurant: evalCase.restaurant,
     };
+    // Real brand for the masthead: the case's restaurant name shows on every board's masthead
+    // band, so the painter no longer invents a fake establishment name to fill that slot.
+    const brand = { name: evalCase.restaurant };
     const constraints = {
       aspect: evalCase.aspect,
       locale: "en-US",
@@ -542,6 +555,7 @@ async function main(): Promise<void> {
           const output = await makeEngine(makeUsageSink(boardUsage)).generate({
             items: menu,
             brief,
+            brand,
             constraints: { ...constraints, screens: 1 },
             plan: { screens: [screen] },
           });
@@ -585,6 +599,7 @@ async function main(): Promise<void> {
               ),
               gradeSelfContained(shipped.html),
               gradePosterGeometry(poster, viewport),
+              gradeCategoryImages(shipped.html, screen, menu),
               consistency.grader,
             ],
             ...(judgeVerdict !== undefined ? { judge: judgeVerdict } : {}),

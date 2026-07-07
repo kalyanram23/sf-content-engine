@@ -5,12 +5,14 @@
  */
 import type {
   CanonicalItem,
+  PlanScreen,
   Poster,
   QaScreenReport,
   Severity,
   ThinPlan,
   VisionRubricConfig,
 } from "../../src/index";
+import { isMatrixBoard } from "../../src/planning/layout-strategy";
 import { scoreScreen } from "../../src/qa/scoring";
 
 export interface GraderResult {
@@ -141,6 +143,59 @@ export function gradeBindingsInHtml(html: string, itemIds: readonly string[]): G
         : `${missing.length}/${itemIds.length} items missing from the HTML (e.g. ${missing
             .slice(0, 3)
             .join(", ")})`,
+  };
+}
+
+/** HTML-attribute-escape a section title so it matches the value as it appears in shipped markup. */
+function escapeAttr(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/**
+ * Every menu category on the board has a visual anchor (the category-images requirement), re-verified
+ * from the shipped HTML's `data-image-slot` markers:
+ *   • comfortable, non-matrix board: EVERY section (= category) must appear as a `data-image-slot`
+ *     value — a real photo panel or a deliberate food-icon panel.
+ *   • dense/packed or matrix / absent-tier board: ONE shared slot suffices, and is required only when
+ *     the board actually has photo items (a photo-less dense board legitimately carries no slot).
+ */
+export function gradeCategoryImages(
+  html: string,
+  planScreen: PlanScreen,
+  menu: readonly CanonicalItem[],
+): GraderResult {
+  const slotValues = new Set(
+    [...html.matchAll(/data-image-slot\s*=\s*"([^"]*)"/g)].map((m) => m[1] ?? ""),
+  );
+  const plannedIds = new Set(planScreen.sections.flatMap((s) => s.items));
+  const boardHasPhotos = menu.some((i) => plannedIds.has(i.id) && (i.images?.length ?? 0) > 0);
+  const perCategory = planScreen.densityTier === "comfortable" && !isMatrixBoard(planScreen);
+
+  if (perCategory) {
+    const missing = planScreen.sections
+      .map((s) => s.title)
+      .filter((title) => !slotValues.has(escapeAttr(title)));
+    return {
+      id: "category-images",
+      pass: missing.length === 0,
+      detail:
+        missing.length === 0
+          ? `all ${planScreen.sections.length} categories carry a data-image-slot anchor`
+          : `${missing.length}/${planScreen.sections.length} category slot(s) missing: ${missing
+              .slice(0, 3)
+              .join(", ")}`,
+    };
+  }
+
+  const pass = !boardHasPhotos || slotValues.size > 0;
+  return {
+    id: "category-images",
+    pass,
+    detail: pass
+      ? boardHasPhotos
+        ? `shared image slot present (${slotValues.size} data-image-slot element(s))`
+        : "no photo items on this board — no image slot required"
+      : "board has photo items but rendered no data-image-slot element",
   };
 }
 
