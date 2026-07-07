@@ -153,6 +153,54 @@ export function checkBindings(root: HTMLElement, ctx: StructuralContext): QaFind
   return findings;
 }
 
+/** True when some `[data-bind="price"]` inside `node` renders non-whitespace text. A filled matrix
+ * cell counts (it wraps the item id AND that same price span); an em-dash cell carries no
+ * data-item-id, so it is never reached as an item node here. */
+function hasRenderedPrice(node: HTMLElement): boolean {
+  return node.querySelectorAll('[data-bind="price"]').some((span) => span.text.trim() !== "");
+}
+
+/**
+ * Price-present check (product requirement "prices properly there"): every planned item whose SOURCE
+ * data carries a price — base `price`, any `sizes[].price`, or a priced `variant` (the same
+ * detection as {@link expectedPrices}, mirroring `menu-lint`) — must render a NON-EMPTY price inside
+ * its `data-item-id` element: a `[data-bind="price"]` span with non-whitespace text (a filled matrix
+ * cell is exactly this). Items with no source price (menu-lint hides these) are exempt, and a genuine
+ * em-dash cell — no data-item-id — never fires. Distinct from the binding contract's number-matching:
+ * this is the blunt "a price actually shipped" guarantee. A wholly-missing element is left to
+ * {@link checkBindings} (binding-missing) so the two never double-report the same hole.
+ */
+export function checkPricePresent(root: HTMLElement, ctx: StructuralContext): QaFinding[] {
+  const findings: QaFinding[] = [];
+  const nodesById = new Map<string, HTMLElement[]>();
+  for (const el of root.querySelectorAll("[data-item-id]")) {
+    const id = el.getAttribute("data-item-id");
+    if (!id) continue;
+    const list = nodesById.get(id) ?? [];
+    list.push(el);
+    nodesById.set(id, list);
+  }
+  const itemsById = new Map(ctx.items.map((i) => [i.id, i]));
+
+  for (const id of plannedSectionItemIds(ctx.planScreen)) {
+    const item = itemsById.get(id);
+    if (item === undefined || expectedPrices(item).length === 0) continue; // no source price → exempt
+    const nodes = nodesById.get(id) ?? [];
+    if (nodes.length === 0 || nodes.some(hasRenderedPrice)) continue; // missing element → checkBindings owns it
+    findings.push(
+      makeFinding({
+        kind: "price-missing",
+        source: "deterministic",
+        severity: "major",
+        tag: "content",
+        itemId: id,
+        message: `Planned item "${id}" has a price in the menu but renders no non-empty data-bind="price".`,
+      }),
+    );
+  }
+  return findings;
+}
+
 function lintCss(text: string, where: string, rules: TokenLintRules): QaFinding[] {
   const findings: QaFinding[] = [];
   if (!rules.allowRawHex) {
@@ -514,6 +562,62 @@ export function checkMatrixStructure(root: HTMLElement, plan: PlanScreen): QaFin
   return findings;
 }
 
+/**
+ * HTML-attribute-escape a section title the way it appears in shipped markup — the SAME escaping the
+ * eval grader's `escapeAttr` uses, so this engine check and `gradeCategoryImages` agree on membership.
+ */
+function escapeSlotTitle(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/**
+ * Image-slot presence (D29-review Fix 4): every plan section carrying an `imageSlot` must render an
+ * element with data-image-slot="<section title>", and a board-level screen `imageSlot` requires a
+ * data-image-slot="shared" element. Prompt-only guarantees aren't guarantees — a run-5 board shipped
+ * with BOTH its per-section slots missing yet PASSED QA; only the eval grader caught it. Keyed off
+ * the PLAN's slots (exactly what the painter was directed to render) and matched with the SAME regex
+ * + escaping `gradeCategoryImages` uses, so engine and harness agree. A major/content finding, not
+ * deterministically fixable → routes to re-paint via the default `actionable-to-repaint` rule.
+ */
+export function checkImageSlots(ctx: StructuralContext): QaFinding[] {
+  const plan = ctx.planScreen;
+  const wantsSection = plan.sections.some((s) => s.imageSlot !== undefined);
+  const wantsShared = plan.imageSlot !== undefined;
+  if (!wantsSection && !wantsShared) return [];
+  const slotValues = new Set(
+    [...ctx.html.matchAll(/data-image-slot\s*=\s*"([^"]*)"/g)].map((m) => m[1] ?? ""),
+  );
+  const findings: QaFinding[] = [];
+  for (const section of plan.sections) {
+    if (section.imageSlot === undefined) continue;
+    if (!slotValues.has(escapeSlotTitle(section.title))) {
+      findings.push(
+        makeFinding({
+          kind: "image-slot-missing",
+          source: "deterministic",
+          severity: "major",
+          tag: "content",
+          region: section.title,
+          message: `Section "${section.title}" carries a planned image slot but no element with data-image-slot="${section.title}" was rendered.`,
+        }),
+      );
+    }
+  }
+  if (wantsShared && !slotValues.has("shared")) {
+    findings.push(
+      makeFinding({
+        kind: "image-slot-missing",
+        source: "deterministic",
+        severity: "major",
+        tag: "content",
+        message:
+          'The board plan carries a shared image slot but no element with data-image-slot="shared" was rendered.',
+      }),
+    );
+  }
+  return findings;
+}
+
 /** When a brand logo was requested, guarantee the painter actually rendered the header placeholder
  * and that it was inlined (no leaked remote/relative src). Mirrors binding-integrity for items. */
 export function checkBrandBinding(root: HTMLElement, ctx: StructuralContext): QaFinding[] {
@@ -557,8 +661,10 @@ export function runStructuralChecks(ctx: StructuralContext): QaFinding[] {
   return [
     ...checkCapacity(ctx.planScreen, ctx.qa),
     ...checkBindings(pkgRoot, ctx),
+    ...checkPricePresent(pkgRoot, ctx),
     ...checkRepresentations(pkgRoot, ctx.planScreen, ctx.items),
     ...checkMatrixStructure(pkgRoot, ctx.planScreen),
+    ...checkImageSlots(ctx),
     ...checkTokenLint(rawRoot, ctx),
     ...checkMotion(pkgRoot, ctx),
     ...checkSelfContained(pkgRoot, ctx),

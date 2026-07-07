@@ -31,9 +31,9 @@ export const visionRubricConfigSchema = z.object({
         id: "balance",
         description:
           "Visual balance across the whole frame — no dead space (a large contiguous empty region, " +
-          "an empty band or hero zone above the content inside a card, or a bottom half/quarter left " +
-          "blank) and no crowding; content should fill the canvas, not cluster in one region floating " +
-          "in a void.",
+          "an empty band or hero zone above the content inside a card, an awkward void between a " +
+          "card's description and its price, or a bottom half/quarter left blank) and no crowding; " +
+          "content should fill the canvas, not cluster in one region floating in a void.",
         weight: 1,
         failAtSeverity: "major",
       },
@@ -61,7 +61,8 @@ export const visionRubricConfigSchema = z.object({
         description:
           "Looks intentionally designed for THIS theme (see DESIGN INTENT), not AI-generic or " +
           "templated — and uses the screen real estate on purpose: no content marooned in empty " +
-          "space, no card sized for a photo or description that isn't there.",
+          "space, no card sized for a photo or description that isn't there, no content pushed to " +
+          "opposite edges of a card leaving a gap between a description and its price.",
         weight: 0.75,
         failAtSeverity: "major",
       },
@@ -71,12 +72,23 @@ export const visionRubricConfigSchema = z.object({
         weight: 1,
         failAtSeverity: "minor",
       },
+      {
+        id: "invented-copy",
+        description:
+          "Prominent text not traceable to the menu data, the board title, or the provided brand — " +
+          "fabricated restaurant names, filler badge chips ('PRICE LIST', 'USD', 'MADE TO ORDER', " +
+          "'DINE IN · TAKEOUT'), invented taglines or operational claims. A theme's internal name " +
+          "appearing as on-screen copy is an automatic fail.",
+        weight: 0.75,
+        failAtSeverity: "major",
+      },
     ]),
   /**
-   * Minimum weighted score to pass. 0.7 means any TWO failed dimensions fail the board (two
-   * weight-1 failures score 3.5/5.5 ≈ 0.64) while a single failure still passes (worst single
-   * weight-1 failure scores 4.5/5.5 ≈ 0.82) — at the old 0.6, a board failing both hierarchy
-   * AND intentional-design (3.75/5.5 ≈ 0.68) still shipped as "passed".
+   * Minimum weighted score to pass. With the default dimensions (total weight 6.25), 0.7 means
+   * any TWO failed weight-1 dimensions fail the board (two weight-1 failures score 4.25/6.25 ≈
+   * 0.68) while a single failure still passes (worst single weight-1 failure scores 5.25/6.25 ≈
+   * 0.84) — 0.7 over the old 0.6 so two co-occurring craft failures can no longer ship as
+   * "passed".
    */
   passThreshold: z.number().min(0).max(1).default(0.7),
 });

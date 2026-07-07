@@ -79,9 +79,15 @@ export const legibilityConfigSchema = z.object({
  * a fit that would need to scale below this floor signals a real allocation/layout problem better
  * fixed by a re-paint (or re-plan) than papered over by shrinking the whole board to a crawl — so
  * such an overflow is left NOT deterministically fixable and escalates to the LLM path.
+ *
+ * Set to 0.9 (a SMALL trim): the repair scales `body > *` uniformly, so a factor below ~0.9
+ * letterboxes the whole board — 10%+ smaller type plus ~100px+ empty side bands from the centred
+ * scale — which reads as unfinished and grades worse than a fresh re-paint. Below this floor the
+ * check leaves the overflow finding un-fixable, and routing escalates to re-paint instead of
+ * shrinking the board to a crawl.
  */
 export const overflowRepairConfigSchema = z.object({
-  minShrinkFactor: z.number().min(0).max(1).default(0.5),
+  minShrinkFactor: z.number().min(0).max(1).default(0.9),
 });
 
 /**
@@ -99,13 +105,42 @@ export const imageGeometryConfigSchema = z.object({
   maxCropFactor: z.number().min(1).default(2.2),
 });
 
+/**
+ * Dead-band bound (localised dead space). The global `density` under-fill floor is computed over the
+ * WHOLE canvas, so it misses a large empty BAND on a board whose other half is rich — e.g. a portrait
+ * board whose top is a dense photo/hero region and whose bottom ~45% is blank (only the vision critic
+ * caught it, and re-paints repeated the layout). This check finds the longest contiguous run of
+ * empty grid rows (first/last row ignored for margins) and flags it when it exceeds `maxBandRatio`.
+ */
+export const deadBandConfigSchema = z.object({
+  /**
+   * Longest contiguous run of empty grid rows, as a fraction of the canvas height, tolerated before
+   * a `dead-band` finding fires. 0.18 ≈ a blank band taller than ~18% of the canvas is a defect.
+   */
+  maxBandRatio: z.number().min(0).max(1).default(0.18),
+});
+
+/**
+ * Item-cutoff bound (silent clipping). The page-scroll `overflowTolerancePx` check only sees content
+ * that makes the DOCUMENT scroll — it is blind to an item sliced at the screen edge INSIDE an
+ * `overflow:hidden`/clip container, where nothing scrolls (two boards shipped with a section's last
+ * items visually cut off yet scored a clean 1.00). This check reads every item's LAYOUT rect and
+ * flags any that extends past the viewport edge. `tolerancePx` is the slack before a rect's bottom
+ * (or right) past the viewport counts as cut off — a couple of pixels absorb sub-pixel rounding.
+ */
+export const itemCutoffConfigSchema = z.object({
+  tolerancePx: z.number().min(0).default(2),
+});
+
 export const qaConfigSchema = z.object({
   viewport: viewportConfigSchema.prefault({}),
   contrast: contrastConfigSchema.prefault({}),
   density: densityConfigSchema.prefault({}),
+  deadBand: deadBandConfigSchema.prefault({}),
   legibility: legibilityConfigSchema.prefault({}),
   image: imageGeometryConfigSchema.prefault({}),
   overflowRepair: overflowRepairConfigSchema.prefault({}),
+  itemCutoff: itemCutoffConfigSchema.prefault({}),
   /** Slack (px) before a box past the viewport edge counts as overflow. */
   overflowTolerancePx: z.number().min(0).default(1),
   /** Findings at/above this severity block a pass (and so drive the QA loop). */
@@ -130,9 +165,11 @@ export const qaConfigSchema = z.object({
 export type ViewportConfig = z.infer<typeof viewportConfigSchema>;
 export type ContrastConfig = z.infer<typeof contrastConfigSchema>;
 export type DensityConfig = z.infer<typeof densityConfigSchema>;
+export type DeadBandConfig = z.infer<typeof deadBandConfigSchema>;
 export type LegibilityConfig = z.infer<typeof legibilityConfigSchema>;
 export type OverflowRepairConfig = z.infer<typeof overflowRepairConfigSchema>;
 export type ImageGeometryConfig = z.infer<typeof imageGeometryConfigSchema>;
+export type ItemCutoffConfig = z.infer<typeof itemCutoffConfigSchema>;
 export type QaConfig = z.infer<typeof qaConfigSchema>;
 
 export const defaultQaConfig = (): QaConfig => deepFreeze(qaConfigSchema.parse({}));

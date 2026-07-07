@@ -7,7 +7,9 @@ export const FindingKind = {
   Legibility: "legibility",
   Overflow: "overflow",
   OverflowCapacity: "overflow-capacity",
+  ItemCutoff: "item-cutoff",
   Density: "density",
+  DeadBand: "dead-band",
   Viewport: "viewport",
   ImageSlot: "image-slot",
   ImageDistortion: "image-distortion",
@@ -53,6 +55,7 @@ export function makeFinding(input: FindingInput): QaFinding {
  */
 const SPECIFIC_KEYS: Record<string, readonly string[]> = {
   [FindingKind.Overflow]: ["overshootX", "overshootY"],
+  [FindingKind.ItemCutoff]: ["worstOverhangPx", "count"],
   [FindingKind.Density]: ["fillRatio", "minFill", "maxFill"],
   [FindingKind.ImageSlot]: ["ref", "renderedAspect", "naturalAspect"],
   [FindingKind.ImageDistortion]: ["ref", "renderedAspect", "naturalAspect"],

@@ -6,11 +6,15 @@ import { defaultTokenLintRules } from "../config/token-lint";
 import type { CanonicalItem, PlanScreen, ResolvedTheme } from "../domain/types";
 import {
   checkBrandBinding,
+  checkImageSlots,
   checkMotion,
+  checkPricePresent,
   checkSelfContained,
   runStructuralChecks,
   type StructuralContext,
 } from "./structural-checks";
+import { FakePainter } from "../testing/fakes/painter";
+import type { PaintRequest } from "../ports/painter";
 
 const theme: ResolvedTheme = {
   id: "t",
@@ -303,6 +307,172 @@ describe("runtime carousel motion (gallery-fade) is offline-safe", () => {
       `<main><script data-motion-runtime>window.location.href='/next';</script></main>`,
     );
     expect(checkSelfContained(root).some((f) => f.kind === "baked-player")).toBe(true);
+  });
+});
+
+describe("price-present check (Fix 2 — 'prices properly there')", () => {
+  const priced: CanonicalItem[] = [{ id: "x", name: "Dosa", available: true, price: 10 }];
+  const pricedPlan: PlanScreen = {
+    id: "s",
+    sections: [{ title: "Tiffins", representation: "list", items: ["x"] }],
+  };
+  const pctx = (html: string, over: Partial<StructuralContext> = {}) =>
+    ctx(html, { items: priced, planScreen: pricedPlan, ...over });
+
+  it("fires when a priced item's data-bind=price span is empty (whitespace only)", () => {
+    const html = `<main><article data-item-id="x"><span data-bind="price">   </span></article></main>`;
+    const found = checkPricePresent(parse(html), pctx(html));
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({
+      kind: "price-missing",
+      source: "deterministic",
+      severity: "major",
+      tag: "content",
+      itemId: "x",
+    });
+    expect(found[0]!.deterministicallyFixable).toBe(false);
+  });
+
+  it("fires when a priced item has no price span at all", () => {
+    const html = `<main><article data-item-id="x"><h3>Dosa</h3></article></main>`;
+    expect(checkPricePresent(parse(html), pctx(html)).map((f) => f.kind)).toEqual([
+      "price-missing",
+    ]);
+  });
+
+  it("passes a priced item whose data-bind=price span carries text", () => {
+    const html = `<main><article data-item-id="x"><span data-bind="price">$10.00</span></article></main>`;
+    expect(checkPricePresent(parse(html), pctx(html))).toHaveLength(0);
+  });
+
+  it("never fires for an item with no price in the source (menu-lint hides those)", () => {
+    const unpriced: CanonicalItem[] = [{ id: "y", name: "Water", available: true }];
+    const plan: PlanScreen = {
+      id: "s",
+      sections: [{ title: "Free", representation: "list", items: ["y"] }],
+    };
+    const html = `<main><article data-item-id="y"><h3>Water</h3></article></main>`;
+    expect(
+      checkPricePresent(parse(html), ctx(html, { items: unpriced, planScreen: plan })),
+    ).toHaveLength(0);
+  });
+
+  it("never fires on a matrix em-dash cell for a column the item does not have", () => {
+    // b-egg (priced) is filled in the Biryani column (with a price span) and an em-dash in Pulav.
+    const matrixItems: CanonicalItem[] = [
+      { id: "b-egg", name: "Egg Biryani", category: "Biryani", available: true, price: 10 },
+    ];
+    const plan: PlanScreen = {
+      id: "s",
+      sections: [
+        {
+          title: "Biryani & Pulav",
+          representation: "matrix",
+          items: ["b-egg"],
+          matrix: {
+            columns: ["Biryani", "Pulav"],
+            rows: [{ label: "Egg", cells: ["b-egg", null] }],
+          },
+        },
+      ],
+    };
+    const html =
+      `<main><div data-matrix><div data-matrix-row="Egg"><span>Egg</span>` +
+      `<div data-matrix-cell="Biryani" data-item-id="b-egg"><span data-bind="price">$10.00</span></div>` +
+      `<div data-matrix-cell="Pulav">—</div></div></div></main>`;
+    expect(
+      checkPricePresent(parse(html), ctx(html, { items: matrixItems, planScreen: plan })),
+    ).toHaveLength(0);
+  });
+
+  it("surfaces through runStructuralChecks", () => {
+    const html = `<main><article data-item-id="x"><h3>Dosa</h3></article></main>`;
+    expect(runStructuralChecks(pctx(html)).map((f) => f.kind)).toContain("price-missing");
+  });
+});
+
+describe("checkImageSlots (Fix 4 — category image slots enforced engine-side)", () => {
+  const sectionSlotPlan: PlanScreen = {
+    id: "s",
+    sections: [
+      {
+        title: "MANDI",
+        representation: "grid",
+        items: ["a"],
+        imageSlot: { kind: "photos", items: ["a"] },
+      },
+      {
+        title: "DESSERTS",
+        representation: "grid",
+        items: ["b"],
+        imageSlot: { kind: "icon", items: [] },
+      },
+    ],
+  };
+
+  it("fires per missing section slot, naming the category", () => {
+    const html = `<main><article data-item-id="a"></article><article data-item-id="b"></article></main>`;
+    const found = checkImageSlots(ctx(html, { planScreen: sectionSlotPlan }));
+    expect(found).toHaveLength(2);
+    expect(found.map((f) => f.kind)).toEqual(["image-slot-missing", "image-slot-missing"]);
+    expect(found.map((f) => f.region)).toEqual(["MANDI", "DESSERTS"]);
+    expect(found[0]).toMatchObject({ severity: "major", tag: "content", source: "deterministic" });
+    expect(found[0]!.deterministicallyFixable).toBe(false);
+  });
+
+  it("stays quiet when every planned section slot is present", () => {
+    const html = `<main><div data-image-slot="MANDI"></div><div data-image-slot="DESSERTS"></div></main>`;
+    expect(checkImageSlots(ctx(html, { planScreen: sectionSlotPlan }))).toHaveLength(0);
+  });
+
+  it("only the missing section fires when one slot is present and the other absent", () => {
+    const html = `<main><div data-image-slot="MANDI"></div></main>`;
+    const found = checkImageSlots(ctx(html, { planScreen: sectionSlotPlan }));
+    expect(found).toHaveLength(1);
+    expect(found[0]!.region).toBe("DESSERTS");
+  });
+
+  it("fires when a planned board-level shared slot is missing, and clears when present", () => {
+    const sharedPlan: PlanScreen = {
+      id: "s",
+      imageSlot: { items: ["a"] },
+      sections: [{ title: "MAINS", representation: "list", items: ["a"] }],
+    };
+    const missing = checkImageSlots(
+      ctx("<main><section></section></main>", { planScreen: sharedPlan }),
+    );
+    expect(missing).toHaveLength(1);
+    expect(missing[0]!.kind).toBe("image-slot-missing");
+    const present = `<main><div data-image-slot="shared"></div></main>`;
+    expect(checkImageSlots(ctx(present, { planScreen: sharedPlan }))).toHaveLength(0);
+  });
+
+  it("exempts a plan whose sections carry no image slots (and no shared slot)", () => {
+    // The default planScreen fixture has neither → the check is a no-op, never a false positive.
+    expect(checkImageSlots(ctx(VALID_HTML))).toHaveLength(0);
+  });
+
+  it("passes the FakePainter's rendered output (it renders a container per planned slot, D38)", async () => {
+    const plan: PlanScreen = {
+      id: "s",
+      imageSlot: { items: ["a"] },
+      sections: sectionSlotPlan.sections,
+    };
+    const slotItems: CanonicalItem[] = [
+      {
+        id: "a",
+        name: "Chicken Mandi",
+        available: true,
+        price: 12,
+        images: ["data:image/png;base64,AAAA"],
+      },
+      { id: "b", name: "Kunafa", available: true, price: 8 },
+    ];
+    const html = await new FakePainter().paint({
+      planScreen: plan,
+      items: slotItems,
+    } as unknown as PaintRequest);
+    expect(checkImageSlots(ctx(html, { planScreen: plan, items: slotItems }))).toHaveLength(0);
   });
 });
 

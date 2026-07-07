@@ -200,6 +200,56 @@ export function checkOverflow(
   ];
 }
 
+/**
+ * SILENT CLIPPING — an item cut off at the screen edge that {@link checkOverflow} cannot see. That
+ * check keys on page SCROLL (scrollHeight vs clientHeight); when a section's last items are sliced by
+ * an ancestor's `overflow:hidden`/clip, nothing scrolls, so it stays blind and the board can score a
+ * clean 1.00 (two boards shipped this way and an independent judge rejected both). This check reads
+ * every item's LAYOUT rect (reported even when visually clipped) and flags any whose bottom exceeds
+ * the viewport height (or right exceeds the width) beyond `qa.itemCutoff.tolerancePx`. It aggregates
+ * every offender into ONE finding that NAMES the cut item ids (in the message and `data.items`) plus
+ * the worst overhang, so a re-paint tells the painter exactly which items were clipped. NOT
+ * deterministically fixable: a transform-scale repair cannot un-clip content inside a clipping
+ * container (the clip travels with the scale), so this MUST route to re-paint — severity major so it
+ * gate-blocks. Skips entirely when `itemRects` is absent (older observations / fakes) — backward
+ * compatible, like the other geometry-carrying checks.
+ */
+export function checkItemCutoff(obs: RenderObservation, qa: QaConfig): QaFinding[] {
+  const rects = obs.itemRects;
+  if (rects === undefined || rects.length === 0) return [];
+  const tol = qa.itemCutoff.tolerancePx;
+  const vw = obs.actualViewport.width;
+  const vh = obs.actualViewport.height;
+  const offenders: { id: string; overhang: number }[] = [];
+  for (const r of rects) {
+    const overhang = Math.max(r.bottom - vh, r.right - vw);
+    if (overhang > tol) offenders.push({ id: r.id, overhang: Math.round(overhang) });
+  }
+  if (offenders.length === 0) return [];
+  const worst = offenders.reduce((a, b) => (a.overhang >= b.overhang ? a : b));
+  const ids = offenders.map((o) => o.id);
+  // Spell the ids out in the message (the ONLY channel that reaches the painter for a string list —
+  // finding.data arrays aren't serialized to the prompt), capped so one pathological board can't blow
+  // the line budget; the full list stays in `data.items` for programmatic consumers.
+  const MAX_LISTED = 12;
+  const listed = ids.slice(0, MAX_LISTED).join(", ");
+  const more = ids.length > MAX_LISTED ? ` +${ids.length - MAX_LISTED} more` : "";
+  return [
+    makeFinding({
+      kind: FindingKind.ItemCutoff,
+      source: "deterministic",
+      severity: "major",
+      tag: "content",
+      deterministicallyFixable: false,
+      message:
+        `${offenders.length} item(s) are cut off at the screen edge (worst overhang ${worst.overhang}px on "${worst.id}"): ${listed}${more}. ` +
+        `Their content sits past the viewport inside a clipped container — nothing scrolls, so this is silent clipping. ` +
+        `Re-lay-out so EVERY item fits fully on-screen: drop type one rung, reduce rows per column, or rebalance columns; NEVER clip an item at the edge.`,
+      data: { items: ids, count: offenders.length, worstOverhangPx: worst.overhang },
+    }),
+  ];
+}
+
 /** True when a board reads as type-led — carrying a computed matrix, or dominated by type-led
  * representations (matrix/list) — so its under-fill floor is relaxed (§ Phase 5). */
 function isTypeLedBoard(planScreen: PlanScreen, typeLed: readonly string[]): boolean {
@@ -294,6 +344,65 @@ export function checkDensity(
   return [];
 }
 
+/**
+ * Localised dead space (a large empty BAND) — the global `checkDensity` under-fill floor is computed
+ * over the WHOLE canvas, so it stays quiet on a board whose top half is rich and whose bottom ~45%
+ * is blank (the portrait "empty lower half" failure that only the vision critic caught, and that
+ * re-paints repeated). Over the per-grid-row fill COUNTS the browser reports (`obs.rowFill`), find
+ * the longest contiguous run of ZERO-fill rows — ignoring the FIRST and LAST grid row to tolerate
+ * top/bottom margins — and flag it when its share of the canvas height exceeds `qa.deadBand.maxBandRatio`.
+ * Pixel `fromY`/`toY` come from the grid geometry (the viewport height is known). NOT deterministically
+ * fixable (there is no mechanical transform); a major layout finding, so routing re-paints it.
+ */
+export function checkDeadBand(obs: RenderObservation, qa: QaConfig): QaFinding[] {
+  // Prefer the CONTENT-fill grid (samples on text/images), falling back to the surface-fill grid for
+  // older observations. A painted-but-contentless row (a full-height tinted panel covering the empty
+  // lower half) reads as "filled" in `rowFill` but empty in `rowContentFill` — so keying on the
+  // latter is what makes this catch the "lower half visually empty under a tint" failure.
+  const rowFill = obs.rowContentFill ?? obs.rowFill;
+  // Need enough rows to have an interior after dropping the margin rows.
+  if (rowFill === undefined || rowFill.length < 3) return [];
+  const n = rowFill.length;
+  const vh = obs.actualViewport.height;
+  let bestStart = -1;
+  let bestLen = 0;
+  let curStart = -1;
+  let curLen = 0;
+  // Interior rows only: skip index 0 and n-1 so a thin top/bottom margin isn't read as dead space.
+  for (let k = 1; k < n - 1; k += 1) {
+    if (rowFill[k] === 0) {
+      if (curLen === 0) curStart = k;
+      curLen += 1;
+      if (curLen > bestLen) {
+        bestLen = curLen;
+        bestStart = curStart;
+      }
+    } else {
+      curLen = 0;
+    }
+  }
+  if (bestLen === 0) return [];
+  const bandRatio = bestLen / n;
+  if (bandRatio <= qa.deadBand.maxBandRatio) return [];
+  const fromY = Math.round((vh * bestStart) / n);
+  const toY = Math.round((vh * (bestStart + bestLen)) / n);
+  const pct = Math.round(bandRatio * 100);
+  return [
+    makeFinding({
+      kind: FindingKind.DeadBand,
+      source: "deterministic",
+      severity: "major",
+      tag: "layout",
+      deterministicallyFixable: false,
+      message:
+        `Empty band from ~${fromY}px to ~${toY}px — ${pct}% of the canvas is dead space. ` +
+        `Span the full height: enlarge type, add a section image slot / photo hero, or rebalance ` +
+        `the layout so content reaches the bottom edge.`,
+      data: { fromY, toY, bandRatio },
+    }),
+  ];
+}
+
 /** Image-slot integrity — galleries must actually have loaded (§5.6). */
 export function checkImages(obs: RenderObservation): QaFinding[] {
   return obs.images
@@ -356,6 +465,12 @@ export function checkImageGeometry(obs: RenderObservation, qa: QaConfig): QaFind
         );
       }
     } else if (img.objectFit === "cover") {
+      // Only judge crop on VISIBLE images. A gallery-fade carousel stacks up to 8 absolutely-
+      // positioned cover slides, all but the front one at opacity-0 — grading every hidden slide
+      // floods the report (and the score) on exactly the dense boards carousels serve (image-crop
+      // ×8+8 on the two shared-carousel boards, run 5). `visible === false` = provably hidden; an
+      // ABSENT field (older observations / fakes) is graded as before.
+      if (img.visible === false) continue;
       const factor = Math.max(renderedAspect / naturalAspect, naturalAspect / renderedAspect);
       if (factor > maxCropFactor) {
         findings.push(
@@ -386,7 +501,9 @@ export function runRenderedChecks(
     ...checkContrast(obs, qa),
     ...checkLegibility(obs, qa, planScreen, sizing),
     ...checkOverflow(obs, qa, planScreen, sizing),
+    ...checkItemCutoff(obs, qa),
     ...checkDensity(obs, qa, planScreen, sizing),
+    ...checkDeadBand(obs, qa),
     ...checkImages(obs),
     ...checkImageGeometry(obs, qa),
   ];

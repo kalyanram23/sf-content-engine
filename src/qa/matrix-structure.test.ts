@@ -1,7 +1,9 @@
 import { parse } from "node-html-parser";
 import { describe, expect, it } from "vitest";
 
-import type { PlanScreen } from "../domain/types";
+import type { PlanLayout } from "../domain/contracts";
+import type { CanonicalItem, PlanScreen } from "../domain/types";
+import { expandLayoutToPlan } from "../planning/coverage";
 import { checkMatrixStructure } from "./structural-checks";
 
 /** A plan section carrying a computed 2-column matrix (Chicken paired, Egg only in Biryani). */
@@ -98,5 +100,49 @@ describe("checkMatrixStructure (§ Phase 4)", () => {
       sections: [{ title: "Sides", representation: "list", items: ["x"] }],
     };
     expect(checkMatrixStructure(parse("<div><span>hi</span></div>"), plain)).toHaveLength(0);
+  });
+});
+
+/**
+ * The run-4 misfire, captured as a fixture (not the eval-output files). A combined "Desserts &
+ * Beverages" board that shares no base dish must NOT carry matrix data after expansion, so the
+ * matrix-structure check stays silent when the painter renders it as a plain list. Before Fix 1,
+ * coverage attached a degenerate matrix and this same DOM tripped "no data-matrix table rendered".
+ */
+describe("checkMatrixStructure + coverage (Fix 1 — degenerate matrices never reach QA)", () => {
+  const it_ = (id: string, name: string, category: string): CanonicalItem => ({
+    id,
+    name,
+    category,
+    available: true,
+  });
+  const menu: CanonicalItem[] = [
+    it_("d1", "Gulab Jamun", "Desserts"),
+    it_("d2", "Rasmalai", "Desserts"),
+    it_("bev1", "Mango Lassi", "Beverages"),
+    it_("bev2", "Masala Chai", "Beverages"),
+  ];
+  const layout: PlanLayout = {
+    blocks: [
+      {
+        title: "Desserts & Beverages",
+        categories: ["Desserts", "Beverages"],
+        representation: "list",
+        layoutHint: "",
+      },
+    ],
+  };
+
+  it("expands the degenerate combined board to sections WITHOUT matrix data", () => {
+    const plan = expandLayoutToPlan(layout, menu, 1, { screensMode: "exact" });
+    expect(plan.screens[0]!.sections.every((s) => s.matrix === undefined)).toBe(true);
+  });
+
+  it("stays silent on the plain-list DOM the painter renders for that board", () => {
+    const screen = expandLayoutToPlan(layout, menu, 1, { screensMode: "exact" }).screens[0]!;
+    const listHtml = `<div>${menu
+      .map((m) => `<article data-item-id="${m.id}"><span data-bind="price">$5.00</span></article>`)
+      .join("")}</div>`;
+    expect(checkMatrixStructure(parse(listHtml), screen)).toHaveLength(0);
   });
 });

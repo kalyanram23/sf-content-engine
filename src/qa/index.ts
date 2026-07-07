@@ -24,6 +24,7 @@ export {
   checkMotion,
   checkSelfContained,
   checkMatrixStructure,
+  checkImageSlots,
   type StructuralContext,
 } from "./structural-checks";
 export { checkCapacity, checkRepresentations } from "./representation";
