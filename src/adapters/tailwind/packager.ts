@@ -7,6 +7,7 @@ import { type HTMLElement, parse } from "node-html-parser";
 import { PackagingError } from "../../domain/errors";
 import type { CanonicalItem, ResolvedTheme } from "../../domain/types";
 import type { Packager, PackageRequest } from "../../ports/packager";
+import { resolveGlyph } from "../../theme/icon-glyphs";
 import { PLACEHOLDER_IMAGE_DATA_URI } from "../../util/placeholder-image";
 import { MOTION_LIB } from "./motion-bundle.generated";
 
@@ -26,6 +27,9 @@ export class TailwindPackager implements Packager {
       // shipped artifact never carries a remote src (offline-safe, §5.1).
       inlineItemImages(root, request.items);
       inlineBrandLogo(root, request.brandLogoDataUri);
+      // Inject the curated, engine-owned glyph into every `<svg data-icon>` marker (the painter
+      // PICKS a name; the engine ships the clean icon) — so icon quality is deterministic.
+      inlineIconGlyphs(root);
       const useRuntimeMotion = usesRuntimeMotion(root, request.theme);
       const body = root.toString();
 
@@ -72,6 +76,33 @@ function inlineItemImages(root: HTMLElement, items: readonly CanonicalItem[]): v
 function inlineBrandLogo(root: HTMLElement, dataUri: string | undefined): void {
   for (const el of root.querySelectorAll("[data-brand-logo]")) {
     el.setAttribute("src", dataUri && dataUri.trim() !== "" ? dataUri : PLACEHOLDER_IMAGE_DATA_URI);
+  }
+}
+
+/**
+ * Resolve the painter's icon markers (`<svg data-icon="<name>">`, emitted EMPTY) to the curated
+ * engine glyph — mirroring inlineItemImages' marker→asset scheme. The marker keeps its own classes
+ * and attributes (they carry the theme text-token colour + sizing); we add the glyph's viewBox +
+ * currentColor line-art defaults (only where absent, so a painter override wins) and inject the
+ * glyph's inner paths. An unknown/absent name falls back to the generic platter (resolveGlyph), so a
+ * mistyped name still ships a clean icon rather than a broken empty marker. LLM-drawn food art is
+ * unreliable, so icon quality stays engine-owned and deterministic.
+ */
+function inlineIconGlyphs(root: HTMLElement): void {
+  const defaults: Record<string, string> = {
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-width": "1.5",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+  };
+  for (const el of root.querySelectorAll("[data-icon]")) {
+    const glyph = resolveGlyph(el.getAttribute("data-icon"));
+    if (!el.getAttribute("viewBox")) el.setAttribute("viewBox", glyph.viewBox);
+    for (const [attr, value] of Object.entries(defaults)) {
+      if (!el.getAttribute(attr)) el.setAttribute(attr, value);
+    }
+    el.set_content(glyph.inner);
   }
 }
 

@@ -2,7 +2,7 @@
   "id": "bubblegum",
   "name": "Bubblegum",
   "design": {
-    "identity": "Visual identity for this theme: BUBBLEGUM — bold, playful, candy-pop, with the loud energy of a fresh toy drop or a Saturday-morning cartoon. Lean on a deep grape 'stage' background and a candy accent set (coral, mint, sunny yellow); pair the heavy condensed Cooper-grotesque Anton display face (used for the screen title) with Inter for body text; keep text crisp near-white, and let the saturated colour and a fine film grain feel intentional and characterful rather than loud for its own sake. Cards read as large, rounded, glossy stickers; use the full rounded radius on tags and controls. When a photo carousel cycles, cross-fade the photos and let the accent and background hue drift through the candy palette (coral → mint → pink → sky → yellow) so the screen changes mood as it rotates. DECORATION: there is no pre-supplied background image — author your own pop decoration as part of the design, drawn as inline SVG in the candy palette. Give the screen a very subtle film-grain overlay (inline SVG fractalNoise) sitting over everything, AND integrated accents that earn their place: a small starburst or sparkle flourish by the screen title, slim sparkle / dot / squiggle dividers between sections, a sticker-dot or star motif beside section headers, and an illustrative sticker / blob / star motif standing in for any item that has no photo. Keep it restrained and tasteful so it frames and elevates the menu rather than competing with the names and prices.",
+    "identity": "Visual identity for this theme: BUBBLEGUM — bold, playful, candy-pop, with the loud energy of a fresh toy drop or a Saturday-morning cartoon. Lean on a deep grape 'stage' background and a candy accent set (coral, mint, sunny yellow); pair the heavy condensed Cooper-grotesque Anton display face (used for the screen title) with Inter for body text; keep text crisp near-white, and let the saturated colour and a fine film grain feel intentional and characterful rather than loud for its own sake. Cards read as large, rounded, glossy stickers; use the full rounded radius on tags and controls. When a photo carousel cycles, cross-fade the photos and let the accent and background hue drift through the candy palette (coral → mint → pink → sky → yellow) so the screen changes mood as it rotates. DECORATION: there is no pre-supplied background image — author your own pop decoration as part of the design, drawn as inline SVG in the candy palette. Give the screen a very subtle film-grain overlay (inline SVG fractalNoise) sitting over everything, AND integrated accents that earn their place: a small starburst or sparkle flourish by the screen title, slim sparkle / dot / squiggle dividers between sections, and a sticker-dot or star motif beside section headers. Keep it restrained and tasteful so it frames and elevates the menu rather than competing with the names and prices.",
     "do": [
       "Rotate the candy accents (coral, mint, sunny yellow) across sections so the board feels alive",
       "Fully rounded, sticker-like cards, tags and pills — glossy, soft, high-energy",
@@ -61,6 +61,16 @@
     }
   ],
   "components": [
+    {
+      "id": "masthead",
+      "role": "board masthead band",
+      "binds": {
+        "face": "display",
+        "text": "accent-strong",
+        "rule": "accent"
+      },
+      "rule": "One masthead per screen, at the very top — the Anton board title on the left and the brand name on the right, in a slim content-hugging band with a sparkle/dot divider; keep it punchy but singular. Identical treatment on every screen of a set; never invent a restaurant name, tagline, or filler sticker."
+    },
     {
       "id": "price-pill",
       "role": "glossy price sticker",

@@ -2,7 +2,7 @@
   "id": "blockframe",
   "name": "Blockframe",
   "design": {
-    "identity": "Visual identity for this theme: BLOCKFRAME — maximalist neobrutalism, like a screen-printed poster wall: a warm paper canvas where every card, band and tag is a hard-edged block with a thick ink border and a hard offset shadow, punched up with candy accents (electric yellow, hot pink). Structure IS the decoration — thick borders, stark geometry, exaggerated blocky depth; nothing floats, everything is framed. Pair the slab-heavy Archivo Black display face (screen title, section headers) with Space Grotesk for names, prices and body. Cards are white blocks with thick ink borders and a hard offset shadow; section headers sit in candy-yellow bands with the same border treatment; tags and price stickers are small bordered blocks. When the plan includes photos, frame each photo inside a bordered block like a pasted-up print, with its caption on a solid panel below. DECORATION: there is no pre-supplied background image — author your own neobrutalist marks as part of the design, drawn as inline SVG in the theme palette: sparse geometric punctuation (bold crosses, dots, zigzags, registration marks, corner brackets) scattered in the margins, a starburst or arrow by the screen title, and a bordered geometric block motif standing in for any item without a photo. Keep decoration sparse and hard-edged so the borders and type carry the design.",
+    "identity": "Visual identity for this theme: BLOCKFRAME — maximalist neobrutalism, like a screen-printed poster wall: a warm paper canvas where every card, band and tag is a hard-edged block with a thick ink border and a hard offset shadow, punched up with candy accents (electric yellow, hot pink). Structure IS the decoration — thick borders, stark geometry, exaggerated blocky depth; nothing floats, everything is framed. Pair the slab-heavy Archivo Black display face (screen title, section headers) with Space Grotesk for names, prices and body. Cards are white blocks with thick ink borders and a hard offset shadow; section headers sit in candy-yellow bands with the same border treatment; tags and price stickers are small bordered blocks. When the plan includes photos, frame each photo inside a bordered block like a pasted-up print, with its caption on a solid panel below. DECORATION: there is no pre-supplied background image — author your own neobrutalist marks as part of the design, drawn as inline SVG in the theme palette: sparse geometric punctuation (bold crosses, dots, zigzags, registration marks, corner brackets) scattered in the margins, and a starburst or arrow by the screen title. Keep decoration sparse and hard-edged so the borders and type carry the design.",
     "do": [
       "Every card, band and tag is visibly framed: a thick ink border (border-2 up to border-8, border-text) plus a hard offset shadow — shadow-[0.5rem_0.5rem_0_var(--color-text)] (rem lengths and var(--color-…) only inside the brackets, never px or hex), or chunky asymmetric borders (border-r-8 border-b-8 border-text) for an attached look",
       "Archivo Black for the screen title and section headers (tight, huge, all-caps welcome); Space Grotesk for names, prices and body — square corners on all cards",
@@ -61,6 +61,16 @@
     }
   ],
   "components": [
+    {
+      "id": "masthead",
+      "role": "board masthead band",
+      "binds": {
+        "face": "display",
+        "text": "text",
+        "bg": "surface"
+      },
+      "rule": "One masthead per screen, at the very top — the board title set in Archivo Black ink on the left and the brand name on the right, inside a slim ink-bordered white band with a hard offset shadow that hugs its content. Identical treatment on every screen of a set; never invent a restaurant name, tagline, or filler badge chip."
+    },
     {
       "id": "price-tag",
       "role": "bordered price sticker",

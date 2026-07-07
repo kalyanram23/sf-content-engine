@@ -2,6 +2,7 @@ import { type HTMLElement, parse } from "node-html-parser";
 
 import type { CanonicalItem, ResolvedTheme } from "../../domain/types";
 import type { Packager, PackageRequest } from "../../ports/packager";
+import { resolveGlyph } from "../../theme/icon-glyphs";
 import { PLACEHOLDER_IMAGE_DATA_URI } from "../../util/placeholder-image";
 
 /**
@@ -39,6 +40,19 @@ function inlineBrandLogo(root: HTMLElement, dataUri: string | undefined): void {
   }
 }
 
+/** Mirrors TailwindPackager's inlineIconGlyphs: inject the curated glyph into every `<svg data-icon>`
+ * marker so fake-backed structural QA sees real, offline-safe icon markup (glyph module is pure core,
+ * so the fake may import it). */
+function inlineIconGlyphs(root: HTMLElement): void {
+  for (const el of root.querySelectorAll("[data-icon]")) {
+    const glyph = resolveGlyph(el.getAttribute("data-icon"));
+    if (!el.getAttribute("viewBox")) el.setAttribute("viewBox", glyph.viewBox);
+    if (!el.getAttribute("fill")) el.setAttribute("fill", "none");
+    if (!el.getAttribute("stroke")) el.setAttribute("stroke", "currentColor");
+    el.set_content(glyph.inner);
+  }
+}
+
 function tokenStylesheet(theme: ResolvedTheme): string {
   // Mirror the real TailwindPackager's @theme namespaces so fake-backed tests reflect production:
   // --color-*, --radius-*, --font-* (no type/spacing scale tokens — those are prompt-directed).
@@ -72,6 +86,7 @@ function packageHtml(
   const root = parse(html);
   inlineItemImages(root, items);
   inlineBrandLogo(root, brandLogoDataUri);
+  inlineIconGlyphs(root);
   return (
     `<!doctype html><html lang="en"><head><meta charset="utf-8">` +
     `<style>${tokenStylesheet(theme)}</style>` +

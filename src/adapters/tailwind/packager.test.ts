@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { CanonicalItem } from "../../domain/types";
 import { resolveTheme } from "../../theme/resolve";
 import { botanicalPreset } from "../../theme/presets/botanical";
+import { ICON_GLYPHS } from "../../theme/icon-glyphs";
 import { checkSelfContained } from "../../qa/structural-checks";
 import { PLACEHOLDER_IMAGE_DATA_URI } from "../../util/placeholder-image";
 import { parse } from "node-html-parser";
@@ -96,6 +97,32 @@ describe("TailwindPackager (real compile, hermetic)", () => {
     expect(packaged).toContain("font-family:'Archivo';font-weight:700;");
     // A face with no declared weight defaults to normal.
     expect(packaged).toContain("font-family:'Shrikhand';font-weight:normal;");
+  }, 60_000);
+
+  it("inlines the named curated glyph into an <svg data-icon> marker (preserving its classes)", async () => {
+    // The painter emits an EMPTY marker picking a glyph name; the packager injects the real glyph so
+    // icon quality is engine-owned (LLM-drawn food art ships broken). The marker's own class (the
+    // theme text-token colour) is preserved; a viewBox + currentColor stroke is added.
+    const html =
+      '<div><svg data-icon="curry-pot" class="w-24 h-24 text-accent-strong"></svg></div>';
+    const packaged = await new TailwindPackager().package({ html, theme, items: [] });
+    expect(packaged).toContain("text-accent-strong"); // marker class kept
+    expect(packaged).toContain(`viewBox="${ICON_GLYPHS["curry-pot"]!.viewBox}"`);
+    expect(packaged).toContain('stroke="currentColor"');
+    // The curated inner paths landed inside the marker (curry-pot's distinctive pot-body path).
+    expect(packaged).toContain("M5 10");
+    expect(packaged).toContain("<path");
+    // No external ref survived — the inlined glyph is self-contained.
+    expect(checkSelfContained(parse(packaged))).toEqual([]);
+  }, 60_000);
+
+  it("falls back to the generic platter glyph for an unknown data-icon name", async () => {
+    const html = '<svg data-icon="not-a-real-glyph" class="text-text"></svg>';
+    const packaged = await new TailwindPackager().package({ html, theme, items: [] });
+    // The platter-generic glyph's distinctive base line + viewBox were injected.
+    expect(packaged).toContain("M2 16");
+    expect(packaged).toContain(`viewBox="${ICON_GLYPHS["platter-generic"]!.viewBox}"`);
+    expect(checkSelfContained(parse(packaged))).toEqual([]);
   }, 60_000);
 
   it("defers the motion runtime until the DOM is parsed (the runtime <script> lives in <head>)", async () => {

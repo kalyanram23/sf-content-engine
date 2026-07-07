@@ -2,7 +2,7 @@
   "id": "botanical",
   "name": "Botanical",
   "design": {
-    "identity": "Visual identity for this theme: BOTANICAL — calm, premium, garden-fresh, like the menu of an upscale garden restaurant. Lean on the olive/sage accent and subtle leaf motifs; pair the Cormorant Garamond display face (titles) with Inter for body text; let the deep green background and generous negative space feel intentional and unhurried. When the plan includes a photo carousel or item photos, make the photography a PROMINENT hero and the food look appetising. DECORATION: there is no pre-supplied background image — author your own botanical decoration as part of the design, drawn as inline SVG in the olive/sage palette. Give the screen an ambient backdrop of soft, organic leaf and branch line-art sitting behind the content, AND integrated accents that earn their place: a small flourish by the screen title, slim leaf or vine dividers between sections, a leaf motif beside section headers, and an illustrative sprig/leaf motif standing in for any item that has no photo. Keep it restrained and tasteful so it frames and elevates the menu rather than competing with the names and prices.",
+    "identity": "Visual identity for this theme: BOTANICAL — calm, premium, garden-fresh, like the menu of an upscale garden restaurant. Lean on the olive/sage accent and subtle leaf motifs; pair the Cormorant Garamond display face (titles) with Inter for body text; let the deep green background and generous negative space feel intentional and unhurried. When the plan includes a photo carousel or item photos, make the photography a PROMINENT hero and the food look appetising. DECORATION: there is no pre-supplied background image — author your own botanical decoration as part of the design, drawn as inline SVG in the olive/sage palette. Give the screen an ambient backdrop of soft, organic leaf and branch line-art sitting behind the content, AND integrated accents that earn their place: a small flourish by the screen title, slim leaf or vine dividers between sections, and a leaf motif beside section headers. Keep it restrained and tasteful so it frames and elevates the menu rather than competing with the names and prices.",
     "do": [
       "Let whitespace breathe — generous padding inside cards, calm and even margins",
       "Serif display (Cormorant Garamond) for the screen title and section headers; Inter for names, prices and body",
@@ -61,6 +61,16 @@
     }
   ],
   "components": [
+    {
+      "id": "masthead",
+      "role": "board masthead band",
+      "binds": {
+        "face": "display",
+        "text": "accent-strong",
+        "rule": "accent"
+      },
+      "rule": "One masthead per screen, at the very top — the board title in the Cormorant serif on the left and the brand name on the right, over a slim content-hugging band closed by a fine leaf/vine rule. Identical treatment on every screen of a set; never invent a restaurant name, tagline, or operational claim."
+    },
     {
       "id": "price-pill",
       "role": "price pill",

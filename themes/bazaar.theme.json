@@ -62,6 +62,17 @@
   ],
   "components": [
     {
+      "id": "masthead",
+      "role": "board masthead band",
+      "binds": {
+        "face": "display",
+        "text": "text",
+        "bg": "surface",
+        "accent": "accent"
+      },
+      "rule": "One masthead per screen, at the very top — the board title in Anton all-caps ink on the left and the brand name on the right, inside a slim cream band with a thick ink border, a short red accent rule and a small hard offset shadow that hugs its content. Identical treatment on every screen of a set; never invent a restaurant name, tagline, or filler badge chip."
+    },
+    {
       "id": "price-chip",
       "role": "bordered sticker price chip",
       "binds": {
