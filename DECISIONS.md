@@ -655,3 +655,435 @@ go; mixed sections compose real photo cards and compact text cards side by side.
 DISCIPLINE** — every card hugs its actual content in every density register, and a name and its
 price must read as one connected unit (leader, rule, or adjacency), never a bare justify-between
 chasm. The tier-specific D30/D33 registers stay as-is; these two truths are register-independent.
+
+## D38 — Every category gets a visual anchor; density picks the form (product decision)
+
+**Requirement (Kal, 2026-07-05):** every menu category on a board must carry a picture — and when
+none of its items have photos, an explicit food-icon panel is fine. On dense boards a shared slot
+is fine: "1 or 2 image slots with sliding images of all items where we have images."
+
+**Decision (synthesized in pure plan-expansion code — the LLM planner still never emits slots, D2):**
+
+- **comfortable, non-matrix board:** every section gets its OWN `imageSlot` — `kind:"photos"` with
+  up to 4 of that category's photo-item ids (plan order), else `kind:"icon"` (a deliberate themed
+  food icon/illustration panel captioned with the category name — never a missing-photo look).
+  This SUPERSEDES D33's screen-level `comfortableImageSlot` synthesis (one mechanism, not two).
+- **dense/packed, non-matrix board:** ONE board-level shared slot carrying up to 8 photo-item ids
+  drawn across the board (a compact gallery-fade carousel band, ≲15–20% of the canvas so items
+  keep priority — forced density stays the job); no slot at all when the board has zero photo
+  items. No per-section slots.
+- **matrix board:** the existing shared rotating hero (`synthesizeImageSlot`) is already the
+  anchor; untouched.
+- **Verifiability:** every slot container carries `data-image-slot="<section title>"` (shared
+  slot: `"shared"`), so the requirement is deterministically checkable — a new eval grader
+  (`gradeCategoryImages`) enforces it per board (comfortable: every section anchored; dense/
+  packed/matrix: ≥1 shared slot required when the board has any photo items).
+- **Photo truth composition (D37 refined):** PHOTO TRUTH is scoped to per-ITEM cards (an item
+  without a photo never gets a fake image region); a category-level icon panel is a sanctioned,
+  explicit design element, not a fake photo. On the live path, a per-section "photos" slot whose
+  photos ALL fail to resolve demotes to `kind:"icon"` — the anchor guarantee survives fetch
+  failures instead of shipping a broken-image hole.
+
+**Why this shape:** slots are plan data synthesized deterministically (never trusted to the LLM),
+the painter is told exactly what to draw per section, and the marker attribute turns a visual
+product rule into a code-gradeable invariant — prevention and verification, no new QA loop cost.
+
+## D39 — Overflow repair: clamp the page to the viewport so the metric sees the shrink; only shrink for small trims
+
+**Problem (run 4, reproduced):** the shrink-to-fit repair uses `transform: scale`, which changes
+paint but not layout. The overflow check measures `documentElement.scrollHeight` — driven by the
+UNtransformed layout height of the painter's in-flow root — so after a repair the board visually
+fit while the metric read byte-identical numbers: the same overflow(major) re-fired, the repaired
+candidate never strictly beat `best`, and all three failing boards shipped with NO repair block at
+all (routeHistory said repair; the shipped HTML disagreed). Separately, where a scale did apply,
+`transform-origin: top left` left a `(1−f)×width` dead band on the right (~240px at f=0.878) —
+an off-center, unfinished-looking board.
+
+**Decision:** the injected block becomes `html,body{height:100%;overflow:hidden;}` +
+`body>*{transform:scale(f);transform-origin:top center;}` — the clamp makes scrollHeight reflect
+the transformed box (repro-verified: overshoot 0 at the exact reported factors on all three run-4
+failures), and top-center splits the residual side band into symmetric margins. And the repair is
+now scoped to SMALL trims only: `qa.overflowRepair.minShrinkFactor` default 0.5 → **0.9** — below
+that a board needs a different layout, not a 10%+ smaller copy of the same one, so the finding
+stays unfixable and routing escalates to re-paint.
+
+## D40 — A matrix must earn its keep: degenerate matrices are never attached to the plan
+
+**Problem (run 4, reproduced):** plan expansion attached computed matrix data to EVERY
+multi-category block, even when the planner chose list/grid and even when the matrix was fully
+degenerate (every row fills exactly ONE column — zero cross-category pairings; worst case demanded
+215 em-dash cells). The painter is only given the matrix skeleton directive when the blueprint
+applies, so it correctly rendered lists — then the matrix-structure check fired "no data-matrix
+table" against plan data that should never have existed. ALL 9 matrix-structure findings in run 4
+were this misfire (the two genuine matrix sections rendered perfectly, zero findings). Where a
+degenerate matrix DID render, it produced dash-graveyard columns wasting a third of the table —
+and on one portrait board the dashes' vertical cost pushed the last row off-canvas.
+
+**Decision:** matrix data is attached only when `representation === "matrix"` or the computed
+matrix is genuinely cross-paired (a meaningful fraction of rows price in ≥2 columns). Degenerate
+multi-category blocks stay plain lists/grids — no matrix, no matrix QA expectation, no dash
+columns. Also added under the same wave: a **price-present structural check** (product rule:
+an item whose data carries a price must render a non-empty price inside its bound element;
+em-dashes for sizes an item genuinely lacks stay legitimate).
+
+## D41 — The shipped candidate always carries one vision critique (freeze-path critique; D27 refined)
+
+**Problem (run 4):** D27's vision-skip (skip the critic when deterministic findings already block)
+is sound per-iteration but wrong for the run: freeze ships `best`, which may never have been
+critiqued. 10/15 boards shipped with zero vision findings and a vacuous rubric of exactly 1.00 —
+7 of those 10 were judge-REJECTED, every rejection a design defect the critic grades (dead space,
+stretched rows, cutoffs). All 5 critiqued boards were judge-approved. The reports were actively
+misleading (perfect design score on never-reviewed boards).
+
+**Decision:** the freeze node runs ONE vision critique on the shipped candidate when its findings
+carry no vision source, merges the findings, and rescores — so every shipped report is honest.
+Routing/`passed` are unaffected (the loop is over); a critic failure degrades to prior behavior.
+Cost: at most one critique per board, only for boards that would otherwise ship unreviewed.
+This also un-poisons the critic-vs-judge calibration data (deferred since D36) for a later pass.
+
+## D42 — Enforce the per-call timeout for real; paint reasoning off by default
+
+**Problem (run-4 Braintrust traces):** 23/55 calls exceeded the configured 300s requestTimeoutMs —
+7 paint calls ran 600–1154s as SINGLE attempts, so the documented "no call outlives the cap"
+guarantee (D32) was not actually binding. And with `reasoning.effort: "low"`, glm-5.2 still spent
+541,825 reasoning tokens = 70% of ALL paint completion tokens; 10 calls hit the 32k cap exactly;
+retry+fallback traffic was ~48% of run spend. The effort lever demonstrably does not curb GLM.
+
+**Decision:** (a) fix the adapter so every attempt is genuinely bounded by `requestTimeoutMs` and
+a timeout is a transient failure inside the resilience loop (retry/fallback), not a run-killer;
+(b) config default `reasoning.paint: { enabled: false }` — the only lever GLM honors. Quality
+impact is measured by the eval suite; reverting is one config line. Expected: markedly cheaper +
+faster paints and far fewer cap-truncations.
+
+## D43 — Painter contract: vertical rhythm, no window chrome, marker legends, leaders on wrapped rows
+
+**Problem (run-4 visual audit):** rows/cells stretched to fill vertical space (100–140px voids
+between every row on a portrait board; grid cells inflated far beyond their content); two boards
+drew a dialog-style "X" close glyph in the header; markers ("\*", "★") shipped with no legend;
+rows with wrapped names dropped their dot leaders, leaving prices unanchored.
+
+**Decision (prevention-side, four surgical contract lines):** vertical gap between consecutive
+rows ≤ ~1.5× the row's text height and cells never stretch beyond content — surplus space goes to
+larger type, BETWEEN-section spacing, or the image slot, never inside rows/cells; signage never
+renders window/UI chrome; no marker without an on-board legend; one list = one name↔price
+connection treatment, including multi-line names. Deferred, noted for a later calibration pass:
+the critic's brief-adherence harshness (run 4 scored the visually best board 0.55 for missing
+theme motifs while clipped boards read 1.00 — re-examine once D41's honest rubrics accumulate).
+
+### D43 amendment — the stretching was self-inflicted: ENGINE_DESIGN_GOALS commanded it
+
+While adding the VERTICAL RHYTHM line, the implementer flagged that the engine-invariant DESIGN
+GOALS block itself ordered the defect: "use a grid whose rows STRETCH so cards reach near the
+bottom edge" and "Within a stretched card, vertically centre the item's name + price block." The
+run-4 boards show the painter OBEYING those lines — stretched momo cells with a centred name+price
+floating in white space, 100–140px voids between every portrait row, hollow drink cards. D33/D37/
+D43 were countermeasures fighting the engine's own instruction. Fixed at the source: FILL THE
+SCREEN keeps the goal but changes the MEANS (large type, content-hugging cards, spacing BETWEEN
+sections, the section's image slot — rows/cells sized to content, never 1fr-stretched/flex-grown
+to reach the bottom), and the stretched-card centring line is deleted outright. A test now asserts
+the old wording is GONE from the system prompt so it cannot silently return.
+
+## D44 — Fill is arithmetic, not aspiration: layout-aware type scale + a deterministic dead-band check
+
+**Problem (smoke run after D43):** with the stretch crutch removed, voids moved to honest places —
+a portrait board's bottom 45% shipped plain empty. Mechanism: the TYPE SCALE directive prescribed
+sizes from a SINGLE-column assumption; the painter chose TWO columns, needing half the height at
+that size, and nothing deterministic measured the void (global fill-ratio passed because the top
+half was rich; only the critic complained, and re-paints repeated the layout).
+
+**Decision:** (a) the comfortable-tier TYPE SCALE directive now hands the painter the fill
+arithmetic for the layouts it may choose — single column at rung X; two columns means HALF the
+height, so go UP to the rung computed for ceil(rows/2) rows AND/OR give the hero/image slot the
+reclaimed height (≤ ~40% of canvas); whatever the choice, content + slots must span the body.
+(b) A new deterministic `dead-band` rendered check reuses the existing fill-sampling grid to find
+the largest contiguous fully-empty horizontal band (first/last grid rows exempt as margins);
+above `qa.deadBand.maxBandRatio` (default 0.18) it emits a major layout finding with the exact
+pixel region, so a re-paint gets anchored coordinates instead of critic prose. Pure config data;
+routes through the existing re-paint rule.
+
+## D45 — Icon panels and price pills are composition, not leftovers
+
+**Problem (smoke run):** a category icon slot rendered as a ~950px panel with a small icon
+floating in the middle (judge: "amateurish placeholder"), another as a skinny vertical strip; and
+size/variant pills rendered tiny, low-contrast, with label/price pairs wrapping apart (legibility
+major shipped).
+
+**Decision (two contract lines):** an ICON PANEL is a compact, deliberate banner/square — icon
+scaled to fill most of the panel, caption integral, never bigger than its own section's content,
+never a floating glyph in a void, never a tall skinny strip. PILLS & VARIANT LABELS are readable
+units — label + price never wrap apart, high-contrast tokens at legible sizes, size pills aligned
+under their item name.
+
+## D46 — Content-aware dead-band, precise refs everywhere, card-interior clustering, and curated icon glyphs
+
+**Problems (second smoke run):** (1) the D44 dead-band check stayed silent on a board whose lower
+half the judge called empty — a full-height TINTED panel counted every grid row as "filled"
+(painted ≠ says anything); (2) three contrast findings shipped with fg literally == bg (invisible
+text, 1.00:1) but ref "span" — the sampler's fallback for text OUTSIDE item cards was a bare tag,
+un-repairable by construction; (3) the sparse-card desc↔price void survived a third judge reject —
+no contract line governed CARD INTERIORS and the rubric never named it; (4) icon-kind category
+slots shipped "unappetizing dark blobs" — LLM-drawn food art is unreliable and icon quality must
+not depend on it.
+
+**Decisions:** (1) the observation now carries `rowContentFill` (text/img/svg hits only, same
+sampling pass) and dead-band keys on it — painted-but-contentless bands fire; (2) non-card text
+gets a short unique path ref (landmark or nth-of-type chain), and the contrast repair accepts
+path-scoped refs while bare tags stay unfixable; (3) a CARD INTERIOR contract line (name/desc/
+price stack as ONE tight cluster; tall cards absorb height OUTSIDE the cluster) + rubric wording
+naming the desc↔price void so the critique scores it; (4) the engine ships a curated set of 13
+clean, token-safe food-category SVG glyphs (line-art, currentColor) — the painter only PICKS a
+glyph by name via `<svg data-icon="…">` and the packager inlines it (unknown → generic platter),
+mirroring the photo-placeholder scheme. LLM judgment on rails: taste chooses the glyph, the
+engine guarantees the drawing.
+
+## D47 — Paint reasoning back ON: the eval suite refereed the A/B, quality won
+
+**Evidence (full runs, same day):** with reasoning OFF (D42) paint got ~4× cheaper/faster —
+but the model started violating basic contract rules it previously honoured: 8 raw-hex token-lint
+majors across 3 boards, a duplicated cut-off header, weaker fill compliance; judge ship-rate fell
+8/15 → 7/15 despite six intervening fix waves. The reasons reasoning was disabled (32k-cap
+truncations, 19-minute calls, retry spend) are now independently contained by D34 truncation-retry,
+D42's enforced per-attempt timeout, and the D32 Sonnet fallback. Cost delta ≈ $2.60/full-run.
+
+**Decision:** `reasoning.paint` default back to `{ effort: "low" }` (effort does NOT cap GLM —
+measured 70% reasoning share — but reasoning-on measurably buys contract compliance). The doc
+comment carries the A/B story so this isn't relitigated blind.
+
+## D48 — QA judges only what a guest can SEE: hidden carousel slides are exempt from image checks
+
+**Problem (run 5):** image-crop(major) ×17 — 16 of them on two dense boards' shared carousels,
+whose up-to-8 stacked slides sit at opacity 0 by design; the crop check graded every hidden slide
+and flooded the reports on exactly the boards carousels were built for.
+
+**Decision:** the render observation records each image's effective visibility (own/ancestor
+opacity 0, display none, visibility hidden) and the crop check skips non-visible images. Old
+observations without the field behave as before.
+
+## D49 — An item with no price never renders an empty price chip
+
+**Problem (run 5, judge reject):** menu-lint's hide policy (D29) blanks the $0 text but the
+painter still drew the price CONTAINER — shipping hollow chips and leaders-to-nowhere that read
+as "missing price boxes" (the exact defect the product rule "prices properly there" targets).
+
+**Decision:** the paint digest marks such items `"priceless": true` (derived from the same
+price-detection logic as menu-lint — no re-lint in the adapter) and a directive renders them
+NAME-ONLY (optionally a small theme-toned "ask"/"MP" tag) — never an empty chip, hollow
+data-bind span, invented $0.00, or a dotted leader running to nothing.
+
+## D50 — Category image slots are enforced by QA, not just requested by the prompt
+
+**Problem (run 5):** one board shipped with BOTH its per-section slots missing — the eval grader
+saw it; the engine loop didn't (the board even passed QA). A prompt-level guarantee is not a
+guarantee.
+
+**Decision:** new structural check `image-slot-missing` (major, content, unfixable → re-paint):
+every plan section carrying an imageSlot must render its `data-image-slot="<title>"` element, and
+a planned board-level slot must render `data-image-slot="shared"` — matched with exactly the
+harness grader's escaping so engine and evals agree. Structural checks now run against the
+photo-truth-filtered effective screen, so slots legitimately dropped for failed photo fetches
+don't false-fire.
+
+## D51 — An aborted attempt is a timeout, whatever costume the SDK dresses it in
+
+**Problem (run 6):** two boards crashed `AbortError: This operation was aborted` on their FIRST
+paint attempt — zero retries, no fallback. The D42 per-attempt timeout fired correctly, but the
+OpenAI SDK surfaces aborts inconsistently: a pre-header abort becomes its APIUserAbortError, while
+an abort during the slow response-body parse — the exact window the timeout exists to bound —
+escapes as a raw DOMException("AbortError") outside the SDK's own wrapping. The retry loop's
+transient predicate was blind to that shape and rethrew it as terminal; only the D28 bulkhead
+saved the fleet.
+
+**Decision:** both request paths classify an abort-shaped error (APIUserAbortError, name
+AbortError/TimeoutError, or cause-chained) under an armed per-attempt signal as a TRANSIENT
+timeout — consume the attempt, retry, then fall back — regardless of `signal.aborted` races. Full
+exhaustion by timeout surfaces a legible "timed out on every attempt" error (original as cause),
+never a bare AbortError. No user-initiated aborts exist in this codebase, so the predicate stays
+scoped to armed-signal attempts.
+
+## D52 — Copy whitelist: every string on screen must trace to a real source
+
+**Problem (run 6, product review):** with no brand input and no rule against it, painters filled
+prime screen real estate with invented copy: filler badge chips ("PRICE LIST", "USD", "MADE TO
+ORDER", "DINE IN · TAKEOUT", "FRESH · HOT · DAILY"), fake operational claims, and — worse — a
+fabricated restaurant identity per board ("MANDI HOUSE", "HASHTAG CURRY HOUSE", "SPICE STREET
+KITCHEN"); one board leaked the THEME's internal name ("Blockframe Café") as the restaurant. Six
+boards of one restaurant read as six different restaurants.
+
+**Decision:** new ENGINE_CONTRACT bullet: every string must trace to the menu data, the plan
+(board title, section titles), the provided brand block, or a legend for a marker actually used —
+invented badges, taglines, operational claims, restaurant names, and the theme's name are banned.
+Enforced from both sides: two new default anti-patterns (shared painter+critic) and a new vision
+rubric dimension `invented-copy` (weight 0.75, fails at major). Filler is a judgment call, so
+this stays prompt+critic, not a deterministic check.
+
+## D53 — Standard masthead: computed board title left, brand right, identical across the set
+
+**Problem:** the engine had ZERO masthead guidance — no title rule, nothing pinning the header
+treatment. Headers drifted yellow/white/cream/black across one set, and each board invented its
+own name (D52). The eval harness held the real restaurant name all along but only used it for
+trace correlation — the painter never saw it.
+
+**Decision:** (a) `expandLayoutToPlan` stamps every screen with a deterministic `title` = its
+section display names joined with " · " (new optional `title` on planScreenSchema) — the generic
+category-list title the product owner asked for; (b) new MASTHEAD contract bullet: exactly one
+slim content-hugging band at the top, board title LEFT, brand (logo + name) RIGHT when provided,
+identical treatment on every screen of a set, and never an invented identity when brand is absent;
+(c) brand prompt lines (D18) reworked from "own header band" to "right side of the masthead";
+(d) every theme ships a `masthead` component recipe binding the band to that theme's own tokens —
+the treatment is pinned per theme, not left to per-board improvisation; (e) the eval harness now
+passes each case's restaurant as `brand: { name }`, so boards finally show the real name.
+
+## D54 — Category hero photos and subtitles place by orientation
+
+**Problem (product review):** landscape boards stacked a small photo next to a mostly-EMPTY
+full-width color band (two boards shipped with a giant hollow yellow banner); portrait had only
+generic flow guidance. No rule anywhere said where a category's photo or description subtitle
+belongs relative to its title.
+
+**Decision:** per-request orientation rules in the paint prompt — landscape: the category hero
+photo sits BESIDE its category title (title + description subtitle on the other side), hero bands
+content-hugging, never a tall stacked band with empty color fields; portrait: photo ABOVE the
+title at full column width, subtitle BELOW the title. The image-slot contract bullet points at
+these per-request rules so slot anchoring and placement can't diverge.
+
+## D55 — Painters know they are painting one screen of a family
+
+**Problem:** each board of a multi-screen set was painted in total isolation — the request carried
+no hint that siblings exist, so per-board "creative variation" (different masthead colors, chip
+vocabularies, brandings) was the natural outcome.
+
+**Decision:** `PaintRequest` gains optional `board: { index, total }` (wired only when the plan
+has >1 screen) and the prompt gains a BOARD FAMILY directive: screen N of M hung side by side,
+ONE visual system — identical masthead treatment, section-header recipe, price treatment, and
+canvas background token; never restyle or re-brand relative to siblings. Cross-board consistency
+is still unmeasured by QA/graders (each judges one board) — candidate for a future set-level
+grader.
+
+## D56 — A truncated response body is a network failure, not a crash
+
+**Problem (masthead validation run):** two boards crashed `SyntaxError: Unexpected end of JSON
+input` — the provider cut the connection mid-body, the OpenAI SDK's own response parse threw a
+raw SyntaxError (neither APIError nor abort-shaped), and the retry loop's predicates were blind
+to that costume: zero retries, no fallback, one board burned 1714s then died. Same disease as
+D51, third costume. (The same run window also saw the planner fail "response was not valid JSON"
+on every attempt — provider instability, one bad hour.)
+
+**Decision:** both request paths classify a SyntaxError thrown by the SDK create() call as
+TRANSIENT (`isBodyParseError`, instanceof check — never message-matching, never our own parse
+sites, which keep their in-band invalid-JSON re-ask). Retries with backoff, engages the fallback
+model, and exhaustion surfaces a legible wrapped error with the SyntaxError as cause — never a
+bare SyntaxError.
+
+## D57 — The masthead pays for itself in the vertical budget
+
+**Problem (masthead validation run):** two of four completed boards shipped their bottom row cut
+off (both judge rejects) — the morning run without a masthead had ZERO overflow. Self-inflicted:
+D53 made every board draw a masthead band, but the deterministic type-scale budget still handed
+the painter the full pre-masthead canvas height, so content planned ~6-8% too tall and the last
+row slid off the bottom edge.
+
+**Decision:** `bodyHeight()` — the single chokepoint all row/type arithmetic routes through —
+now reserves a 6%-of-canvas masthead allowance in both orientations (landscape body 880→815px,
+maxRows 20→18; portrait 1720→1605px). The size directive tells the painter the budget ALREADY
+reserves the band (no double-reserving), and the contract cap was aligned to the same 6%.
+Corollary: the elastic board-count budget packs slightly fewer rows per board — the honest
+consequence of every board carrying a masthead. Also tightened the landscape hero rule: a
+category band hugs its content (≤ ~two title line-heights), spare room goes into bigger type or
+tighter fit, never a taller band.
+
+## D58 — The rescue model gets its own clock
+
+**Problem (masthead validation runs):** on a night the primary paint model (GLM) stalled
+constantly, the Sonnet fallback engaged exactly as designed — and was killed by the SHARED
+per-attempt timeout on every big-board attempt: 29 fallback calls in one evening, 22 dead at
+precisely 300.00s, 3 boards crashed "timed out on every attempt". The fallback is slower but
+steady; a 40+ item board takes it more than 300s of pure generation, so the leash that rightly
+strangles a stalled primary (healthy GLM paints in 20-40s) structurally guarantees the rescue
+model can never rescue the boards that need it most.
+
+**Decision:** new config `fallbackRequestTimeoutMs` (default 900000 = 15 min): per-attempt abort
+budgets are selected by model index — primary keeps the tight `requestTimeoutMs` leash, fallback
+attempts get the extended budget (the last line before a crashed board trades wall-clock for
+survival; D28 bulkheads bound the damage per board). The SDK client-level header timeout is
+lifted to the max of the two so it can't undercut the fallback. Exhaustion errors now name both
+models tried ("z-ai/glm-5.2, then fallback anthropic/claude-sonnet-4.6") so a crashed board's
+log tells the whole story.
+
+## D59 — Every item's box must sit fully inside the screen (clipping is invisible to scroll math)
+
+**Problem (masthead validation run D):** two boards shipped with a section's last items sliced
+off at the bottom screen edge — engine QA scored BOTH 1.00 and the judge rejected both. The
+overflow check compares page scrollHeight to the viewport, but the cut content sat inside an
+overflow-clipped container: nothing scrolled, so the check was blind, and the vision critic
+missed it too. Same boards also showed the failure's cause: one column clipped while a sibling
+column sat on rows of empty space, and one spare panel was filled with abstract placeholder art.
+
+**Decision:** the render observation now records a layout rect per data-item-id (union across
+elements; getBoundingClientRect reports layout position even when an ancestor visually clips it —
+which is exactly what makes silent clipping detectable). New rendered check `item-cutoff`: every
+item rect must sit fully inside the viewport (tolerance 2px, config); violations produce one
+major/content/unfixable finding naming the cut items and worst overhang — a scale repair cannot
+un-clip a clipping container, so it routes to re-paint with the exact item list. This encodes the
+product's core guarantee ("every item readable on screen") deterministically instead of trusting
+scroll math or model eyes. Corollary prompt rules: COLUMN BALANCE (sibling columns end within ~a
+row of each other — rebalance or drop a type rung, never clip) and an anti-pattern banning
+placeholder art in spare panels.
+
+## D60 — The prompt states each fact once, in its authoritative form (prompt-synthesis wave)
+
+**Problem (prompt audit 2026-07-06, over real Braintrust prompts):** the painter/critic prompts
+had grown by accretion, so the same fact reached the model twice in conflicting forms. Worst: the
+planner's free-text `layoutHint` was dumped raw inside the plan JSON right above the authoritative
+LAYOUT STRATEGY it contradicted, and a contract bullet unconditionally ordered "FOLLOW it".
+Also: the board image-slot ids were serialized twice for the painter (raw JSON + the dedicated
+directive that carries the actual placement/caption semantics); the items payload leaked the
+mis-cased raw source `category` taxonomy ("FALOODA'S") as a competing sub-heading source plus an
+unused `photoCount`; the 13-name food-icon glyph list was emitted twice; PILLS guidance shipped
+on menus with no sizes/variants to pill; the price-ladder blueprint said "at most one shared
+hero if space allows" while the density directive on the same board said the hero is plan-gated;
+and the planner was offered a "variant-rows" representation the Rules never define.
+
+**Decision (full plan: design-explorations/prompt-audit-2026-07-06.md):** the serialized plan is
+slimmed per consumer before it enters a prompt: `layoutHint` is omitted except for matrix
+sections (MATRIX_FIRST_STRATEGY genuinely references it) and the "FOLLOW it" bullet is deleted;
+the painter's copy also drops `imageSlot` (the dedicated directive is the single source) while
+the critic's copy keeps it (the critic has no other way to see the required carousel). The items
+payload drops `category` and `photoCount` (the photo-id allowlist stays — load-bearing
+anti-hallucination rail). Icon-panel guidance and the glyph list live only in the conditional
+icon-slot branch, so they are emitted at most once and only when a board has icon slots; PILLS
+is gated on the menu actually containing sizes/variants. The price-ladder line now uses the same
+plan-gated wording as the density directive. The planner-facing `representation` enum is forked
+to matrix/grid/list only — the internal schema keeps `variant-rows` because its structural check
+is the sole guard that unpriced variant labels render.
+
+## D61 — Themes may not license placeholder art; the critic is told what the shared carousel is
+
+**Problem (same audit — root cause of the run-E judge reject):** every theme's `design.identity`
+string licensed a decorative motif "standing in for any item without a photo". That string is
+fed verbatim to BOTH the painter and the vision critic, so the painter was invited to draw
+placeholder doodles and the critic was structurally unable to flag them — the judge-rejected
+placeholder panel scored 1.00. Separately, the critic was never told the board-level `imageSlot`
+is a required anchor, so it kept flagging the mandated carousel as a theme violation
+(theme-adherence noise, 5 majors in run E).
+
+**Decision:** the stand-in clause is deleted from every theme identity (bazaar never had one); a
+new test asserts no theme identity may contain "standing in for" again. The critic rubric gains
+one gloss line immediately before the serialized plan: `imageSlot` feeds the SINGLE shared photo
+panel/carousel (D38), is NOT per-item photos, and is consistent with a type-led "no per-item
+photos" strategy — the same two-consumers-same-text principle as D21. No new critic anti-pattern
+rule: fixing the licensing data re-enables the existing balance/intentional-design dimensions.
+
+## D62 — The re-paint self-check verifies the fix instead of re-auditing the board
+
+**Problem (same audit):** the system contract's tail told every paint to "re-check your HTML
+against this contract and fix any violation in place" — on a re-paint this contradicts the
+re-paint directive ("make the MINIMAL change… preserving everything else") and invites the
+restyling drift that makes iterations discard good work.
+
+**Decision:** `buildSystem(theme, isRepaint)` swaps ONLY the tail self-check line on re-paint:
+confirm the edit resolves EACH listed finding and introduces no new violation; do NOT re-audit or
+restyle parts the findings don't name; the item-preservation safeguard (never drop/shorten a
+planned item to make an edit fit — D34) is retained verbatim. The swap stays at the tail so the
+system prompt's prefix is byte-identical between paint and re-paint and OpenRouter prompt caching
+keeps working. The companion idea — a lean re-paint user prompt that drops the from-scratch
+composition prose (C2 in the plan doc) — is deliberately HELD behind an eval A/B before shipping.
