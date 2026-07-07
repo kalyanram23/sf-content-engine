@@ -22,10 +22,19 @@ export interface OpenRouterClientOptions {
   appUrl?: string;
   appName?: string;
   /**
-   * Per-request timeout (ms) set on the SDK client; bounds a stalled call so a dead socket can't
-   * hang the run for minutes (the SDK default is 10 min). Left unset → the SDK default applies.
+   * Per-request timeout (ms) for the PRIMARY model's attempts; bounds a stalled call so a dead socket
+   * can't hang the run for minutes (the SDK default is 10 min). Left unset → the SDK default applies.
+   * The real per-attempt bound is our own {@link attemptTimeoutSignal} (armed for the whole body read);
+   * this value is the primary's budget for it.
    */
   timeoutMs?: number;
+  /**
+   * Per-request timeout (ms) for a FALLBACK model's attempts (config `fallbackRequestTimeoutMs`).
+   * The fallback is a slower-but-steadier model whose healthy generation of a big board legitimately
+   * exceeds the primary's leash, so it gets a longer one via {@link attemptTimeoutSignal}. Left unset →
+   * the fallback shares `timeoutMs`, exactly as before this budget existed.
+   */
+  fallbackTimeoutMs?: number;
   /**
    * Opt into client-side Braintrust auto-instrumentation (`wrapOpenAI` traces every call to the
    * initialized Braintrust logger). Off by default: the always-on tracing path is OpenRouter
@@ -39,17 +48,37 @@ export function createOpenRouterClient(options: OpenRouterClientOptions): OpenAI
   const defaultHeaders: Record<string, string> = {};
   if (options.appUrl) defaultHeaders["HTTP-Referer"] = options.appUrl;
   if (options.appName) defaultHeaders["X-Title"] = options.appName;
+  // The SDK's own `timeout` only bounds TIME-TO-HEADERS (see attemptTimeoutSignal) — it never caps the
+  // body read, which our AbortSignal owns. Set it to the LARGER of the two per-attempt budgets so it
+  // can never undercut the fallback's longer leash even before headers arrive; the true per-attempt,
+  // per-model bound is armed below by attemptTimeoutSignal, so the primary is still held to `timeoutMs`.
+  const sdkTimeoutMs =
+    options.timeoutMs !== undefined
+      ? Math.max(options.timeoutMs, options.fallbackTimeoutMs ?? options.timeoutMs)
+      : options.fallbackTimeoutMs;
   const client = new OpenAI({
     apiKey: options.apiKey,
     baseURL: options.baseURL ?? OPENROUTER_BASE_URL,
     defaultHeaders,
-    ...(options.timeoutMs !== undefined ? { timeout: options.timeoutMs } : {}),
-    // `timeout` is PER-ATTEMPT, and the SDK's own auto-retry (default 2) would silently stack up to
-    // 3× the configured timeout onto a stalled call. Disable it: our config-driven `resilience` loop
-    // (requestStructured / requestText) is the single retry authority, so each HTTP attempt respects
-    // `timeoutMs` exactly and the wall-clock is a legible attempts × timeout.
+    ...(sdkTimeoutMs !== undefined ? { timeout: sdkTimeoutMs } : {}),
+    // The SDK's own auto-retry (default 2) would silently stack up to 3× the configured timeout onto a
+    // stalled call. Disable it: our config-driven `resilience` loop (requestStructured / requestText)
+    // is the single retry authority, so each HTTP attempt respects its per-model budget exactly and the
+    // wall-clock is a legible attempts × budget.
     maxRetries: 0,
   });
+  // Stamp the per-model per-attempt budgets that attemptTimeoutSignal reads: the primary uses
+  // `timeoutMs`, a fallback model uses the longer `fallbackTimeoutMs`. These are read off the client so
+  // no per-call budget plumbing through the adapters is needed (mirrors how `timeout` is read). Keeping
+  // them distinct from the SDK's header-only `timeout` lets the primary stay on its short leash while
+  // the SDK timeout is set to the larger budget above.
+  const budgets = client as unknown as {
+    perAttemptTimeoutMs?: number;
+    fallbackAttemptTimeoutMs?: number;
+  };
+  if (options.timeoutMs !== undefined) budgets.perAttemptTimeoutMs = options.timeoutMs;
+  if (options.fallbackTimeoutMs !== undefined)
+    budgets.fallbackAttemptTimeoutMs = options.fallbackTimeoutMs;
   // Auto-instrument only when the caller opted into Braintrust; otherwise return the plain client so
   // the default tracing path is OpenRouter Broadcast alone (no external-logger dependency).
   return options.braintrust ? wrapOpenAI(client) : client;
@@ -204,6 +233,41 @@ export function resilienceFields(r: RoleResilience | undefined): {
   };
 }
 
+/**
+ * A per-attempt {@link AbortSignal} that bounds the WHOLE request — connection AND body read — to
+ * the client's configured timeout. The OpenAI SDK's own `timeout` only bounds time-to-headers: its
+ * `fetchWithTimeout` clears the timer in a `finally` the instant the response headers arrive, so a
+ * provider that returns 200 headers early and then streams a slow NON-stream body (a long GLM paint)
+ * runs UNBOUNDED past that point — measured at 600–1154s single spans against a 300s cap in eval
+ * run 4 (23/55 calls overran). Passing our own `AbortSignal.timeout` as the request `signal` stays
+ * armed through the body read and aborts the underlying fetch, so every attempt is genuinely capped.
+ * The cap is read off the client (`createOpenRouterClient` stamps `perAttemptTimeoutMs` /
+ * `fallbackAttemptTimeoutMs`), so no per-call plumbing through the adapters is needed. The budget is
+ * selected by `modelIndex`: the PRIMARY (index 0) gets `perAttemptTimeoutMs` (config
+ * `requestTimeoutMs`); a FALLBACK (index > 0) gets the longer `fallbackAttemptTimeoutMs` (config
+ * `fallbackRequestTimeoutMs`) — the fallback is a slower/steadier model whose healthy generation of a
+ * big board legitimately exceeds the primary's leash, so sharing it guillotined every big-board
+ * fallback attempt at the primary cap. Each falls back to the SDK client `timeout` when its explicit
+ * budget is absent (a duck-typed test client), preserving the pre-split behaviour. Returns undefined
+ * when no positive budget is found → unbounded, exactly as before.
+ */
+function attemptTimeoutSignal(client: OpenAI, modelIndex: number): AbortSignal | undefined {
+  const c = client as unknown as {
+    timeout?: unknown;
+    perAttemptTimeoutMs?: unknown;
+    fallbackAttemptTimeoutMs?: unknown;
+  };
+  const positive = (v: unknown): number | undefined =>
+    typeof v === "number" && Number.isFinite(v) && v > 0 ? v : undefined;
+  const budget =
+    modelIndex > 0
+      ? (positive(c.fallbackAttemptTimeoutMs) ??
+        positive(c.perAttemptTimeoutMs) ??
+        positive(c.timeout))
+      : (positive(c.perAttemptTimeoutMs) ?? positive(c.timeout));
+  return budget !== undefined ? AbortSignal.timeout(budget) : undefined;
+}
+
 export interface StructuredCall<T> {
   model: string;
   system: string;
@@ -291,6 +355,11 @@ export async function requestStructured<T>(client: OpenAI, call: StructuredCall<
   const models = call.fallback !== undefined ? [call.model, call.fallback] : [call.model];
 
   let lastError = "";
+  // The underlying error object behind the most recent create()-thrown transient failure (a raw
+  // SyntaxError from a truncated body, an abort, or a socket drop). Attached as the `cause` of the
+  // exhaustion LlmContractError so a body-parse failure is never surfaced as a bare SyntaxError; reset
+  // to undefined by the in-band invalid_json/schema_mismatch outcomes so it always tracks the latest.
+  let lastCause: unknown;
   for (const [modelIndex, model] of models.entries()) {
     // A fresh conversation per model: the fallback shouldn't inherit another model's failed turns.
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
@@ -319,9 +388,39 @@ export async function requestStructured<T>(client: OpenAI, call: StructuredCall<
         provider: { require_parameters: true },
       };
 
-      const completion = await client.chat.completions.create(
-        body as unknown as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming,
-      );
+      // Bound this attempt: our AbortSignal caps the WHOLE request (the SDK's own timeout only bounds
+      // time-to-headers, not the slow body read). A timeout or a transient socket drop consumes the
+      // attempt and re-asks / falls back within the budget rather than throwing — a real 4xx/5xx/auth
+      // error still propagates (a different attempt can't fix a bad request). The budget is picked by
+      // model: the primary gets `requestTimeoutMs`, a fallback gets the longer `fallbackRequestTimeoutMs`.
+      const signal = attemptTimeoutSignal(client, modelIndex);
+      let completion: OpenAI.Chat.ChatCompletion;
+      try {
+        completion = await client.chat.completions.create(
+          body as unknown as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming,
+          signal ? { signal } : {},
+        );
+      } catch (error) {
+        // A per-attempt timeout consumes the attempt and re-asks / falls back within the budget
+        // (like a socket drop), rather than throwing. Detect it robustly: the armed signal's
+        // `aborted` flag first, THEN a defensive shape check — the SDK surfaces a slow-body abort as a
+        // raw `AbortError` DOMException that `isTransientNetworkError` does not recognise and that can
+        // arrive decoupled from our signal object, so `signal.aborted` alone let it escape (attempt 1,
+        // no retries). A real 4xx/5xx/auth error still propagates (a retry can't fix a bad request).
+        const timedOut =
+          signal !== undefined && (signal.aborted === true || isAbortLikeError(error));
+        // A truncated/empty response body makes the SDK's own JSON.parse throw a raw SyntaxError (the
+        // same disease D51 fixed for aborts — see isBodyParseError); classify it as a transient network
+        // drop so the attempt is consumed and the fallback engaged, never rethrown terminally.
+        const bodyParse = isBodyParseError(error);
+        if (timedOut || bodyParse || isTransientNetworkError(error)) {
+          lastError = timedOut ? "request timed out before a response" : "transient network error";
+          prevOutcome = timedOut ? "timeout" : "transient_network";
+          lastCause = error;
+          continue;
+        }
+        throw error;
+      }
       // Report every attempt's usage — a re-ask spends again, and that double-spend is otherwise blind.
       const usage = extractUsage(completion, attempt);
       if (usage !== undefined) call.onUsage?.(usage, model);
@@ -333,6 +432,7 @@ export async function requestStructured<T>(client: OpenAI, call: StructuredCall<
       } catch {
         lastError = "response was not valid JSON";
         prevOutcome = "invalid_json";
+        lastCause = undefined;
         messages.push({ role: "assistant", content });
         messages.push({
           role: "user",
@@ -346,6 +446,7 @@ export async function requestStructured<T>(client: OpenAI, call: StructuredCall<
 
       lastError = result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
       prevOutcome = "schema_mismatch";
+      lastCause = undefined;
       messages.push({ role: "assistant", content });
       messages.push({
         role: "user",
@@ -357,6 +458,7 @@ export async function requestStructured<T>(client: OpenAI, call: StructuredCall<
   throw new LlmContractError(
     `OpenRouter response failed the "${call.schemaName}" contract: ${lastError}`,
     {
+      ...(lastCause !== undefined ? { cause: lastCause } : {}),
       details: { model: call.model, schemaName: call.schemaName },
     },
   );
@@ -382,6 +484,62 @@ function isTransientNetworkError(error: unknown): boolean {
     message.includes("other side closed") ||
     message.includes("socket hang up")
   );
+}
+
+/**
+ * An ABORTED in-flight request — our per-attempt {@link attemptTimeoutSignal} fired, or the fetch
+ * that carries it was aborted mid-body. The OpenAI SDK does NOT surface this as one stable class:
+ * a PRE-header abort is wrapped as its own `APIUserAbortError` ("Request was aborted."), but an abort
+ * during the SLOW response-body parse — the exact case this signal exists to bound (headers arrive
+ * fast, a non-stream body then streams slowly) — is thrown OUTSIDE the SDK's `makeRequest`
+ * abort-wrapping, so it escapes as the RAW undici `DOMException` (`name:"AbortError"`, message "This
+ * operation was aborted", legacy numeric `code:20`). {@link isTransientNetworkError} does not
+ * recognise that raw shape (no `UND_ERR_SOCKET`/`terminated`/`socket` markers), so relying on
+ * `signal.aborted` alone let a bare AbortError propagate terminally on attempt 1 when the abort was
+ * decoupled from our signal object. This predicate is the shape backstop: it matches an abort by
+ * `instanceof APIUserAbortError`, by error/DOMException name ("AbortError"/"TimeoutError"), by
+ * constructor name, by message, or cause-chained. Since this codebase passes NO external abort
+ * signals, callers gate it on an armed timeout signal (`signal !== undefined`) → every such abort is
+ * a per-attempt TIMEOUT, never a user cancellation.
+ */
+function isAbortLikeError(error: unknown, depth = 0): boolean {
+  if (error === null || typeof error !== "object" || depth > 3) return false;
+  if (error instanceof OpenAI.APIUserAbortError) return true;
+  const e = error as { name?: unknown; message?: unknown; cause?: unknown };
+  const name = typeof e.name === "string" ? e.name : "";
+  const ctorName =
+    typeof (error as { constructor?: { name?: unknown } }).constructor?.name === "string"
+      ? (error as { constructor: { name: string } }).constructor.name
+      : "";
+  const message = typeof e.message === "string" ? e.message.toLowerCase() : "";
+  if (
+    name === "AbortError" ||
+    name === "TimeoutError" ||
+    ctorName === "APIUserAbortError" ||
+    message.includes("aborted")
+  ) {
+    return true;
+  }
+  // Cause-chained abort (e.g. a wrapper that carries the AbortError as its `cause`).
+  return e.cause !== undefined && e.cause !== error ? isAbortLikeError(e.cause, depth + 1) : false;
+}
+
+/**
+ * A response-body-PARSE failure thrown by the SDK's `create()` call — D51's disease in a different
+ * costume. The OpenAI SDK reads the HTTP response body and runs `JSON.parse` on it INSIDE its own
+ * `makeRequest`; when the provider (e.g. z-ai/glm-5.2 via OpenRouter) cuts the connection mid-body or
+ * returns a truncated/empty body, that internal `JSON.parse` throws a raw `SyntaxError` ("Unexpected
+ * end of JSON input") that is NEITHER an `APIError` nor abort-shaped — so both
+ * {@link isTransientNetworkError} and {@link isAbortLikeError} miss it and the retry loop rethrew it
+ * as terminal (observed twice in one eval run: zero retries, no fallback, one board burned 1714s then
+ * died). A truncated body is the same transient class as a socket drop, so classify it as one:
+ * consume the attempt, retry with backoff, and engage the fallback. `instanceof SyntaxError` is the
+ * load-bearing check — the message is only illustrative and must NOT be matched on. This is called
+ * ONLY from the `create()` catch, so it never sees the SyntaxErrors our OWN `JSON.parse` sites throw
+ * (structured content parsing, which has its own invalid_json re-ask handling below).
+ */
+function isBodyParseError(error: unknown): boolean {
+  return error instanceof SyntaxError;
 }
 
 function delay(ms: number): Promise<void> {
@@ -458,6 +616,13 @@ export async function requestText(
   // exhausted without ever producing content (a different model can recover a socket-level drop
   // when it routes to a different provider, so we fall through rather than throw eagerly).
   let pendingTransient: unknown;
+  // Whether {@link pendingTransient} is a per-attempt TIMEOUT (vs a socket drop). On full exhaustion
+  // a timeout is surfaced as a legible wrapped error rather than the SDK's bare AbortError.
+  let pendingTimedOut = false;
+  // Whether {@link pendingTransient} is a truncated/empty-body PARSE failure — a raw SyntaxError the
+  // SDK threw from its OWN JSON.parse of the response body (see isBodyParseError). Like a timeout, on
+  // full exhaustion it is surfaced as a legible wrapped error, never a bare SyntaxError.
+  let pendingBodyParse = false;
   for (const [modelIndex, model] of models.entries()) {
     // Seed the fallback model's first attempt with why we switched, for legible tracing.
     let prevOutcome: string | undefined = modelIndex > 0 ? "primary_exhausted" : undefined;
@@ -470,25 +635,47 @@ export async function requestText(
         ...baseBody,
         ...(trace !== undefined ? { trace } : {}),
       } as unknown as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming;
+      // Bound this attempt: our AbortSignal caps the WHOLE request. The SDK's own `timeout` only
+      // bounds time-to-headers (it clears its timer once headers arrive), so a provider that streams a
+      // slow non-stream body — a long paint — was previously unbounded (600–1154s spans, eval run 4).
+      // The budget is picked by model: the primary gets `requestTimeoutMs`, a fallback the longer
+      // `fallbackRequestTimeoutMs` — a slower/steadier model whose big-board paint legitimately overran
+      // the shared 300s cap and was killed on every attempt (tonight's traces: 22/29 fallback calls).
+      const signal = attemptTimeoutSignal(client, modelIndex);
       let completion: OpenAI.Chat.ChatCompletion;
       try {
-        completion = await client.chat.completions.create(body);
+        completion = await client.chat.completions.create(body, signal ? { signal } : {});
       } catch (error) {
-        // Retry a transient socket drop a few times (with linear backoff) before moving on; a real
-        // error (4xx/5xx/auth/bad request) is not transient and propagates immediately.
-        if (isTransientNetworkError(error)) {
+        // A per-attempt timeout (our signal fired) or a transient socket drop is retried a few times
+        // (with linear backoff) before moving on to the fallback; a real error (4xx/5xx/auth/bad
+        // request) is not transient and propagates immediately. Detect the timeout robustly: the armed
+        // signal's `aborted` flag first, THEN a defensive shape check — the SDK surfaces a slow-body
+        // abort as a raw `AbortError` DOMException that `isTransientNetworkError` misses and that can
+        // arrive decoupled from our signal, so `signal.aborted` alone let it escape (attempt 1, no
+        // retries, no fallback — the eval-run crash this fixes).
+        const timedOut =
+          signal !== undefined && (signal.aborted === true || isAbortLikeError(error));
+        // A truncated/empty response body makes the SDK's own JSON.parse throw a raw SyntaxError (the
+        // same disease D51 fixed for aborts — see isBodyParseError); classify it as a transient network
+        // drop so the attempt is consumed, retried with backoff, and the fallback engaged.
+        const bodyParse = isBodyParseError(error);
+        if (timedOut || bodyParse || isTransientNetworkError(error)) {
           pendingTransient = error;
-          prevOutcome = "transient_network";
+          pendingTimedOut = timedOut;
+          pendingBodyParse = bodyParse;
+          prevOutcome = timedOut ? "timeout" : "transient_network";
           if (attempt < maxAttempts - 1) {
             await delay(backoff * (attempt + 1));
             continue;
           }
-          // This model exhausted its attempts on a transient error → try the fallback (if any).
+          // This model exhausted its attempts on a timeout/transient error → try the fallback (if any).
           break;
         }
         throw error;
       }
       pendingTransient = undefined;
+      pendingTimedOut = false;
+      pendingBodyParse = false;
       // Report every attempt that produced a response (incl. an empty-body reasoning burn) — the retry
       // path is where hidden spend accumulates; a network drop threw/broke above, so it has no usage.
       const usage = extractUsage(completion, attempt);
@@ -510,6 +697,29 @@ export async function requestText(
   }
   // Every model is spent. If the last failure was a transient network error and nothing usable ever
   // came back, surface it; otherwise return the last (empty) body for the caller (painter) to handle.
-  if (pendingTransient !== undefined && last.trim() === "") throw pendingTransient;
+  if (pendingTransient !== undefined && last.trim() === "") {
+    // A bare AbortError ("This operation was aborted") or a raw SyntaxError ("Unexpected end of JSON
+    // input") is illegible upstream — wrap an exhaustion-by-timeout or by-body-parse in a clear error
+    // (keeping the original as `cause`); a socket-drop exhaustion still re-throws the original
+    // transient error (its `code` aids upstream handling). Name BOTH models tried when a fallback was
+    // engaged, so a crashed board's log tells the whole story (primary AND the rescue that also failed).
+    const modelsTried =
+      params.fallback !== undefined
+        ? `${params.model}, then fallback ${params.fallback}`
+        : params.model;
+    if (pendingTimedOut) {
+      throw new Error(
+        `OpenRouter request for "${modelsTried}" timed out on every attempt before returning a response`,
+        { cause: pendingTransient },
+      );
+    }
+    if (pendingBodyParse) {
+      throw new Error(
+        `OpenRouter response for "${modelsTried}" could not be parsed on any attempt (truncated or empty body)`,
+        { cause: pendingTransient },
+      );
+    }
+    throw pendingTransient;
+  }
   return last;
 }

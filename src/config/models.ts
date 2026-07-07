@@ -78,9 +78,18 @@ export const modelRoutingSchema = z.object({
     ]),
   /**
    * Per-role reasoning control. Defaults: `plan` thinks (judgment-heavy, one cheap call); `paint`
-   * is bounded to LOW effort (long-form HTML where unbounded reasoning starves the content budget
-   * and can return an empty body — the screen-3 failure). `critique`/`repair` keep the model
-   * default. Override per role, e.g. `paint: { maxTokens: 4000 }`.
+   * reasons at `effort:"low"`. The full story (A/B'd across full eval runs, 2026-07-05): `effort`
+   * does NOT actually cap GLM-5.2's reasoning — even at `"low"` it spends ~70% of its paint
+   * completion tokens thinking — so `effort` is NOT a token-economy lever here. But reasoning being
+   * ON is a QUALITY lever: turning it OFF (the earlier D42 setting) made the paint model start
+   * violating basic contract rules it otherwise honours — raw-hex inline styles (token-lint majors)
+   * and duplicated / cut-off headers appeared ONLY with reasoning off, dropping the judge ship-rate.
+   * The original reasons to disable it — runaway reasoning burning the 32000-token cap into
+   * empty-board retries/fallbacks, ~19-minute calls, retry spend — are now independently contained
+   * downstream WITHOUT sacrificing quality: truncation-retry (D34), the enforced per-attempt
+   * `requestTimeoutMs` (D42 Fix 2), and the Sonnet `paint` fallback (D32). The residual cost is
+   * ~$2.60/run, trivial next to the regression. `critique`/`repair` keep the model default. One line
+   * to change if a run regresses. Override per role, e.g. `paint: { maxTokens: 4000 }`.
    */
   reasoning: z
     .object({
@@ -150,6 +159,19 @@ export const modelRoutingSchema = z.object({
    * single retry authority. With `paint` reasoning bounded above, paints finish well inside this.
    */
   requestTimeoutMs: z.number().int().positive().default(300000),
+  /**
+   * Per-request timeout (ms) for a FALLBACK model's attempts — a longer leash than the primary's
+   * `requestTimeoutMs` (default 300s). The fallback is the last line before a crashed board, and it's
+   * a slower-but-STEADIER model (default `anthropic/claude-sonnet-4.6`) that needs real generation
+   * time: painting a 40+ item board is >300s of pure, healthy generation for it. Sharing the primary's
+   * 300s leash guillotined it on every big-board attempt — tonight's traces: 29 fallback calls, 22
+   * killed at EXACTLY the shared 300.00s, 3 boards crashed "timed out on every attempt" (the rescue
+   * model could structurally never rescue). The primary (`z-ai/glm-5.2`) is fast when healthy (20–40s)
+   * and stalls otherwise, so 300s is the right leash for IT; the fallback earns a separate, larger one.
+   * Worst-case wall-clock is bounded by `resilience[role].maxAttempts × this value`, and the D28
+   * per-board bulkheads contain that so one slow board can't stall the run.
+   */
+  fallbackRequestTimeoutMs: z.number().int().positive().default(900000),
 });
 
 export type ModelRouting = z.infer<typeof modelRoutingSchema>;
