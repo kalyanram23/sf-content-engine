@@ -127,6 +127,117 @@ describe("expandLayoutToPlan", () => {
   });
 });
 
+describe("board title stamping (masthead)", () => {
+  it("stamps a non-empty title on every screen", () => {
+    const plan = expandLayoutToPlan(LAYOUT, MENU, 2);
+    expect(plan.screens.every((s) => typeof s.title === "string" && s.title!.length > 0)).toBe(
+      true,
+    );
+  });
+
+  it("joins each board's section titles, in section order, with ' · '", () => {
+    const plan = expandLayoutToPlan(LAYOUT, MENU, 2);
+    for (const screen of plan.screens) {
+      expect(screen.title).toBe(screen.sections.map((s) => s.title).join(" · "));
+    }
+  });
+
+  it("names a single-section board with just that section's title", () => {
+    const plan = expandLayoutToPlan(LAYOUT, MENU, 2);
+    const combined = plan.screens.find((s) =>
+      s.sections.some((sec) => sec.title === "Biryani & Pulav"),
+    );
+    expect(combined?.title).toBe("Biryani & Pulav");
+  });
+
+  it("names a multi-section board with all its section titles joined in order", () => {
+    const plan = expandLayoutToPlan(LAYOUT, MENU, 2);
+    const multi = plan.screens.find((s) => s.sections.length > 1);
+    expect(multi).toBeDefined();
+    // Deterministic partition puts "Veg Curries" then "Desserts" on the second board.
+    expect(multi?.title).toBe("Veg Curries · Desserts");
+    expect(multi?.title).toBe(multi?.sections.map((s) => s.title).join(" · "));
+  });
+});
+
+describe("matrix attachment earns its keep (Fix 1 — no degenerate matrices)", () => {
+  // A combined board whose two categories share NO base dish: every matrix row would be filled in
+  // exactly one column (a dash-graveyard). The expander must NOT attach a matrix — the painter then
+  // renders a plain list and the matrix-structure QA stays silent (the run-4 misfire).
+  it("does not attach a matrix to a multi-category block with no cross-pairing (list representation)", () => {
+    const menu: CanonicalItem[] = [
+      item("d1", "Gulab Jamun", "Desserts"),
+      item("d2", "Rasmalai", "Desserts"),
+      item("bev1", "Mango Lassi", "Beverages"),
+      item("bev2", "Masala Chai", "Beverages"),
+    ];
+    const layout: PlanLayout = {
+      blocks: [
+        {
+          title: "Desserts & Beverages",
+          categories: ["Desserts", "Beverages"],
+          representation: "list",
+          layoutHint: "",
+        },
+      ],
+    };
+    const plan = expandLayoutToPlan(layout, menu, 1, { screensMode: "exact" });
+    const section = plan.screens[0]!.sections.find((s) => s.title === "Desserts & Beverages");
+    expect(section?.matrix).toBeUndefined();
+  });
+
+  it("attaches a matrix to a genuinely cross-paired multi-category block even at grid/list representation", () => {
+    const menu: CanonicalItem[] = [
+      item("b1", "Chicken Biryani", "Biryani"),
+      item("b2", "Paneer Biryani", "Biryani"),
+      item("b3", "Mutton Biryani", "Biryani"),
+      item("p1", "Chicken Pulav", "Pulav"),
+      item("p2", "Paneer Pulav", "Pulav"),
+      item("p3", "Mutton Pulav", "Pulav"),
+    ];
+    const layout: PlanLayout = {
+      blocks: [
+        {
+          // NOT a matrix representation — but Chicken/Paneer/Mutton each pair across both columns.
+          title: "Biryani & Pulav",
+          categories: ["Biryani", "Pulav"],
+          representation: "grid",
+          layoutHint: "",
+        },
+      ],
+    };
+    const plan = expandLayoutToPlan(layout, menu, 1, { screensMode: "exact" });
+    const section = plan.screens[0]!.sections.find((s) => s.title === "Biryani & Pulav");
+    expect(section?.matrix).toBeDefined();
+    expect(section?.matrix?.rows).toHaveLength(3); // Chicken, Paneer, Mutton — all cross-paired
+  });
+
+  it("honours an explicit representation:matrix even when the pairing is sparse (planner intent wins)", () => {
+    // Only 1 pairing across 5 items → degenerate by the ratio test, but the planner explicitly asked
+    // for a matrix, so it is still attached (single-column dash cells are the intended shape here).
+    const menu: CanonicalItem[] = [
+      item("b1", "Chicken Biryani", "Biryani"),
+      item("b2", "Mutton Biryani", "Biryani"),
+      item("b3", "Fish Biryani", "Biryani"),
+      item("b4", "Egg Biryani", "Biryani"),
+      item("p1", "Chicken Pulav", "Pulav"),
+    ];
+    const layout: PlanLayout = {
+      blocks: [
+        {
+          title: "Biryani & Pulav",
+          categories: ["Biryani", "Pulav"],
+          representation: "matrix",
+          layoutHint: "price table",
+        },
+      ],
+    };
+    const plan = expandLayoutToPlan(layout, menu, 1, { screensMode: "exact" });
+    const section = plan.screens[0]!.sections.find((s) => s.title === "Biryani & Pulav");
+    expect(section?.matrix).toBeDefined();
+  });
+});
+
 describe("partitionContiguous", () => {
   it("balances equal sizes evenly", () => {
     expect(partitionContiguous([10, 10, 10, 10], 2)).toEqual([2, 2]);
@@ -168,16 +279,19 @@ describe("imageSlot synthesis (matrix shared hero)", () => {
     expect(matrixScreen?.imageSlot?.items).toEqual(["b1", "b2", "p1"]);
   });
 
-  it("anchors a comfortable, spare non-matrix board's slot to its dominant photo category (D33)", () => {
+  it("gives a comfortable non-matrix board a PER-SECTION slot on every category (no board-level slot)", () => {
     const plan = expandLayoutToPlan(LAYOUT, MENU, 2);
     const gridScreen = plan.screens.find(
       (s) => !s.sections.some((sec) => sec.representation === "matrix"),
     );
     expect(gridScreen).toBeDefined();
-    // Veg Curries v1/v2 carry photos (Desserts d1/d2 don't) — the slot is anchored to that category,
-    // NOT a free-floating hero. (Was slot-less before D33; the sparse board wasted the space.)
-    expect(gridScreen?.imageSlot?.categoryId).toBe("Veg Curries");
-    expect(gridScreen?.imageSlot?.items).toEqual(["v1", "v2"]);
+    // Comfortable, non-matrix → NO board-level shared slot; each category carries its own anchor.
+    expect(gridScreen?.imageSlot).toBeUndefined();
+    const veg = gridScreen?.sections.find((sec) => sec.title === "Veg Curries");
+    const desserts = gridScreen?.sections.find((sec) => sec.title === "Desserts");
+    // Veg Curries v1/v2 carry photos → a photos slot; Desserts d1/d2 don't → a food-icon panel.
+    expect(veg?.imageSlot).toEqual({ kind: "photos", items: ["v1", "v2"] });
+    expect(desserts?.imageSlot).toEqual({ kind: "icon", items: [] });
   });
 
   it("synthesizes a slot for a table board flagged only by layoutHint (not representation)", () => {
@@ -221,7 +335,7 @@ describe("imageSlot synthesis (matrix shared hero)", () => {
   });
 });
 
-describe("comfortable image-slot guarantee (D33)", () => {
+describe("per-category image slots (category-images requirement)", () => {
   // `n` items in one non-matrix (grid) category, the first `withPhotos` of them carrying a photo.
   const photoMenu = (n: number, withPhotos: number, category = "Small Plates"): CanonicalItem[] =>
     Array.from({ length: n }, (_, i) => item(`s${i}`, `Dish ${i}`, category, i < withPhotos));
@@ -229,48 +343,78 @@ describe("comfortable image-slot guarantee (D33)", () => {
     blocks: [{ title: category, categories: [category], representation: "grid", layoutHint: "" }],
   });
 
-  it("populates a category-anchored slot for a comfortable, spare board with photos", () => {
-    const plan = expandLayoutToPlan(gridLayout(), photoMenu(3, 3), 1, { screensMode: "exact" });
+  it("gives every section its own slot on a comfortable non-matrix board (photos, capped at 4)", () => {
+    // 6 items, all with photos: the section gets a "photos" slot with the first 4 ids (deterministic).
+    const plan = expandLayoutToPlan(gridLayout(), photoMenu(6, 6), 1, { screensMode: "exact" });
     const screen = plan.screens[0]!;
     expect(screen.densityTier).toBe("comfortable");
-    expect(screen.imageSlot?.categoryId).toBe("Small Plates");
-    expect(screen.imageSlot?.items).toEqual(["s0", "s1", "s2"]);
+    // No board-level shared slot on a comfortable, non-matrix board.
+    expect(screen.imageSlot).toBeUndefined();
+    expect(screen.sections[0]!.imageSlot).toEqual({
+      kind: "photos",
+      items: ["s0", "s1", "s2", "s3"],
+    });
   });
 
-  it("fires for a single-photo board too (a static panel still fills the empty space)", () => {
+  it("a single-photo category still gets a photos slot (one static panel)", () => {
     const plan = expandLayoutToPlan(gridLayout(), photoMenu(3, 1), 1, { screensMode: "exact" });
-    expect(plan.screens[0]!.imageSlot?.items).toEqual(["s0"]);
+    expect(plan.screens[0]!.sections[0]!.imageSlot).toEqual({ kind: "photos", items: ["s0"] });
   });
 
-  it("leaves a comfortable board with no photos slot-less (nothing to show)", () => {
+  it("a photo-less category gets an ICON slot (a deliberate food-icon panel, never nothing)", () => {
     const plan = expandLayoutToPlan(gridLayout(), photoMenu(3, 0), 1, { screensMode: "exact" });
     expect(plan.screens[0]!.densityTier).toBe("comfortable");
-    expect(plan.screens[0]!.imageSlot).toBeUndefined();
+    expect(plan.screens[0]!.sections[0]!.imageSlot).toEqual({ kind: "icon", items: [] });
   });
 
-  it("never fires on a dense/packed board, even with photos (photos are suppressed there, D30)", () => {
+  it("mixes photo and icon slots per section on the same comfortable board", () => {
+    // Two categories on one comfortable board: one with photos → photos slot, one without → icon slot.
+    const menu: CanonicalItem[] = [
+      item("a1", "Alpha 1", "Alpha", true),
+      item("a2", "Alpha 2", "Alpha", true),
+      item("z1", "Zeta 1", "Zeta"),
+      item("z2", "Zeta 2", "Zeta"),
+    ];
+    const plan = expandLayoutToPlan(listLayoutOf(["Alpha", "Zeta"]), menu, 1, {
+      screensMode: "exact",
+    });
+    const screen = plan.screens[0]!;
+    expect(screen.densityTier).toBe("comfortable");
+    expect(screen.sections.find((s) => s.title === "Alpha")?.imageSlot).toEqual({
+      kind: "photos",
+      items: ["a1", "a2"],
+    });
+    expect(screen.sections.find((s) => s.title === "Zeta")?.imageSlot).toEqual({
+      kind: "icon",
+      items: [],
+    });
+  });
+
+  it("a dense/packed board gets ONE shared board-level slot, not per-section slots (D30)", () => {
     const plan = expandLayoutToPlan(gridLayout(), photoMenu(30, 30), 1, {
+      legibilityBudget: 10,
+      screensMode: "exact",
+    });
+    const screen = plan.screens[0]!;
+    expect(screen.densityTier).not.toBe("comfortable");
+    // Shared carousel of up to 8 of the board's photos; NO per-section slots.
+    expect(screen.imageSlot?.items).toEqual(["s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7"]);
+    expect(screen.sections.every((s) => s.imageSlot === undefined)).toBe(true);
+  });
+
+  it("a dense board with ZERO photos gets no slot at all", () => {
+    const plan = expandLayoutToPlan(gridLayout(), photoMenu(30, 0), 1, {
       legibilityBudget: 10,
       screensMode: "exact",
     });
     expect(plan.screens[0]!.densityTier).not.toBe("comfortable");
     expect(plan.screens[0]!.imageSlot).toBeUndefined();
+    expect(plan.screens[0]!.sections.every((s) => s.imageSlot === undefined)).toBe(true);
   });
 
-  it("stays conservative — no slot when a comfortable board is already nearly full", () => {
-    // 9 rows on a 10-row budget: comfortable, but 9*2 > 10 → not clearly spare → no slot forced.
-    const plan = expandLayoutToPlan(gridLayout(), photoMenu(9, 9), 1, {
-      legibilityBudget: 10,
-      screensMode: "exact",
-    });
-    expect(plan.screens[0]!.densityTier).toBe("comfortable");
-    expect(plan.screens[0]!.imageSlot).toBeUndefined();
-  });
-
-  it("leaves an existing (matrix) slot untouched — does not stack a comfortable slot on top", () => {
-    // A small matrix board is comfortable + spare, but synthesizeImageSlot already supplied the
-    // shared-hero slot; the comfortable path must not override it (categoryId stays unset — the
-    // caption falls back to the combined section title).
+  it("leaves a matrix board's shared hero untouched — no per-section slots stacked on top", () => {
+    // A small matrix board is comfortable, but synthesizeImageSlot already supplied the shared-hero
+    // slot; the per-section path is suppressed for matrix boards (a per-category grid fights the table).
     const menu: CanonicalItem[] = [
       item("b1", "Chicken Biryani", "Biryani", true),
       item("b2", "Paneer Biryani", "Biryani", true),
@@ -291,9 +435,10 @@ describe("comfortable image-slot guarantee (D33)", () => {
       1,
       { screensMode: "exact" },
     );
-    const slot = plan.screens[0]!.imageSlot;
-    expect(slot?.items).toEqual(["b1", "b2", "p1"]);
-    expect(slot?.categoryId).toBeUndefined();
+    const screen = plan.screens[0]!;
+    expect(screen.imageSlot?.items).toEqual(["b1", "b2", "p1"]);
+    expect(screen.imageSlot?.categoryId).toBeUndefined();
+    expect(screen.sections.every((s) => s.imageSlot === undefined)).toBe(true);
   });
 });
 

@@ -111,8 +111,8 @@ const DEFAULT_BLUEPRINTS: LayoutBlueprint[] = [
     appliesWhen: { representationAnyOf: ["list"], minItems: 9 },
     strategy:
       "LAYOUT STRATEGY for this board: PRICE LADDER. A type-led list — names and prices in aligned columns " +
-      "joined by dotted leaders, split into two or three balanced columns. NO per-item photos; at most one " +
-      "shared compact hero, and only if space clearly allows.",
+      "joined by dotted leaders, split into two or three balanced columns. NO per-item photos; the only " +
+      "imagery is the plan's ONE shared compact hero when the plan supplies one (else none).",
     fixed: [
       "No per-item photos — this board is type-led",
       "Prices aligned down a ladder with dotted leaders",

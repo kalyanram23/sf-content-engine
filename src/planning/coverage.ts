@@ -4,6 +4,7 @@ import type {
   PlanImageSlot,
   PlanScreen,
   PlanSection,
+  PlanSectionImageSlot,
   Representation,
   SectionMatrix,
   ThinPlan,
@@ -105,9 +106,32 @@ function isPerItemSizeMatrix(cats: readonly string[], items: readonly CanonicalI
 }
 
 /**
- * Compute the cross-category comparison matrix for a block when it warrants one: a combined block
- * (>1 category) OR an explicit `matrix` representation (§ Phase 1). Skips the per-item size-matrix
- * case. `cats` are the resolved, present category names (matrix columns).
+ * Does a computed matrix earn a comparison TABLE, or is it a dash-graveyard? A multi-category block
+ * whose categories share NO base dish yields a matrix where every row is filled in exactly ONE column
+ * (zero cross-pairings, e.g. a combined "Desserts & Beverages" board). Attaching it would demand a
+ * table full of em-dash cells the painter (correctly, from a list/grid representation) never renders,
+ * tripping the matrix-structure QA against plan data that should never have existed — the confirmed
+ * root cause of all of run-4's matrix-structure findings.
+ *
+ * It earns its keep only when the pairing is GENUINE — enough rows span ≥2 columns: ≥3 such rows OR
+ * ≥30% of rows. The absolute floor of 3 keeps a large table with a real (if minority) comparison
+ * spine; the 30% ratio keeps a small mostly-paired table. A lone 1-of-43 pairing clears neither.
+ */
+function matrixEarnsItsKeep(matrix: SectionMatrix): boolean {
+  const rowCount = matrix.rows.length;
+  if (rowCount === 0) return false;
+  const crossPaired = matrix.rows.filter(
+    (r) => r.cells.filter((c) => c !== null).length >= 2,
+  ).length;
+  return crossPaired >= 3 || crossPaired / rowCount >= 0.3;
+}
+
+/**
+ * Compute the cross-category comparison matrix for a block when it warrants one. An explicit `matrix`
+ * representation is the planner's stated intent → always honoured. A combined block (>1 category) the
+ * planner marked list/grid gets the computed matrix ONLY when it is a genuine cross-category
+ * comparison ({@link matrixEarnsItsKeep}), never a degenerate dash-graveyard. Skips the per-item
+ * size-matrix case. `cats` are the resolved, present category names (matrix columns).
  */
 function matrixForBlock(
   cats: string[],
@@ -118,7 +142,9 @@ function matrixForBlock(
   if (!(cats.length > 1 || representation === "matrix")) return undefined;
   if (isPerItemSizeMatrix(cats, items)) return undefined;
   const subMap = new Map(cats.map((c) => [c, byCategory.get(c) ?? []]));
-  return buildMatrix(cats, subMap);
+  const matrix = buildMatrix(cats, subMap);
+  if (representation === "matrix" || matrixEarnsItsKeep(matrix)) return matrix;
+  return undefined;
 }
 
 /** Expand the LLM blocks (+ any omitted categories) into ordered draft sections. */
@@ -242,45 +268,53 @@ function synthesizeImageSlot(
   return photoIds.length >= 2 ? { items: photoIds } : undefined;
 }
 
+/** A per-category photo panel holds a few of that category's photos — enough to rotate, not a wall. */
+const SECTION_SLOT_MAX_PHOTOS = 4;
+/** A dense/packed board's ONE shared carousel cycles a handful of the board's photos. */
+const SHARED_SLOT_MAX_PHOTOS = 8;
+
 /**
- * A category-anchored photo panel for a COMFORTABLE, non-matrix board with clear spare canvas (D33).
- * A sparse board's failure mode is dead space, and the product rule is: small menu + empty space →
- * fill it with food photography, not decoration. So when the planner left a comfortable board with
- * room to spare and some of its items carry photos, guarantee an `imageSlot` exists (the painter's
- * sparse register then absorbs the empty canvas with it). Labelled with the DOMINANT category (the
- * one owning the most of the slot's photos) so the painter captions + anchors it to that section
- * rather than floating a hero. Unlike the matrix shared hero this fires for a SINGLE photo too (a
- * static panel still sells the food + fills the space). Returns undefined when no item has a photo.
+ * The per-category image slot for ONE section of a comfortable, non-matrix board (the category-images
+ * requirement): `kind: "photos"` with up to {@link SECTION_SLOT_MAX_PHOTOS} of that category's own
+ * photo-item ids (first-by-plan-order — stable + deterministic), else `kind: "icon"` (empty items) so
+ * a photo-less category still gets a deliberate themed food-icon panel rather than nothing. Every
+ * section gets one, so every category on the board carries its own visual anchor.
  */
-function comfortableImageSlot(
+function sectionImageSlot(
+  section: PlanSection,
+  byId: Map<string, CanonicalItem>,
+): PlanSectionImageSlot {
+  const photoIds: string[] = [];
+  for (const id of section.items) {
+    const item = byId.get(id);
+    if ((item?.images?.length ?? 0) > 0) {
+      photoIds.push(id);
+      if (photoIds.length >= SECTION_SLOT_MAX_PHOTOS) break;
+    }
+  }
+  return photoIds.length > 0 ? { kind: "photos", items: photoIds } : { kind: "icon", items: [] };
+}
+
+/**
+ * The ONE shared board-level carousel slot for a DENSE/PACKED, non-matrix board: per-category panels
+ * would eat the item space forced density needs, so instead a single compact slot cycles up to
+ * {@link SHARED_SLOT_MAX_PHOTOS} of the board's photo-item ids (first-by-plan-order, de-duplicated).
+ * Returns undefined when the board has ZERO photo items (a photo-less dense board needs no slot).
+ */
+function sharedImageSlot(
   sections: readonly PlanSection[],
   byId: Map<string, CanonicalItem>,
 ): PlanImageSlot | undefined {
   const photoIds: string[] = [];
-  const catCounts = new Map<string, number>();
   for (const section of sections) {
     for (const id of section.items) {
       const item = byId.get(id);
-      if ((item?.images?.length ?? 0) > 0 && !photoIds.includes(id)) {
-        photoIds.push(id);
-        if (item?.category !== undefined)
-          catCounts.set(item.category, (catCounts.get(item.category) ?? 0) + 1);
-      }
-      if (photoIds.length >= IMAGE_SLOT_MAX_PHOTOS) break;
+      if ((item?.images?.length ?? 0) > 0 && !photoIds.includes(id)) photoIds.push(id);
+      if (photoIds.length >= SHARED_SLOT_MAX_PHOTOS) break;
     }
-    if (photoIds.length >= IMAGE_SLOT_MAX_PHOTOS) break;
+    if (photoIds.length >= SHARED_SLOT_MAX_PHOTOS) break;
   }
-  if (photoIds.length === 0) return undefined;
-  // Dominant category (first-wins on a tie, thanks to Map insertion order + strict >).
-  let categoryId: string | undefined;
-  let best = 0;
-  for (const [cat, count] of catCounts) {
-    if (count > best) {
-      best = count;
-      categoryId = cat;
-    }
-  }
-  return { ...(categoryId !== undefined ? { categoryId } : {}), items: photoIds };
+  return photoIds.length > 0 ? { items: photoIds } : undefined;
 }
 
 /** Throw if any menu item failed to land on a board — the non-negotiable coverage guarantee. */
@@ -404,21 +438,29 @@ export function expandLayoutToPlan(
     // their consumers recompute it identically (shared `densityTier` arithmetic).
     const weight = group.reduce((n, d) => n + d.size, 0);
     const tier = densityTier(weight, budget, packedMultiplier);
-    // Image slot: the matrix shared hero (any tier, its own ≥2-photo rule) OR — when a COMFORTABLE,
-    // non-matrix board has clear spare canvas (rows well under budget) and photo-bearing items — a
-    // category-anchored photo panel to absorb the empty space (D33). Deterministic + conservative:
-    // only when the matrix synthesis didn't already supply a slot, and NEVER on dense/packed boards
-    // (they suppress photos, D30) or a board that is already comfortably full.
-    const imageSlot =
+    const matrixBoard = isMatrixBoard({ sections });
+    // Category-images requirement — every category on the board gets a visual anchor:
+    //  • matrix board (any tier): keep the ONE shared rotating hero (`synthesizeImageSlot`, its own
+    //    ≥2-photo rule) — a per-category grid fights the price table.
+    //  • comfortable, non-matrix board: give EVERY section its OWN slot (a photo panel, or a
+    //    deliberate food-icon panel when the category has no photos).
+    //  • dense/packed, non-matrix board: forced density owns the item space, so ONE shared compact
+    //    carousel cycles the board's photos instead (none → no slot).
+    const finalSections =
+      tier === "comfortable" && !matrixBoard
+        ? sections.map((section) => ({ ...section, imageSlot: sectionImageSlot(section, byId) }))
+        : sections;
+    const screenSlot =
       synthesizeImageSlot(sections, byId) ??
-      (tier === "comfortable" && !isMatrixBoard({ sections }) && weight * 2 <= budget
-        ? comfortableImageSlot(sections, byId)
-        : undefined);
+      (tier !== "comfortable" && !matrixBoard ? sharedImageSlot(sections, byId) : undefined);
     planScreens.push({
       id: `screen-${i + 1}`,
-      sections,
+      // Masthead title: the board's section titles in order, joined with " · " — a deterministic,
+      // stable label the painter renders in the masthead band (never an LLM-invented restaurant name).
+      title: sections.map((s) => s.title).join(" · "),
+      sections: finalSections,
       densityTier: tier,
-      ...(imageSlot !== undefined ? { imageSlot } : {}),
+      ...(screenSlot !== undefined ? { imageSlot: screenSlot } : {}),
     });
   });
 

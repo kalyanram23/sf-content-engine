@@ -54,10 +54,43 @@ describe("computeTypeScale — ladder boundaries (landscape 1920×1080)", () => 
   });
 });
 
+describe("computeTypeScale — comfortable directive gives BOTH layouts fill arithmetic", () => {
+  it("quotes the single-column rung AND the bigger two-column rung, plus the dead-band defect", () => {
+    // 18 rows on landscape (body ~815px = 1080 − 200 chrome − 65 masthead): single column →
+    // text-xl/text-2xl; two columns of ~9 rows cover only half the height at that size, so the
+    // painter must step UP to the ladder rung for 9 rows (text-2xl/text-3xl) and/or hand the
+    // reclaimed height to the image slot.
+    const d = computeTypeScale(18, LANDSCAPE);
+    expect(d.columns).toBe(1);
+    expect(d.scale).toEqual({ names: "text-xl", prices: "text-2xl" }); // single-column rung preserved
+    expect(d.text).toMatch(/~815px of body height must be SPANNED/);
+    // The quoted body height already reserves the masthead band — the painter must not double-reserve.
+    expect(d.text).toMatch(/ALREADY reserves the slim masthead band/);
+    expect(d.text).toMatch(/Single column → names at text-xl, prices text-2xl/);
+    expect(d.text).toMatch(/TWO columns \(~9 rows\/col\)/);
+    expect(d.text).toMatch(/text-2xl\/text-3xl, computed from the ladder for 9 rows/);
+    expect(d.text).toMatch(/hero up to ~40% of the canvas/);
+    expect(d.text).toMatch(/taller than ~15% of the body is a defect/);
+  });
+
+  it("the two-column rung is never smaller than the single-column rung (going UP, not down)", () => {
+    const sizeRank = ["text-xl", "text-2xl", "text-3xl"];
+    for (let rows = 1; rows <= maxRowsForCanvas(LANDSCAPE); rows += 1) {
+      const d = computeTypeScale(rows, LANDSCAPE);
+      if (d.overBudget) continue; // only the comfortable branch carries the two-column rung text
+      const single = sizeRank.indexOf(d.scale.names);
+      const twoColMatch = d.text.match(/\((text-\w+)\/text-\w+, computed from the ladder/);
+      const twoCol = sizeRank.indexOf(twoColMatch?.[1] ?? "");
+      expect(twoCol).toBeGreaterThanOrEqual(single);
+    }
+  });
+});
+
 describe("computeTypeScale — over-budget regime (D26)", () => {
   it("a ~34-row single-category portrait board gets a two-column directive at readable sizes", () => {
-    // 34 rows > the 24-row comfortable budget (even though portrait physically holds ~39 in one
-    // column at the smallest rung) → two balanced columns of 17, back UP at text-xl.
+    // 34 rows > the 24-row comfortable budget (even though portrait physically holds ~36 in one
+    // column at the smallest rung, after the masthead band is reserved) → two balanced columns of
+    // 17, back UP at text-xl.
     const d = computeTypeScale(34, PORTRAIT, undefined, 24);
     expect(d.overBudget).toBe(true);
     expect(d.columns).toBe(2);
@@ -65,6 +98,7 @@ describe("computeTypeScale — over-budget regime (D26)", () => {
     expect(d.scale).toEqual({ names: "text-xl", prices: "text-2xl" });
     expect(d.text).toMatch(/TWO balanced narrow columns/i);
     expect(d.text).toMatch(/~17 rows per column/);
+    expect(d.text).toMatch(/already excludes the slim masthead band/);
     expect(d.text).toMatch(/never shrink below/i);
   });
 

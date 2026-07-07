@@ -12,8 +12,10 @@
  * text-base per the painter contract).
  *
  * The ladder rungs (names/prices Tailwind size classes) are tuned so a landscape 1920×1080 canvas
- * yields the reference thresholds ≈ 8 / 14 / 20 rows; a taller portrait canvas fits proportionally
- * more. Row heights are estimates — the QA overflow check is the hard backstop.
+ * yields the reference thresholds ≈ 7 / 13 / 18 rows; a taller portrait canvas fits proportionally
+ * more. Row heights are estimates — the QA overflow check is the hard backstop. The usable body also
+ * reserves the mandatory MASTHEAD band (see {@link MASTHEAD_FRACTION}), so the budget the painter is
+ * handed already excludes it and the last row can't slide off the bottom edge.
  */
 
 import type { DensityTier } from "../domain/types";
@@ -46,8 +48,30 @@ export interface TypeScaleDirective {
   text: string;
 }
 
-/** Vertical chrome (title band + top/bottom margins) unavailable for rows, in px. */
+/** Vertical chrome (top/bottom margins + generic frame) unavailable for rows, in px. The mandatory
+ * MASTHEAD band is reserved SEPARATELY on top of this ({@link MASTHEAD_FRACTION}) — this constant
+ * predates the masthead and is left as-is so the non-masthead margins keep their original slack. */
 const DEFAULT_CHROME_PX = 200;
+
+/**
+ * Fraction of canvas HEIGHT reserved for the mandatory MASTHEAD band, on top of {@link
+ * DEFAULT_CHROME_PX}. Every plan screen now carries a computed title rendered as one slim masthead
+ * band at the very top of every board (the painter's MASTHEAD contract). That band was NOT part of
+ * the original chrome allowance, so the row/type arithmetic used to hand the painter ~6% too much
+ * vertical budget and the last row slid off the bottom edge (the masthead overflow regression).
+ *
+ * We reserve 6% — the slim end of the contract's "≤ roughly 6%" cap, kept at parity with it so the
+ * budget we reserve and the band the painter actually draws agree (reserve ≥ draw → no overflow).
+ * Applied to BOTH orientations (as a fraction of height it scales with the canvas: ~65px on a 1080px
+ * landscape, ~115px on a 1920px portrait). Deliberately NOT a raw px constant — a slim band's height
+ * tracks the canvas, and a proportional reserve keeps landscape and portrait consistent.
+ */
+const MASTHEAD_FRACTION = 0.06;
+
+/** Vertical space (px) the mandatory masthead band consumes on this canvas — see {@link MASTHEAD_FRACTION}. */
+function mastheadAllowancePx(canvas: Canvas): number {
+  return Math.round(canvas.height * MASTHEAD_FRACTION);
+}
 
 /**
  * The comfortable single-column budget when no planning config is threaded — mirrors
@@ -57,7 +81,8 @@ const DEFAULT_COMFORT_BUDGET = 24;
 
 /**
  * The comfortable ladder, largest rung first. `rowPx` is the estimated height of one row at that
- * size; it is tuned so a ~880px landscape body (1080 − 200 chrome) yields ≈ 8 / 14 / 20 rows.
+ * size; it is tuned so a ~815px landscape body (1080 − 200 chrome − 65 masthead) yields ≈ 7 / 13 / 18
+ * rows.
  */
 const LADDER: Array<TypeScale & { rowPx: number }> = [
   { names: "text-3xl", prices: "text-4xl", rowPx: 110 },
@@ -75,9 +100,9 @@ const OVER_BUDGET_LADDER: Array<TypeScale & { rowPx: number }> = [
   { names: "text-base", prices: "text-lg", rowPx: 32 },
 ];
 
-/** The body height (px) available for rows after reserving chrome. */
+/** The body height (px) available for rows after reserving chrome AND the mandatory masthead band. */
 function bodyHeight(canvas: Canvas, chromePx: number): number {
-  return Math.max(1, canvas.height - chromePx);
+  return Math.max(1, canvas.height - chromePx - mastheadAllowancePx(canvas));
 }
 
 /** How many rows fit at a given rung on this canvas. */
@@ -89,6 +114,23 @@ function rowsAt(canvas: Canvas, rowPx: number, chromePx: number): number {
 export function maxRowsForCanvas(canvas: Canvas, chromePx: number = DEFAULT_CHROME_PX): number {
   const smallest = LADDER[LADDER.length - 1]!;
   return rowsAt(canvas, smallest.rowPx, chromePx);
+}
+
+/**
+ * The comfortable ladder rung that best fits `rowCount` rows on this canvas: the LARGEST rung whose
+ * per-canvas capacity still holds them (walking largest→smallest), falling back to the smallest rung
+ * when even that can't. Fewer rows → a larger rung. Used for both the single-column rung and the
+ * two-column rung (over `ceil(rows/2)` rows) so the directive can quote the exact bigger size a
+ * two-column layout must step up to.
+ */
+function pickComfortableRung(canvas: Canvas, rowCount: number, chromePx: number): TypeScale {
+  for (const rung of LADDER) {
+    if (rowCount <= rowsAt(canvas, rung.rowPx, chromePx)) {
+      return { names: rung.names, prices: rung.prices };
+    }
+  }
+  const smallest = LADDER[LADDER.length - 1]!;
+  return { names: smallest.names, prices: smallest.prices };
 }
 
 /**
@@ -144,23 +186,31 @@ export function computeTypeScale(
   const body = bodyHeight(canvas, chromePx);
 
   if (rows <= budget) {
-    for (const rung of LADDER) {
-      const cap = rowsAt(canvas, rung.rowPx, chromePx);
-      if (rows <= cap) {
-        return {
-          rows,
-          fits: true,
-          maxRows,
-          columns: 1,
-          overBudget: false,
-          scale: { names: rung.names, prices: rung.prices },
-          text:
-            `TYPE SCALE: this board has ${rows} row(s) in ~${body}px of body ` +
-            `height — use item names at ${rung.names} and prices at ${rung.prices} (headers larger ` +
-            `still). Fill the height at these sizes; never shrink below them.`,
-        };
-      }
-    }
+    // Single-column rung (the returned `scale`, kept for backward-compatible callers) AND the
+    // TWO-column rung it must step UP to when the painter legitimately flows the rows in two columns
+    // (~ceil(rows/2) per column covers only half the height at the single-column size). The directive
+    // hands the painter the fill arithmetic for BOTH layouts so it can't silently break the
+    // single-column prescription by choosing two columns and leaving the bottom half empty.
+    const perColumn = Math.ceil(rows / 2);
+    const rung1 = pickComfortableRung(canvas, rows, chromePx);
+    const rung2 = pickComfortableRung(canvas, perColumn, chromePx);
+    return {
+      rows,
+      fits: true,
+      maxRows,
+      columns: 1,
+      overBudget: false,
+      scale: rung1,
+      text:
+        `TYPE SCALE: ~${body}px of body height must be SPANNED by your content — this figure ALREADY ` +
+        `reserves the slim masthead band at the top, so do NOT subtract extra height for it. This board has ` +
+        `${rows} row(s). Single column → names at ${rung1.names}, prices ${rung1.prices}. If you use ` +
+        `TWO columns (~${perColumn} rows/col) the rows only cover half that height — then you MUST go ` +
+        `bigger (${rung2.names}/${rung2.prices}, computed from the ladder for ${perColumn} rows) ` +
+        `AND/OR give the section image slot / photo hero the reclaimed height (hero up to ~40% of ` +
+        `the canvas). Whatever layout you choose, content + image slots must span the full body — a ` +
+        `band of empty canvas taller than ~15% of the body is a defect.`,
+    };
   }
 
   // OVER-BUDGET regime (D26): the plan kept an oversized category atomic on this board. Direct a
@@ -180,7 +230,8 @@ export function computeTypeScale(
           `TYPE SCALE (over-budget board): this board carries ${rows} name+price rows — beyond ` +
           `the comfortable ~${budget}-row single-column budget for this canvas. Lay the rows out ` +
           `in TWO balanced narrow columns (~${perColumn} rows per column in ~${body}px of body ` +
-          `height), item names at ${rung.names} and prices at ${rung.prices} (headers larger ` +
+          `height — this figure already excludes the slim masthead band, so reserve no extra for it), ` +
+          `item names at ${rung.names} and prices at ${rung.prices} (headers larger ` +
           `still). These sizes are the floor — never shrink below them (engine absolute floor ` +
           `text-base) and never overflow the canvas; the board is expected to read dense.`,
       };
@@ -198,7 +249,8 @@ export function computeTypeScale(
     scale: { names: floor.names, prices: floor.prices },
     text:
       `TYPE SCALE (over-budget board): ${rows} name+price rows exceed even a two-column layout ` +
-      `at the minimum sizes on this canvas (~${floorCap * 2} max). Render EVERY item anyway: two ` +
+      `at the minimum sizes on this canvas (~${floorCap * 2} max, after the slim masthead band is ` +
+      `reserved). Render EVERY item anyway: two ` +
       `balanced narrow columns, item names at ${floor.names} (the engine's absolute floor) and ` +
       `prices at ${floor.prices}, trim all non-essential chrome and margins, and DO NOT overflow ` +
       `the canvas. Expect a very dense board.`,
