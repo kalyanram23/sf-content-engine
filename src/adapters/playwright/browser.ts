@@ -120,8 +120,75 @@ function collectObservation(grid: { cols: number; rows: number }): unknown {
     if (itemAncestor && bind) {
       return `[data-item-id="${itemAncestor.getAttribute("data-item-id")}"] [data-bind="${bind}"]`;
     }
-    if (itemAncestor) return `[data-item-id="${itemAncestor.getAttribute("data-item-id")}"]`;
-    return el.tagName.toLowerCase();
+    if (itemAncestor) {
+      // Element-PRECISE ref for card text without a data-bind. A bare `[data-item-id]` container
+      // ref is destructive downstream: a card mixes backgrounds (a light pill over the dark card
+      // body), so a single-token contrast recolour scoped to the whole card fixes one face and
+      // breaks the sibling. Point at THIS element instead: the single `<h3>` name → `[card] h3`
+      // (unambiguous, short); one of several same-tag faces → a child-indexed nth-of-type path so
+      // the override lands on this element alone. Refs stay stable across renders (structural, not
+      // content-derived) and short (cards are shallow).
+      const cardSel = `[data-item-id="${itemAncestor.getAttribute("data-item-id")}"]`;
+      const tag = el.tagName.toLowerCase();
+      if (itemAncestor.querySelectorAll(tag).length === 1) return `${cardSel} ${tag}`;
+      const segments: string[] = [];
+      let node: any = el;
+      while (node && node !== itemAncestor && node.parentElement) {
+        const t = node.tagName.toLowerCase();
+        const sameType = (Array.from(node.parentElement.children) as any[]).filter(
+          (c) => c.tagName === node.tagName,
+        );
+        segments.unshift(
+          sameType.length === 1 ? t : `${t}:nth-of-type(${sameType.indexOf(node) + 1})`,
+        );
+        node = node.parentElement;
+      }
+      return `${cardSel} ${segments.join(" > ")}`;
+    }
+    // Element OUTSIDE any item card. A bare tag name (`span`) is UN-repairable downstream — a
+    // `span{…}` contrast override would recolour every span on the board — so the loop wasted
+    // re-paints while the invisible text survived. Emit a SHORT, UNIQUE path instead: anchor on the
+    // nearest ancestor carrying an id / data-ref / section-ish landmark, then a tag[:nth-of-type]
+    // chain down to THIS element (capped so it stays short). Structural → stable across renders, and
+    // scopable → a repair can target just this element's subtree.
+    const LANDMARK = /^(section|main|header|nav|article|aside|footer|ul|ol)$/;
+    const stepSel = (node: any): string => {
+      const t = node.tagName.toLowerCase();
+      const parent = node.parentElement;
+      if (!parent) return t;
+      const same = (Array.from(parent.children) as any[]).filter((c) => c.tagName === node.tagName);
+      return same.length === 1 ? t : `${t}:nth-of-type(${same.indexOf(node) + 1})`;
+    };
+    const segments: string[] = [];
+    let node: any = el;
+    let anchor: string | undefined;
+    while (node && node !== document.body && node !== document.documentElement) {
+      const id = node.getAttribute("id");
+      const ref = node.getAttribute("data-ref");
+      if (id) {
+        anchor = `#${id}`;
+        break;
+      }
+      if (ref) {
+        anchor = `[data-ref="${ref}"]`;
+        break;
+      }
+      segments.unshift(stepSel(node));
+      // Stop at (and root on) the nearest enclosing landmark — its own step is already unshifted.
+      if (LANDMARK.test(node.tagName.toLowerCase())) {
+        anchor = "";
+        break;
+      }
+      // Keep the ref short: ~4 segments is plenty for shallow signage DOM.
+      if (segments.length >= 4) {
+        anchor = "";
+        break;
+      }
+      node = node.parentElement;
+    }
+    if (anchor === undefined) anchor = node === document.body ? "body" : "";
+    const parts = [anchor, ...segments].filter((s) => s !== "");
+    return parts.length > 0 ? parts.join(" > ") : el.tagName.toLowerCase();
   };
   const effectiveBackground = (el: any) => {
     let node: any = el;
@@ -173,6 +240,36 @@ function collectObservation(grid: { cols: number; rows: number }): unknown {
     if (overflowing.length >= 40) break;
   }
 
+  // Per-item LAYOUT rects (union box per data-item-id). getBoundingClientRect reports the layout
+  // box even when an ancestor's overflow:hidden/clip visually cuts the element off — so an item
+  // sliced at the screen edge inside a clipped container (where nothing scrolls) is still measurable
+  // here. The item-cutoff check flags any rect extending past the viewport. Union multiple elements
+  // sharing one id (e.g. a matrix item split across cells) into a single min/max box.
+  const itemRectById = new Map<string, any>();
+  for (const el of Array.from(document.querySelectorAll("[data-item-id]")) as any[]) {
+    const id = el.getAttribute("data-item-id");
+    if (!id) continue;
+    const rect = el.getBoundingClientRect();
+    // Skip zero-area elements (display:none / not laid out) — they carry no meaningful geometry.
+    if (rect.width === 0 && rect.height === 0) continue;
+    const prev = itemRectById.get(id);
+    if (prev === undefined) {
+      itemRectById.set(id, {
+        id,
+        top: rect.top,
+        bottom: rect.bottom,
+        left: rect.left,
+        right: rect.right,
+      });
+    } else {
+      prev.top = Math.min(prev.top, rect.top);
+      prev.left = Math.min(prev.left, rect.left);
+      prev.bottom = Math.max(prev.bottom, rect.bottom);
+      prev.right = Math.max(prev.right, rect.right);
+    }
+  }
+  const itemRects = Array.from(itemRectById.values());
+
   // Fill-ratio: fraction of a sampled grid landing on *content*. A sample counts only if it
   // hits text, an image/icon, or a surface visually distinct from the page background (a
   // card/panel). A full-bleed wrapper painted in the page background colour does NOT count —
@@ -186,29 +283,58 @@ function collectObservation(grid: { cols: number; rows: number }): unknown {
     );
   let filled = 0;
   let total = 0;
-  for (let i = 1; i < grid.cols; i++) {
-    for (let j = 1; j < grid.rows; j++) {
+  // Per-grid-row fill counts (top→bottom), one entry per sampled row j (1..grid.rows-1) — the
+  // dead-band check finds the longest run of ZERO-fill rows the global fillRatio can't see.
+  const rowFill: number[] = [];
+  // Per-row CONTENT fill: samples that hit real content (TEXT or IMG/SVG) — the FIRST arm below —
+  // NOT a mere painted surface (the second arm). The dead-band check keys on this so a full-height
+  // tinted panel with content only in its top half is correctly read as dead space in its lower
+  // half (a painted-but-contentless row is "filled" for over-cram detection but empty of content).
+  const rowContentFill: number[] = [];
+  for (let j = 1; j < grid.rows; j++) {
+    const y = (vh * j) / grid.rows;
+    let rowFilled = 0;
+    let rowContentFilled = 0;
+    for (let i = 1; i < grid.cols; i++) {
       const x = (vw * i) / grid.cols;
-      const y = (vh * j) / grid.rows;
       total += 1;
       let node: any = document.elementFromPoint(x, y);
       let depth = 0;
       while (node && node !== document.body && node !== document.documentElement && depth < 5) {
         const tag = node.tagName;
         if (tag === "IMG" || tag === "SVG" || tag === "svg" || ownText(node)) {
-          filled += 1;
+          rowFilled += 1;
+          rowContentFilled += 1;
           break;
         }
         const bg = toRgba(getComputedStyle(node).backgroundColor);
         if (bg.a > 0 && !sameColor(bg, bodyBg)) {
-          filled += 1;
+          rowFilled += 1;
           break;
         }
         node = node.parentElement;
         depth += 1;
       }
     }
+    filled += rowFilled;
+    rowFill.push(rowFilled);
+    rowContentFill.push(rowContentFilled);
   }
+
+  // Effective visibility — the same cheap ancestor walk `effectiveBackground` uses: an image is
+  // hidden when it (or any ancestor) computes to opacity 0, display:none, or visibility:hidden. Lets
+  // the image-crop check ignore the opacity-0 slides a gallery-fade carousel stacks (all but one).
+  const isVisible = (el: any): boolean => {
+    let node: any = el;
+    while (node && node !== document.documentElement) {
+      const s = getComputedStyle(node);
+      if (s.display === "none" || s.visibility === "hidden" || parseFloat(s.opacity) === 0) {
+        return false;
+      }
+      node = node.parentElement;
+    }
+    return true;
+  };
 
   const images = (Array.from(document.querySelectorAll("img")) as any[]).map((img, i) => {
     const rect = img.getBoundingClientRect();
@@ -220,6 +346,7 @@ function collectObservation(grid: { cols: number; rows: number }): unknown {
       renderedWidth: rect.width,
       renderedHeight: rect.height,
       objectFit: getComputedStyle(img).objectFit,
+      visible: isVisible(img),
     };
   });
 
@@ -234,6 +361,9 @@ function collectObservation(grid: { cols: number; rows: number }): unknown {
     overflowing,
     textSamples,
     fillRatio: total === 0 ? 0 : filled / total,
+    rowFill,
+    rowContentFill,
+    itemRects,
     images,
   };
 }
