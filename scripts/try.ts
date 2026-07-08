@@ -67,7 +67,7 @@ const SCREENS_MODE: "exact" | "elastic" =
   flagValue("screens-mode") === "elastic" ? "elastic" : "exact";
 const ASPECT: "16:9" | "9:16" = flagValue("aspect") === "9:16" ? "9:16" : "16:9";
 // Which theme preset to paint against — any id under themes/ (botanical, bubblegum, blockframe,
-// bold-poster, bazaar). Defaults to bubblegum.
+// bold-poster, bazaar, dhaba). Defaults to bubblegum.
 const PRESET = flagValue("preset") ?? "bubblegum";
 // Names the run for observability: OpenRouter Broadcast traces carry session_id
 // "<restaurant>:<board>:<runId>". Defaults to the menu filename; override with --restaurant=.
