@@ -75,10 +75,12 @@ export const visionRubricConfigSchema = z.object({
       {
         id: "invented-copy",
         description:
-          "Prominent text not traceable to the menu data, the board title, or the provided brand — " +
-          "fabricated restaurant names, filler badge chips ('PRICE LIST', 'USD', 'MADE TO ORDER', " +
-          "'DINE IN · TAKEOUT'), invented taglines or operational claims. A theme's internal name " +
-          "appearing as on-screen copy is an automatic fail.",
+          "ANY on-screen text not traceable to the menu data, the board title/plan, or the provided " +
+          "brand — fabricated restaurant names, filler badge chips ('PRICE LIST', 'USD', 'MADE TO " +
+          "ORDER', 'DINE IN · TAKEOUT'), invented taglines or operational claims, AND invented " +
+          "footnotes, asterisk legends, disclaimers, service notes or allergy/preparation notes " +
+          "(e.g. '* served on request', '* contains betel leaf'). A theme's internal name appearing " +
+          "as on-screen copy is an automatic fail.",
         weight: 0.75,
         failAtSeverity: "major",
       },
