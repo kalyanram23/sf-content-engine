@@ -1087,3 +1087,285 @@ planned item to make an edit fit — D34) is retained verbatim. The swap stays a
 system prompt's prefix is byte-identical between paint and re-paint and OpenRouter prompt caching
 keeps working. The companion idea — a lean re-paint user prompt that drops the from-scratch
 composition prose (C2 in the plan doc) — is deliberately HELD behind an eval A/B before shipping.
+
+## D63 — A theme's design text must be expressible inside the engine contract (dhaba respec)
+
+**Problem (2026-07-08 dhaba run):** the dhaba theme ordered contract violations. Its identity
+demanded a truck-art frame with "equal 16px stops" — token-lint (D3/S7) rejects raw px, so every
+contract-following paint ate 3 token-lint majors, the re-paint stripped the frame to satisfy lint,
+and the vision critic then flagged the missing signature frame (critical on screen-2): a catch-22
+on every board. Its identity also suggested a tagline "(e.g. GARMA GARAM!)" — the copy whitelist
+bans invented taglines, so painters rendering the example verbatim ate an invented-copy major on
+every board.
+
+**Decision:** theme design prose is bound by the same contract the painter is: it must name
+token/rem forms for its signature elements, never raw px/hex, and must never exemplify copy the
+whitelist would reject. dhaba respecced: the frame is "equal 1rem stops … repeating-linear-gradient
+(45deg, var(--color-accent) 0 1rem, var(--color-stripe) 1rem 2rem)" (the `stripe` token existed all
+along), and the masthead tagline is brand-conditional ("with no brand tagline the masthead stays
+title-only — never invent one"). When authoring/importing a theme, dry-check its identity/do/dont
+against token-lint and the copy whitelist.
+
+## D64 — try.ts is tuned for consistency: Sonnet paint, vision every iteration, 4 iterations, parallel boards
+
+**Problem (2026-07-08 dhaba run, debug/debug.console.log):** the dev-run defaults optimized for
+token cost and delivered instability. (1) GLM-5.2 paint stream-aborted on 3 of ~5 calls and
+reasoning-ran-away past the 32k completion cap (29.6k reasoning tokens; `effort:"low"` does not
+bind GLM — models.ts), burning the 3-attempt ladder before the Sonnet fallback rescued board 1 at
+~20.6 min for one paint. (2) D27's skip-vision-when-blocking meant mechanical majors starved the
+critic: board 1's FIRST vision critique landed on iteration 3 of 3 (board 2: only at freeze), so
+vision majors were structurally unfixable and every board froze flagged. (3) Boards ran serially.
+
+**Decision (scripts/try.ts config only — engine defaults unchanged):** paint routes to
+anthropic/claude-sonnet-4.6 (bounded reasoning, no aborts observed; ~5× GLM's cost — flip back for
+cheap runs); `qa.skipVisionWhenBlocking: false` so critic findings enter the loop from iteration 1
+(gpt-5.4-mini, ~3s/~$0.002 per pass — repair context is worth more than the skip); `loop.
+maxIterations: 4` so a vision-informed re-paint still gets a confirming pass; boards paint up to
+`--parallel` (default 2) at once via per-board engines + board-scoped loggers (the eval harness
+pattern). Companion fix: the per-call usage debug line now names the model that actually served
+the attempt (fallback rescues no longer log under the primary's id).
+
+## D65 — The repair-loop dead-end: unfixable majors re-paint, no-op repairs escalate, repairs report honestly
+
+**Problem (2026-07-08 live 6-board run):** boards whose first paint carried BOTH a fixable WCAG
+contrast finding (`deterministicallyFixable:true`) AND a structurally broken matrix — "Matrix row X
+has 1 cell(s); expected 2", a MAJOR the checks mark deterministically UNFIXABLE — got stuck on
+repair→repair→repair→freeze, shipping iteration 1 flagged with byte-identical output every iteration
+("deterministic repair applied", same 2723KB, same 9 findings, same score, three times). Three
+compounding faults: (A) the router's `mechanical-fix-to-repair` rule (priority 90) matched the
+co-occurring fixable contrast finding and won the route every iteration; the escape hatch
+`critical-unfixable-to-repaint` (95) required severity CRITICAL, but matrix-structure findings are
+MAJOR — so the broken DOM never got the re-paint only a painter can do. (B) nothing detected that a
+repair changed nothing, so even once repair was chosen it re-chose itself. (C) the repair that
+printed "applied" was, empirically, the **overflow shrink-to-fit** (D31), not contrast: re-applying
+it on already-shrunk markup REPLACED the `data-repair="fit"` block with a byte-identical one and
+still returned `applied:true`. (The contrast merge, D13, was already honest — a covered selector
+returns `applied:false`.)
+
+**Decision — three separate, minimal changes (config + pure state, TDD each):**
+
+1. **Routing (config-as-data).** New default rule `structural-unfixable-to-repaint` at priority 92:
+   `{ source:"deterministic", minSeverity:"major", deterministicallyFixable:false } → paint`. It
+   outranks the mechanical fix (90) so a co-occurring fixable finding can't starve the re-paint, and
+   is source-scoped + fixable-scoped so it never claims a vision finding or a fixable mechanical one.
+   Rationale (same as rule 95, one tier down): because `qa.blockingSeverity` is `major`, such a
+   finding ALWAYS blocks the pass this iteration — a token-swap/shrink merely polishes a board that
+   cannot pass, so re-paint is the only progress. Consequence: a fixable finding co-occurring with a
+   MAJOR-unfixable one now re-paints instead of repairing first (the router test's `[contrast,
+density]` case, updated). Repair-first is preserved when the co-occurring finding is below
+   `blockingSeverity` (minor) — the board can still converge via the cheap fix.
+
+2. **No-progress escalation (pure, state-derived).** New `EngineState.repairIneffective` channel:
+   the repair node sets it true when its output is byte-identical to its input (a no-op deterministic
+   pass, or an LLM repair that returned the same markup, or no applicable repair at all), false on a
+   real change; `paint` clears it. The pure router (`route`) suppresses every repair-routing rule
+   while the flag is set, so a proven no-op repair is never re-chosen — the decision falls through to
+   a re-paint (or freeze if nothing else is actionable). The router stays the sole termination
+   authority; the flag is state-derived, not a side channel.
+
+3. **Repair honesty (root cause of C).** The overflow repair now returns `applied:false` when the
+   replacement fit block is byte-identical to what's already there (the same guard added defensively
+   to the contrast repair and as a final check in `applyDeterministicRepairs`). An "applied" flag on
+   an unchanged document is what silently looped the repair path; reporting no-change feeds (2).
+   Colors still emit `var(--color-<token>)`, never raw hex (token-lint runs on raw painter HTML).
+
+(1) fixes the reported board directly (the matrix major re-paints from the first decision); (2)+(3)
+are the general safety net for any repairable finding whose fix can't actually clear it (e.g. a
+shrink the render keeps reporting as overflowing). Proven end-to-end: a fixable-contrast +
+broken-matrix board now re-paints instead of repair-looping, and a persistent overflow escalates
+repair→repair→paint instead of looping to the budget.
+
+## D66 — A theme may ship a gold EXEMPLAR board; the painter is shown "what great looks like"
+
+**Problem (2026-07-08 dhaba runs):** the painter prompt is ~90% prohibitions with zero worked
+examples, so dhaba boards came out generic — no truck-art stripe frame, dead vertical bands, none
+of the theme's signature moves (numbered teal chips, dotted-leader rows, polaroid photo strip). A
+list of "don't"s tells the model what to avoid but never what to aim at; a single finished board in
+the theme's voice communicates the frame/masthead/section anatomy/row anatomy/photo treatment/
+full-height balance far more directly than prose can.
+
+**Decision — exemplars are theme DATA, not engine code (mirrors design/tokens/motion, D14/D60):**
+
+1. **Schema.** New optional `design.exemplar` on `themeDesignSchema`
+   (`{ aspect: "16:9" | "9:16", html: string, note?: string }`, `themeExemplarSchema`). Optional
+   everywhere — no theme is required to carry one, and every existing theme/test loads unchanged. It
+   rides through `themePresetObjectSchema` → `resolvedThemeSchema` → `resolveTheme`'s `...preset`
+   spread → `FileThemeRepository` (validated at load) with no further plumbing.
+
+2. **Engine-legal by construction + pinned.** The exemplar HTML must itself pass the engine's own
+   token-lint — no raw hex, no raw px except 0/1, colours as `var(--color-<token>)`, sizes in rem —
+   because a gold board that used raw hex/px would teach the painter the exact violations the rail
+   rejects. A test (`theme-files.test.ts`) runs `checkTokenLint` over every theme file's exemplar and
+   asserts zero findings, pinning that invariant forever; a companion test pins that dhaba actually
+   ships one so the guard is never vacuous. The dhaba exemplar is a ~2.3k-token, 9:16 distillation of
+   `reference-boards/3b-dhaba-poster-street-sweets.dc.html` encoding each signature ONCE (stripe-frame
+   outer + cream inset, masthead band, numbered-chip section header, 2-col `grid-auto-flow:column`
+   grid, name→dotted-leader→tabular-nums-price row, the MP-chip priceless variant, a polaroid strip
+   with `<img>` carrying the `data-img-item`/`data-img-index`/`data-ref` no-src photo contract, and a
+   root flex column with `justify-content:space-between` for full-height balance). Item rows keep the
+   `data-item-id`/`data-bind="price"`/`data-available` contract with obviously-placeholder ids and
+   `structure-only` HTML comments.
+
+3. **Prompt position + never-copy/adapt guard.** `buildSystem` inserts the exemplar block
+   immediately AFTER the theme identity/DO/DON'T block and BEFORE the shared engine goals (high
+   attention, in the theme's own voice), guarded: it shows STRUCTURE and CRAFT and the painter must
+   TAKE those layout/craft moves but NEVER copy the placeholder item names/prices/section names (real
+   content comes exclusively from the planned items), and must adapt proportions when the target
+   aspect differs from the exemplar's. When the theme has no exemplar the block is omitted and the
+   prompt is byte-identical to before (no drift for other themes). The exemplar lives in the invariant
+   prompt PREFIX, so C1's re-paint prompt-cache prefix stays byte-identical (paint vs re-paint still
+   differ only in the tail FINAL SELF-CHECK bullet).
+
+When authoring/importing a theme, an exemplar is optional; if present, dry-check its HTML against
+token-lint (a whole-file test already enforces this) and keep its copy plainly-placeholder so a
+painter that ignores the never-copy guard still can't leak believable fake menu text.
+
+## D67 — Any token the lint blesses must be defined in the packaged CSS (`@theme static`)
+
+**Problem (2026-07-08 dhaba debug captures, screen-2/attempt-4):** token-lint (D3/S7) REQUIRES
+painters to reference colours as `var(--color-<token>)` (raw hex is a major), so the painter
+legitimately put the dhaba truck-art frame's two signature tokens (`accent`, `stripe`) ONLY inside
+an inline `background: repeating-linear-gradient(…)` — the sole place they were used. But the
+packaged CSS defined only the 7 variables Tailwind happened to see referenced by a utility class
+(`--color-accent-strong/bg/chip/muted/price/surface/text`), NOT `--color-accent` or
+`--color-stripe`. The gradient then referenced undefined variables, the browser dropped the whole
+background, the frame rendered invisible, and the vision critic flagged "missing truck-art frame"
+every iteration — burning the QA budget re-painting a frame that was authored correctly all along.
+
+**Root cause.** The packager compiles theme tokens through a Tailwind v4 `@theme { … }` block
+(`themeBlock`, `src/adapters/tailwind/packager.ts`). Plain `@theme` **tree-shakes**: it emits a
+variable to `:root` only when a _utility class_ references it. Tokens used exclusively via inline
+`var()` (which the compiler never scans) or unused on a given board are silently dropped. This
+breaks the engine's own contract — if the lint blesses `var(--color-<token>)`, the packaged CSS
+must make that variable exist unconditionally. Verified empirically: compiling `@theme{…}` +
+`build(["text-text"])` emits `--color-text` but not an unreferenced `--color-stripe`; the same
+input with `@theme static{…}` emits both.
+
+**Decision — the invariant + the mechanism:**
+
+1. **Invariant.** Every theme token the packager declares (and therefore every token the lint
+   blesses — `--color-*`, plus `--radius-*`/`--font-*`, which the same tree-shaking would drop)
+   MUST be defined in the packaged CSS regardless of whether any utility references it.
+
+2. **Mechanism — `@theme static` (one keyword, whole block).** `themeBlock` now emits
+   `@theme static { … }`. `static` is Tailwind v4's native "always emit these variables" flag; it
+   leaves utility generation untouched (`text-<token>` still resolves), so it is both the cleanest
+   Tailwind-native fix and strictly more complete than scoping to colours — it covers colours,
+   radius, and fonts in the one construct they already share. No explicit hand-rolled `:root` block
+   is needed. Type/spacing remain deliberately non-tokenized (D-note in `themeBlock`), so there is
+   nothing else to guarantee.
+
+3. **Test (real compile, in the default suite).** `packager.test.ts` gains "defines EVERY theme
+   color token as a CSS var, even ones used only via inline var() or unused (D67)": it paints a
+   board that references one colour ONLY via an inline gradient (mirroring the dhaba frame) and
+   leaves the rest unused, then asserts the packaged CSS defines `--color-<name>:` (the _definition_,
+   colon-anchored to distinguish it from a `var()` _usage_) for every colour in the resolved theme,
+   while a utility (`.text-text`) still compiles. It fails on plain `@theme`, passes on `static`.
+
+4. **FakePackager unaffected.** `src/testing/fakes/packager.ts` already emits every colour/radius/
+   font token via an explicit `:root { … }` block (it never tree-shakes), so it already satisfies
+   the invariant and needs no mirror.
+
+## D68 — The vision critic grades against the FULL theme brief (DOs included, no truncation)
+
+**Problem (2026-07-09, dhaba boards).** `describeDesignIntent` (`src/theme/design-intent.ts`) builds
+the DESIGN INTENT brief handed to the vision critic. It (1) NEVER emitted the theme's `design.do`
+list — the critic was told what to AVOID but never heard the POSITIVE spec it is supposed to grade
+"theme-adherence" against, so it graded from the identity paragraph alone; and (2) truncated the
+combined don'ts at ten via `.slice(0, 10)`, silently dropping declared rules. Observed consequence:
+dhaba boards that visibly carry the theme's signature truck-art stripe frame still drew
+"theme-adherence: frame not visible in the required form" majors — the critic was guessing at the
+spec. (Distinct from D67, which made a correctly-authored frame render _invisible_; here the frame is
+visible and the critic was simply never told to look for it.) The `themeDesignSchema` docstring
+already promised `do`/`dont` are "handed to the vision critic (so 'theme-adherence' is graded against
+declared intent)" — the code only ever delivered the `dont` half.
+
+**Decision.** `describeDesignIntent` now emits BOTH declared lists, in full:
+
+1. **DOs, framed to reward.** `Declared DOs — grade positively when you can SEE them honoured: …`,
+   placed BEFORE the don'ts, in the same declarative prose style (and under the same purity rule — no
+   token hex, no asset/font data-URIs, since a VLM can't read those off a screenshot; palette
+   enforcement stays with token-lint). Omitted entirely when the theme declares no DOs.
+
+2. **No truncation.** The `.slice(0, 10)` is gone from the don'ts. The combined list — theme don'ts
+   (≤5 across all shipped themes) plus the fixed `painter.antiPatterns` config (~7) — is small and
+   bounded, so a cap only ever silently drops a rule the critic then never grades against, and (since
+   theme don'ts are concatenated first) asymmetrically favours the theme's own list over the engine
+   anti-patterns. Both lists now flow in full.
+
+3. **One construction point, all paths.** The DO list reaches EVERY critique because
+   `describeDesignIntent` is called once, inside `buildCritiqueRequest`
+   (`src/pipeline/nodes/index.ts`), which is shared by the per-iteration `visionQA` node and the
+   freeze-path make-good critique (D62/Fix 1); both the OpenRouter and Claude-Code critic adapters
+   render it via `rubricText`. No adapter- or path-specific wiring was needed.
+
+4. **Test.** `src/theme/design-intent.test.ts` (new) pins: the DO list is present and positively
+   framed, DOs precede DON'Ts, the DO block is omitted when empty, and NEITHER list is truncated when
+   theme don'ts + engine anti-patterns exceed ten (each list must survive the other).
+
+**Scope note (unchanged, verified read-only).** The screenshot the critic receives is the FULL-
+resolution QA render — `PlaywrightBrowser.render` captures a full-viewport `page.screenshot({ type:
+"png" })` (`src/adapters/playwright/browser.ts:94`) at the exact `orientViewport`ed
+`qa.viewport` (default 1920×1080 landscape / 1080×1920 portrait, `dpr: 1` —
+`src/config/qa.ts:8-10`), passed straight through as a `data:image/png;base64` URL
+(`src/adapters/openrouter/vision-critic.ts:103`). The engine performs NO downscale; only the upstream
+model provider may internally resize for token cost.
+
+## D69 — A frontier judge's CRITICAL vision finding blocks the pass; the rubric names invented footnotes/legends
+
+**Problem (2026-07-09).** The vision critic was upgraded from a noisy cheap VLM to a frontier judge
+(D61/D68). Two policy relics from the noisy era then actively hurt:
+
+1. **Vision findings NEVER blocked a pass.** `decideGate` (`src/qa/gate.ts`) blocked only on a hard
+   gate or a blocking-severity DETERMINISTIC finding; all vision quality — even a real `critical` —
+   was left to the weighted rubric. That was deliberate for the noisy critic ("a single reflexive
+   nit must not hard-block"). Observed with the frontier judge: a board shipped `passed: true` while
+   the judge reported a genuine "last row clipped at the canvas edge" CRITICAL — the single failed
+   dimension only dropped the weighted rubric to ≈0.84, which cleared the 0.7 threshold, so nothing
+   blocked and a visibly broken board shipped clean.
+
+2. **The judge tolerated invented footnotes.** Two consecutive runs shipped fabricated legend/service
+   lines ("_ legend: item served on request", "_ Sweet Paan contains betel leaf") without an
+   `invented-copy` finding — the dimension description (`src/config/rubric.ts`) listed fabricated
+   names/badge-chips/taglines but never called out footnotes, asterisk legends, disclaimers, or
+   service/allergy notes, so the judge didn't read that class of text as invented.
+
+**Decision.**
+
+1. **Vision `critical` blocks (exactly critical).** `decideGate` gains one clause: a VISION finding
+   with severity `critical` blocks the pass, alongside the unchanged hard-gate and deterministic
+   rules. `major`-and-below vision findings KEEP their rubric-graded, variance-tolerant treatment —
+   the wanted asymmetry: a frontier judge's rare criticals are real ship-blockers, its majors are
+   still judgement calls the weighted rubric absorbs. Expressed as `f.severity === "critical"` (not
+   `severityAtLeast`) to read as the deliberate "critical only". During the loop a vision critical
+   now forces `passed: false`; the router (unchanged) re-paints it (matches `critical-unfixable-to-
+repaint`) until the budget, then freezes the board flagged rather than shipping it as passed.
+
+2. **`invented-copy` names footnotes/legends.** The dimension description now explicitly treats as
+   invented ANY text not traceable to menu data / plan / brand — including footnotes, asterisk
+   legends, disclaimers, service notes and allergy/preparation notes — so the judge grades that class
+   where it reads the rubric (flows verbatim through `rubricText`,
+   `src/adapters/openrouter/vision-critic.ts`).
+
+**Two invariants checked (both hold).**
+
+- **visionQA cannot skip itself.** The visionQA-skip decision (`src/pipeline/nodes/index.ts`) runs
+  `decideGate` on `state.findings` BEFORE the vision pass appends its findings — so the set is
+  deterministic-only at that point and the new vision-critical clause can never fire there. The new
+  blocking rule cannot cause the vision pass to skip itself.
+
+- **A make-good critical cannot retroactively flip a shipped pass.** The freeze-path make-good
+  critique (D62/Fix 1) rescored the merged findings for the REPORT only and already pinned
+  `passed: best.passed`. With vision criticals now blocking, that pin is load-bearing: a make-good
+  critique could surface a critical whose free rescore would block — but the path only runs for an
+  already-gate-blocked (thus never-passed) candidate, and the pin guarantees the merged critical
+  never re-routes or flips the shipped decision. No code change needed at freeze beyond a comment
+  making the pin's new load-bearing role explicit.
+
+**Tests.** `src/qa/gate.test.ts` (new) — vision critical blocks; vision major does NOT; deterministic
+
+- hard-gate behaviour unchanged; vision critical blocks independent of the deterministic threshold.
+  `src/pipeline/engine.test.ts` — a vision-critical board (clean render, rubric ≈0.84 ≥ 0.7) freezes
+  `passed: false`/flagged and carries the critical, proving it no longer ships as passed.
+  `src/config/rubric.test.ts` (new) — cheap pin that the `invented-copy` description names footnotes and
+  legends so it can't silently regress.
