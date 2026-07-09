@@ -12,8 +12,11 @@ design-explorations
 src/adapters/tailwind/motion-bundle.generated.ts
 samples/menu.json
 samples/menu_simple.json
+samples/menu-dhaba-2board.json
 samples/plan.json
 samples/plan.full.json
+reference-boards
+eval-loop
 eval-output*
 eval-smoke*
 *.tmp.mjs

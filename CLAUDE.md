@@ -16,7 +16,7 @@ inlined as `data:` URIs before paint so the whole pipeline is offline-safe. Opti
 
 The behaviour spec is the source of truth:
 `docs/superpowers/specs/2026-06-22-display-content-generation-engine-design.md`.
-`ARCHITECTURE.md` documents structure; `DECISIONS.md` logs every interpretation as **D1–D18**
+`ARCHITECTURE.md` documents structure; `DECISIONS.md` logs every interpretation as **D1–D62**
 (cite these when changing a load-bearing decision). Read those before non-trivial changes.
 
 ## Commands
@@ -70,11 +70,16 @@ unplaced). An LLM can't be trusted to enumerate 300+ ids without dropping some, 
 judgment and this guarantees the bookkeeping. Pass a hand-authored `plan` to `createNodeEngine` to
 bypass the LLM (wires `StaticPlanner` instead).
 
-**Themes are externalized JSON bundles.** A `ThemePreset` (prompt + tokens + motion vocab + assets)
-lives in `themes/<id>.theme.json`, resolved through the `ThemeRepository` port. `createNodeEngine`
-with `themesDir` wires `FileThemeRepository`, which loads those files at runtime and **overrides the
-bundled presets** (`src/theme/presets/`) by id, falling back to the bundle for ids not on disk. The
-painter prompt is `theme.prompt` + the engine's fixed contract.
+**Themes are externalized JSON bundles.** A `ThemePreset` (a structured `design` block — `identity`
+
+- `do`/`dont` — plus tokens + motion vocab + components + assets) lives in `themes/<id>.theme.json`,
+  resolved through the `ThemeRepository` port. `createNodeEngine` with `themesDir` wires
+  `FileThemeRepository`, which loads those files at runtime and **overrides the bundled presets**
+  (`src/theme/presets/`) by id, falling back to the bundle for ids not on disk. The painter prompt is
+  composed in `buildSystem` (`src/adapters/openrouter/painter.ts`): role + the theme's
+  `design.identity` (+ its `do`/`dont` lists) + shared engine design goals + the engine's fixed
+  contract. The structured `design` block supersedes the legacy single `prompt` blob (still an
+  optional field for back-compat, ignored when `design` is present — no two-source drift).
 
 **The router owns termination; `best` is preserved.** `route()` (`src/pipeline/router.ts`) is pure
 and the **sole** authority: it returns `"freeze"` the instant `iteration >= loop.maxIterations`.

@@ -11,6 +11,10 @@ export default tseslint.config(
       // Untracked design-exploration scratch workspace (HTML + a Node verify script); kept on disk,
       // out of the gate like the other scratch/shelved dirs below.
       "design-explorations",
+      // Gold reference boards extracted from the design canvas (plain-browser JS runtime + HTML)
+      // and the eval-loop iteration archive — reference artifacts, not source; out of the gate.
+      "reference-boards",
+      "eval-loop",
       // Untracked one-off render-check scratch scripts (e.g. .rendercheck.tmp.mjs) — same scratch
       // category as design-explorations above, just dropped at the repo root; keep out of the gate.
       "*.tmp.mjs",
