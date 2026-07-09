@@ -1,0 +1,639 @@
+[
+  {
+    "id": "a1",
+    "name": "Chicken Dum Biryani *",
+    "price": 14.99,
+    "category": "Biryani",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/b1566d84-8de2-4b37-ab21-699995f4e023.png"
+    ]
+  },
+  {
+    "id": "a2",
+    "name": "Vijayawada Spl Chicken Biryani",
+    "price": 15.99,
+    "category": "Biryani",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/c81f6e5f-bfca-4d35-a560-e4a98c91ecdf.jpg"
+    ]
+  },
+  {
+    "id": "a3",
+    "name": "Chicken 65 Biryani",
+    "price": 15.99,
+    "category": "Biryani",
+    "available": true
+  },
+  {
+    "id": "a4",
+    "name": "Mutton Ghee Roast Biryani *",
+    "price": 16.99,
+    "category": "Biryani",
+    "available": true
+  },
+  {
+    "id": "a5",
+    "name": "Hashtag Spl Mutton Biryani",
+    "price": 17.99,
+    "category": "Biryani",
+    "available": true
+  },
+  {
+    "id": "a6",
+    "name": "Mutton Dum Biryani*",
+    "price": 16.99,
+    "category": "Biryani",
+    "available": true
+  },
+  {
+    "id": "a7",
+    "name": "Nalli Gosht Biryani *",
+    "price": 18.99,
+    "category": "Biryani",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/99ea52f9-75ee-4926-951e-df3b90bd9419.jpg"
+    ]
+  },
+  {
+    "id": "a8",
+    "name": "Goat Keema Biryani",
+    "price": 17.99,
+    "category": "Biryani",
+    "available": true
+  },
+  {
+    "id": "a9",
+    "name": "Lamb Biryani (Boneless)",
+    "price": 18.49,
+    "category": "Biryani",
+    "available": true
+  },
+  {
+    "id": "a10",
+    "name": "Shrimp Biryani",
+    "price": 17.99,
+    "category": "Biryani",
+    "available": true
+  },
+  {
+    "id": "a11",
+    "name": "Chicken Fry Piece Biryani",
+    "price": 16.49,
+    "category": "Biryani",
+    "available": true
+  },
+  {
+    "id": "a12",
+    "name": "Paneer Biryani",
+    "price": 13.99,
+    "category": "Biryani",
+    "available": true
+  },
+  {
+    "id": "a13",
+    "name": "Veg Kheema Biryani (Soya)",
+    "price": 14.49,
+    "category": "Biryani",
+    "available": true
+  },
+  {
+    "id": "a14",
+    "name": "Egg Biryani",
+    "price": 14.49,
+    "category": "Biryani",
+    "available": true
+  },
+  {
+    "id": "a15",
+    "name": "Hashtag Spl Chicken Biryani",
+    "price": 16.99,
+    "category": "Biryani",
+    "available": true
+  },
+  {
+    "id": "a16",
+    "name": "Shastri Gari Veg Biryani",
+    "price": 14.99,
+    "category": "Biryani",
+    "available": true
+  },
+  {
+    "id": "a17",
+    "name": "Pachi Mirchi Paneer Biryani",
+    "price": 15.49,
+    "category": "Biryani",
+    "available": true
+  },
+  {
+    "id": "a18",
+    "name": "Gundamma Gari Gongura Mutton Biryani *",
+    "price": 17.99,
+    "category": "Biryani",
+    "available": true
+  },
+  {
+    "id": "a19",
+    "name": "Gongura Chicken Biryani",
+    "price": 16.49,
+    "category": "Biryani",
+    "available": true
+  },
+  {
+    "id": "a20",
+    "name": "Pachi Mirchi Chicken Biryani",
+    "price": 16.49,
+    "category": "Biryani",
+    "available": true
+  },
+  {
+    "id": "i1",
+    "name": "Pachi Mirchi Mamsam Pulav",
+    "price": 18.99,
+    "category": "Pulav",
+    "available": true
+  },
+  {
+    "id": "i2",
+    "name": "Hashtag Spl Mutton Pulav",
+    "price": 16.99,
+    "category": "Pulav",
+    "available": true
+  },
+  {
+    "id": "i3",
+    "name": "Mutton Ghee Roast Pulav *",
+    "price": 17.99,
+    "category": "Pulav",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/e63afb70-0ac9-4e2a-b75e-4c566fa14438.jpg"
+    ]
+  },
+  {
+    "id": "i4",
+    "name": "Srikakulam Royyala Pulav *",
+    "price": 17.99,
+    "category": "Pulav",
+    "available": true
+  },
+  {
+    "id": "i5",
+    "name": "Hashtag Special Chicken Pulav",
+    "price": 15.99,
+    "category": "Pulav",
+    "available": true
+  },
+  {
+    "id": "i6",
+    "name": "Chicken Fry Piece Pulav *",
+    "price": 16.49,
+    "category": "Pulav",
+    "available": true
+  },
+  {
+    "id": "i7",
+    "name": "Pachi Mirchi Chicken Pulav *",
+    "price": 16.49,
+    "category": "Pulav",
+    "available": true
+  },
+  {
+    "id": "i8",
+    "name": "Pachi Mirchi Paneer Pulav",
+    "price": 14.99,
+    "category": "Pulav",
+    "available": true
+  },
+  {
+    "id": "i9",
+    "name": "Gutthi Vankaya Pulav",
+    "price": 13.99,
+    "category": "Pulav",
+    "available": true
+  },
+  {
+    "id": "i10",
+    "name": "Vijayawada Paneer Pulav",
+    "price": 13.99,
+    "category": "Pulav",
+    "available": true
+  },
+  {
+    "id": "i11",
+    "name": "Shastri Gari Veg Pulav",
+    "price": 14.49,
+    "category": "Pulav",
+    "available": true
+  },
+  {
+    "id": "i12",
+    "name": "Paneer Pulav",
+    "price": 14.49,
+    "category": "Pulav",
+    "available": true
+  },
+  {
+    "id": "i13",
+    "name": "Gundamma Gari Gongura Chicken Pulav",
+    "price": 16.49,
+    "category": "Pulav",
+    "available": true
+  },
+  {
+    "id": "i14",
+    "name": "Goat Keema Pulav",
+    "price": 17.99,
+    "category": "Pulav",
+    "available": true
+  },
+  {
+    "id": "o1",
+    "name": "Onion Samosa (6 pcs)",
+    "price": 5.49,
+    "category": "Quick Bites",
+    "available": true
+  },
+  {
+    "id": "o2",
+    "name": "Aloo Samosa (2 pcs)",
+    "price": 4.49,
+    "category": "Quick Bites",
+    "available": true
+  },
+  {
+    "id": "p1",
+    "name": "Idly (3pcs)",
+    "price": 7.49,
+    "category": "Tiffins",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/be50e63d-34f1-49e7-999b-76272d72b1d3.jpg"
+    ]
+  },
+  {
+    "id": "p2",
+    "name": "Sambhar Idly (3pcs)",
+    "price": 9.49,
+    "category": "Tiffins",
+    "available": true
+  },
+  {
+    "id": "p3",
+    "name": "Ghee Karam Idly (3 pcs)",
+    "price": 9.49,
+    "category": "Tiffins",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/5da851bd-224a-447e-ab17-ab70d8e74cee.jpg"
+    ]
+  },
+  {
+    "id": "p4",
+    "name": "Poori with Aloo Curry",
+    "price": 10.49,
+    "category": "Tiffins",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/c11e6f89-5c11-4e83-ab52-4e0f891863c1.jpg"
+    ]
+  },
+  {
+    "id": "p5",
+    "name": "Poori with Chicken Curry",
+    "price": 12.99,
+    "category": "Tiffins",
+    "available": true
+  },
+  {
+    "id": "p6",
+    "name": "Poori with Goat Curry",
+    "price": 14.99,
+    "category": "Tiffins",
+    "available": true
+  },
+  {
+    "id": "p7",
+    "name": "Punugulu (10 pcs)",
+    "price": 7.49,
+    "category": "Tiffins",
+    "available": true
+  },
+  {
+    "id": "p8",
+    "name": "Egg Bonda (2 pcs)",
+    "price": 5.99,
+    "category": "Tiffins",
+    "available": true
+  },
+  {
+    "id": "p9",
+    "name": "Poori (1pc)",
+    "price": 3.49,
+    "category": "Tiffins",
+    "available": true
+  },
+  {
+    "id": "p10",
+    "name": "Aloo Curry",
+    "price": 7.49,
+    "category": "Tiffins",
+    "available": true
+  },
+  {
+    "id": "p11",
+    "name": "Thatte idly",
+    "price": 8.99,
+    "category": "Tiffins",
+    "available": true
+  },
+  {
+    "id": "p12",
+    "name": "Pesarattu Plain",
+    "price": 10.49,
+    "category": "Tiffins",
+    "available": true
+  },
+  {
+    "id": "p13",
+    "name": "Pesarattu Onion",
+    "price": 11.99,
+    "category": "Tiffins",
+    "available": true
+  },
+  {
+    "id": "q1",
+    "name": "Plain Dosa",
+    "price": 9.99,
+    "category": "Dosa",
+    "available": true
+  },
+  {
+    "id": "q2",
+    "name": "Onion Dosa",
+    "price": 10.99,
+    "category": "Dosa",
+    "available": true
+  },
+  {
+    "id": "q3",
+    "name": "Masala Dosa",
+    "price": 10.99,
+    "category": "Dosa",
+    "available": true
+  },
+  {
+    "id": "q4",
+    "name": "Mysore Masala Dosa",
+    "price": 12.99,
+    "category": "Dosa",
+    "available": true
+  },
+  {
+    "id": "q5",
+    "name": "Egg Dosa",
+    "price": 13.49,
+    "category": "Dosa",
+    "available": true
+  },
+  {
+    "id": "q6",
+    "name": "Ghee Karam Dosa",
+    "price": 11.99,
+    "category": "Dosa",
+    "available": true
+  },
+  {
+    "id": "q7",
+    "name": "Hashtag Spl Dosa",
+    "price": 12.99,
+    "category": "Dosa",
+    "available": true
+  },
+  {
+    "id": "r1",
+    "name": "Mirchi Bajji (4 Pcs)",
+    "price": 7.49,
+    "category": "Snack Box",
+    "available": true
+  },
+  {
+    "id": "r2",
+    "name": "Cut Mirchi",
+    "price": 6.99,
+    "category": "Snack Box",
+    "available": true
+  },
+  {
+    "id": "r3",
+    "name": "Mirchi Bajji (Stuffed) (3 Pcs)",
+    "price": 7.49,
+    "category": "Snack Box",
+    "available": true
+  },
+  {
+    "id": "r4",
+    "name": "Aloo Bajji",
+    "price": 6.49,
+    "category": "Snack Box",
+    "available": true
+  },
+  {
+    "id": "r5",
+    "name": "Chitti punugulu 15 pcs",
+    "price": 8.99,
+    "category": "Snack Box",
+    "available": true
+  },
+  {
+    "id": "t1",
+    "name": "Gulab Jamun",
+    "price": 4.99,
+    "category": "Desserts",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/95d024fe-f9b4-4285-9272-d600be26e57d.jpg"
+    ]
+  },
+  {
+    "id": "t2",
+    "name": "Sweet Paan *",
+    "price": 2.99,
+    "category": "Desserts",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/e667adb1-bf90-4076-a22e-ab21f6851747.jpg"
+    ]
+  },
+  {
+    "id": "t3",
+    "name": "Ice Cream (1 scoop)",
+    "price": 3.49,
+    "category": "Desserts",
+    "available": true
+  },
+  {
+    "id": "t4",
+    "name": "1ce Cream (2 scoops)",
+    "price": 4.49,
+    "category": "Desserts",
+    "available": true
+  },
+  {
+    "id": "t5",
+    "name": "Ice cream (3 scoops)",
+    "price": 5.49,
+    "category": "Desserts",
+    "available": true
+  },
+  {
+    "id": "t6",
+    "name": "Fruit Custard",
+    "price": 7.49,
+    "category": "Desserts",
+    "available": true
+  },
+  {
+    "id": "t7",
+    "name": "Double ka Meeta",
+    "price": 5.49,
+    "category": "Desserts",
+    "available": true
+  },
+  {
+    "id": "t8",
+    "name": "Ravva Laddu",
+    "price": 6.49,
+    "category": "Desserts",
+    "available": true
+  },
+  {
+    "id": "t9",
+    "name": "Minapa Sunnundalu",
+    "price": 6.49,
+    "category": "Desserts",
+    "available": true
+  },
+  {
+    "id": "t10",
+    "name": "Malpuri (2 pcs)",
+    "price": 5.99,
+    "category": "Desserts",
+    "available": true
+  },
+  {
+    "id": "t11",
+    "name": "Sanna Pusa",
+    "price": 4.99,
+    "category": "Desserts",
+    "available": true
+  },
+  {
+    "id": "t12",
+    "name": "Boondi Laddu",
+    "price": 4.99,
+    "category": "Desserts",
+    "available": true
+  },
+  {
+    "id": "t13",
+    "name": "Boondi",
+    "price": 4.99,
+    "category": "Desserts",
+    "available": true
+  },
+  {
+    "id": "t14",
+    "name": "Carrot Halwa",
+    "price": 4.99,
+    "category": "Desserts",
+    "available": true
+  },
+  {
+    "id": "t15",
+    "name": "Rasagulla",
+    "price": 5.99,
+    "category": "Desserts",
+    "available": true
+  },
+  {
+    "id": "v1",
+    "name": "Irani Chai (Small)",
+    "price": 1.25,
+    "category": "Hot Drinks",
+    "available": true
+  },
+  {
+    "id": "v2",
+    "name": "Irani Chai (Large)",
+    "price": 2.75,
+    "category": "Hot Drinks",
+    "available": true
+  },
+  {
+    "id": "v3",
+    "name": "Maska Bun",
+    "price": 2.49,
+    "category": "Hot Drinks",
+    "available": true
+  },
+  {
+    "id": "v4",
+    "name": "Irani Chai with Maska Bun",
+    "price": 4.49,
+    "category": "Hot Drinks",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/e7b9946a-b71d-421f-ae59-a8a09c3babe3.jpg"
+    ]
+  },
+  {
+    "id": "w1",
+    "name": "Royal Falooda",
+    "price": 9.99,
+    "category": "Falooda'S",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/a7e4fe5d-0f24-4d08-a550-25c70ad7ef32.jpg"
+    ]
+  },
+  {
+    "id": "w2",
+    "name": "Mango Masti (FALOODA)",
+    "price": 8.99,
+    "category": "Falooda'S",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/278ad9df-eb2d-4233-8e62-5ff6253c4104.jpg"
+    ]
+  },
+  {
+    "id": "w3",
+    "name": "Spl. Falooda",
+    "price": 8.99,
+    "category": "Falooda'S",
+    "available": true
+  },
+  {
+    "id": "x1",
+    "name": "Pani Puri (8 Pcs)",
+    "price": 7.99,
+    "category": "Chaat",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/012db4e6-484c-4b6e-812e-2467b0f78fb4.jpg"
+    ]
+  },
+  {
+    "id": "x2",
+    "name": "Dahi Puri (5 Pcs)",
+    "price": 8.99,
+    "category": "Chaat",
+    "available": true,
+    "images": [
+      "https://s3.amazonaws.com/toasttab/menu_service/restaurants/03766552-afb6-4b48-ab7b-eb8f49e3c785/MenuItem/28658ed3-0a18-48de-a167-f6324c9dd664.jpg"
+    ]
+  }
+]

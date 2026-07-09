@@ -10,6 +10,7 @@
  *   npm run try -- samples/menu.json --screens-mode=elastic      # let the fit arithmetic flex
  *   npm run try -- samples/menu.json --preset=blockframe         # pick a theme (default bubblegum)
  *   npm run try -- samples/menu.json --screens=6 --prompt "combine biryani and pulav as a price table"
+ *   npm run try -- samples/menu.json --parallel=3               # paint up to 3 boards at once (default 2)
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
@@ -18,7 +19,7 @@ import { flush } from "braintrust";
 
 import { viewportForAspect } from "../src/config/qa";
 import { createNodeEngine } from "../src/node";
-import type { CanonicalItem, DebugCapture, QaScreenReport, ThinPlan } from "../src/index";
+import type { CanonicalItem, DebugCapture, Logger, QaScreenReport, ThinPlan } from "../src/index";
 
 // Load credentials from .env (cwd = project root) so real runs need no manual `export`.
 // Falls back to the ambient environment (e.g. exported vars / CI) when there is no .env.
@@ -75,6 +76,10 @@ const RESTAURANT = flagValue("restaurant") ?? basename(MENU_PATH).replace(/\.jso
 // `--fresh` wipes real-output/ first (replan + repaint everything); default RESUMES — reuse the
 // cached plan and skip boards already written, so a failed/interrupted run continues where it left off.
 const FRESH = flags.includes("--fresh");
+// Paint up to N boards concurrently (each board is an independent generate() call, mirroring the
+// eval harness's --board-parallel). Parallelism multiplies the token BURN RATE and Playwright
+// instances, not the total cost. --parallel=1 restores fully-serial behaviour.
+const PARALLEL = Math.max(1, Number(flagValue("parallel") ?? "2"));
 
 // Braintrust tracing (client-side initLogger + wrapOpenAI spans). This is OPT-IN in the engine, so
 // it must be enabled here or no traces are ever created. Auto-on when a BRAINTRUST_API_KEY is present
@@ -90,29 +95,31 @@ const stamp = (): string => `${((Date.now() - startedAt) / 1000).toFixed(1).padS
 
 // This script renders board-by-board (each board is its own single-screen generate() call, for
 // resumability), so the engine's node logs would always read "board 1/1" — even when painting
-// screen-7 of 10. The holder carries the REAL board position (set before each board's generate)
-// and the logger rewrites the prefix so progress reads "board 7/10". Boards run sequentially, so
-// a mutable holder is safe.
-const boardProgress = { current: 1, total: 1 };
-const relabel = (message: string): string =>
-  message
-    .replace(/\bboard 1\/1\b/g, `board ${boardProgress.current}/${boardProgress.total}`)
-    .replace(/\bboard 1\b(?!\/)/g, `board ${boardProgress.current}`);
-
-const logger = {
-  debug(message: string): void {
-    if (VERBOSE) console.log(`  ${stamp()}  · ${relabel(message)}`);
-  },
-  info(message: string): void {
-    console.log(`  ${stamp()}  ${relabel(message)}`);
-  },
-  warn(message: string): void {
-    console.warn(`  ${stamp()}  ⚠ ${relabel(message)}`);
-  },
-  error(message: string, meta?: Record<string, unknown>): void {
-    console.error(`  ${stamp()}  ✖ ${relabel(message)}`, meta ?? "");
-  },
+// screen-7 of 10. Each board gets its OWN logger closed over its real position, so the prefix
+// rewrite stays correct when boards run concurrently (--parallel) — no shared mutable holder.
+const makeLogger = (current?: number, total?: number): Logger => {
+  const relabel = (message: string): string =>
+    current === undefined || total === undefined
+      ? message
+      : message
+          .replace(/\bboard 1\/1\b/g, `board ${current}/${total}`)
+          .replace(/\bboard 1\b(?!\/)/g, `board ${current}`);
+  return {
+    debug(message: string): void {
+      if (VERBOSE) console.log(`  ${stamp()}  · ${relabel(message)}`);
+    },
+    info(message: string): void {
+      console.log(`  ${stamp()}  ${relabel(message)}`);
+    },
+    warn(message: string): void {
+      console.warn(`  ${stamp()}  ⚠ ${relabel(message)}`);
+    },
+    error(message: string, meta?: Record<string, unknown>): void {
+      console.error(`  ${stamp()}  ✖ ${relabel(message)}`, meta ?? "");
+    },
+  };
 };
+const logger = makeLogger();
 
 // Debug dump: every scored candidate (each paint/repair attempt) is written under debug/<screen>/
 // as raw HTML, packaged HTML, a PNG, and a findings+score JSON — so you can watch each version
@@ -146,6 +153,29 @@ const debug = {
   },
 };
 
+/**
+ * Run `worker` over `items` with at most `limit` in flight at once, preserving input order in the
+ * returned array (results[i] is worker(items[i])). A tiny inline semaphore: `limit` lanes each pull
+ * the next job off a shared queue until it drains. `limit <= 1` degrades to serial. (Same helper
+ * as the eval harness, scripts/evals/run.ts.)
+ */
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const queue = items.map((item, index) => ({ item, index }));
+  const results: R[] = [];
+  const lane = async (): Promise<void> => {
+    for (let job = queue.shift(); job !== undefined; job = queue.shift()) {
+      results[job.index] = await worker(job.item, job.index);
+    }
+  };
+  const width = Math.max(1, Math.min(limit, items.length));
+  await Promise.all(Array.from({ length: width }, lane));
+  return results;
+}
+
 async function main(): Promise<void> {
   const apiKey = process.env["OPENROUTER_API_KEY"];
   if (!apiKey) {
@@ -161,7 +191,7 @@ async function main(): Promise<void> {
   // the category count, D25; elastic mode flexes to fit). The final count is logged post-plan.
   console.log(
     `Menu: ${items.length} items → ${SCREENS} board(s) requested (${SCREENS_MODE}) @ ${ASPECT} (${viewport.width}×${viewport.height})` +
-      `${PROMPT ? ` · prompt: "${PROMPT}"` : ""}${DEBUG_ON ? " · debug→debug/" : ""}\n`,
+      `${PROMPT ? ` · prompt: "${PROMPT}"` : ""}${DEBUG_ON ? " · debug→debug/" : ""} · parallel=${PARALLEL}\n`,
   );
 
   if (DEBUG_ON) rmSync(debugDir, { recursive: true, force: true });
@@ -173,47 +203,71 @@ async function main(): Promise<void> {
     logger.info(`Braintrust tracing OFF — set BRAINTRUST_API_KEY (or pass --braintrust) to enable`);
   }
 
-  const engine = createNodeEngine({
-    openRouterApiKey: apiKey,
-    // Enable client-side Braintrust spans (initLogger + wrapOpenAI) when requested. Off → the engine
-    // only emits always-on OpenRouter Broadcast correlation (session_id + trace), no external logger.
-    ...(BRAINTRUST_ON ? { braintrust: { projectName: "content-engine" } } : {}),
-    // No `plan`: the engine's LLM coverage planner builds it from the menu + screen spec below.
-    // Load externalized theme files from ./themes (e.g. themes/bubblegum.theme.json); bundled
-    // presets remain available as a fallback for ids not on disk.
-    themesDir: "themes",
-    logger,
-    ...(DEBUG_ON ? { debug } : {}),
-    appName: process.env["OPENROUTER_APP_NAME"] ?? "content-engine try",
-    ...(appUrl !== undefined ? { appUrl } : {}),
-    config: {
-      // Swap any role — must be an OpenRouter model id on the structured-output allowlist for
-      // `plan`/`critique`/`repair` (the critic also needs vision). Override the allowlist if needed.
-      models: {
-        // The coverage planner: emits a small category-level layout; GLM-5.2 handles this well.
-        plan: "z-ai/glm-5.2",
-        // GLM-5.2 paints strong HTML at ~1/5 the cost of a frontier model; bump to
-        // anthropic/claude-sonnet-4.6 (or x-ai/grok-4.3) if a theme needs richer layout taste.
-        paint: "z-ai/glm-5.2",
-        // A capable, fair VISION critic — must support image input + strict structured output;
-        // a weak critic over-flags good screens and wastes re-paints, so keep this one solid.
-        critique: "openai/gpt-5.4-mini",
-        repair: "openai/gpt-5.4-nano",
+  // One engine per caller: the plan phase uses the plain logger; each board's generate() gets its
+  // own engine whose logger knows that board's real position (correct labels under --parallel).
+  // Per-board engines mirror the eval harness — independent generate() calls never share state.
+  const engineFor = (log: Logger) =>
+    createNodeEngine({
+      openRouterApiKey: apiKey,
+      // Enable client-side Braintrust spans (initLogger + wrapOpenAI) when requested. Off → the engine
+      // only emits always-on OpenRouter Broadcast correlation (session_id + trace), no external logger.
+      ...(BRAINTRUST_ON ? { braintrust: { projectName: "content-engine" } } : {}),
+      // No `plan`: the engine's LLM coverage planner builds it from the menu + screen spec below.
+      // Load externalized theme files from ./themes (e.g. themes/bubblegum.theme.json); bundled
+      // presets remain available as a fallback for ids not on disk.
+      themesDir: "themes",
+      logger: log,
+      ...(DEBUG_ON ? { debug } : {}),
+      appName: process.env["OPENROUTER_APP_NAME"] ?? "content-engine try",
+      ...(appUrl !== undefined ? { appUrl } : {}),
+      config: {
+        // Swap any role — must be an OpenRouter model id on the structured-output allowlist for
+        // `plan`/`critique`/`repair` (the critic also needs vision). Override the allowlist if needed.
+        models: {
+          // The coverage planner: emits a small category-level layout; GLM-5.2 handles this well.
+          plan: "anthropic/claude-sonnet-5",
+          // Sonnet paints reliably in one attempt with bounded reasoning. GLM-5.2 is ~1/5 the cost
+          // when it lands, but on dense boards it stream-aborts and reasoning-runaways past the
+          // 32k completion cap (`effort:"low"` doesn't bind it — see models.ts), burning the whole
+          // 3-attempt ladder before the fallback rescues it (~20 min/board observed 2026-07-08).
+          // Flip back to z-ai/glm-5.2 for cheap runs where wall-clock and consistency don't matter.
+          // (The paint FALLBACK stays sonnet-4.6 — models.ts default — so a bad Sonnet-5 day still
+          // lands on a different, proven painter.)
+          paint: "anthropic/claude-sonnet-5",
+          // A capable, fair VISION critic — must support image input + strict structured output;
+          // a weak critic over-flags good screens and wastes re-paints, so keep this one solid.
+          // 2026-07-09: upgraded from gpt-5.4-mini — even with the full-res screenshot AND the
+          // full do/don't brief (D68), mini kept emitting false "truck-art frame missing" majors
+          // on boards where the stripe frame is plainly visible, blocking every pass. The judge
+          // runs once per iteration on one image; frontier vision here costs ~$0.03/critique.
+          critique: "anthropic/claude-sonnet-5",
+          repair: "openai/gpt-5.4-nano",
+        },
+        // 4 iterations: with vision findings landing from iter 1 (skipVisionWhenBlocking off,
+        // below), a board typically needs repair → re-paint → confirm; 3 left no slack for a
+        // second visual pass and boards froze flagged on never-repaired vision majors.
+        loop: { maxIterations: 4 },
+        // "6 means 6" for a dev run (D26): the requested screen count is exact, capped only by the
+        // category count (categories are atomic, D25). Override with --screens-mode=elastic.
+        planning: { screensMode: SCREENS_MODE },
+        qa: {
+          // Render + poster geometry, derived from the requested aspect.
+          viewport,
+          // Run the vision critique on EVERY rendered iteration, even gate-blocked ones (D27's
+          // skip saves ~1.1k image tokens/iteration but starves the loop: mechanical majors —
+          // e.g. theme-induced token-lint — block vision until the FINAL iteration, so visual
+          // majors (missing frame, dead space, invented copy) surface only at freeze, unfixable.
+          // 2026-07-08 run: board 1's first critique arrived on iteration 3 of 3. The critique is
+          // cheap (gpt-5.4-mini, ~3s, ~$0.002); repair context is worth far more than the skip.
+          skipVisionWhenBlocking: false,
+          // Coverage mode crams a whole category onto a board, so relax the pre-render capacity
+          // caps (which would otherwise force a re-plan); the real rendered-overflow check still
+          // guarantees content physically fits, and the planner logs a legibility warning.
+          capacities: { matrix: 60, "variant-rows": 48, grid: 48, list: 80 },
+        },
       },
-      loop: { maxIterations: 3 },
-      // "6 means 6" for a dev run (D26): the requested screen count is exact, capped only by the
-      // category count (categories are atomic, D25). Override with --screens-mode=elastic.
-      planning: { screensMode: SCREENS_MODE },
-      qa: {
-        // Render + poster geometry, derived from the requested aspect.
-        viewport,
-        // Coverage mode crams a whole category onto a board, so relax the pre-render capacity
-        // caps (which would otherwise force a re-plan); the real rendered-overflow check still
-        // guarantees content physically fits, and the planner logs a legibility warning.
-        capacities: { matrix: 60, "variant-rows": 48, grid: 48, list: 80 },
-      },
-    },
-  });
+    });
+  const engine = engineFor(logger);
 
   const outDir = join(process.cwd(), "real-output");
   if (FRESH) rmSync(outDir, { recursive: true, force: true });
@@ -263,44 +317,47 @@ async function main(): Promise<void> {
     `plan: ${plan.screens.length} board(s) final (requested ${SCREENS}, mode ${SCREENS_MODE})`,
   );
 
-  // 2. Render board-by-board. Each board is its own generate() call (a single-screen sub-plan), so
-  //    a finished board is written immediately and a crash/retry never repaints it.
-  const reports: QaScreenReport[] = [];
-  let rendered = 0;
-  let reused = 0;
-  boardProgress.total = plan.screens.length;
-  for (const [index, screen] of plan.screens.entries()) {
-    // The engine sees a 1-screen sub-plan, so its logs say "board 1/1"; tell the logger the truth.
-    boardProgress.current = index + 1;
-    const htmlPath = join(outDir, `${screen.id}.html`);
-    const reportPath = join(outDir, `${screen.id}.report.json`);
-    if (!FRESH && existsSync(htmlPath) && existsSync(reportPath)) {
-      reports.push(JSON.parse(readFileSync(reportPath, "utf8")) as QaScreenReport);
-      console.log(`✓ ${screen.id}: already rendered — skipping (delete its files to redo)`);
-      reused += 1;
-      continue;
-    }
-    const board = await engine.generate({
-      items,
-      brief,
-      constraints: { ...baseConstraints, screens: 1 },
-      plan: { screens: [screen] },
-    });
-    const s = board.screens[0]!;
-    const report = board.qaReport.screens[0]!;
-    writeFileSync(htmlPath, s.html, "utf8");
-    writeFileSync(
-      join(outDir, `${screen.id}.poster.png`),
-      Buffer.from(board.posters[0]!.pngBase64, "base64"),
-    );
-    writeFileSync(reportPath, JSON.stringify(report, null, 2), "utf8");
-    reports.push(report);
-    rendered += 1;
-    console.log(
-      `▸ ${screen.id}: passed=${report.passed} flagged=${report.flagged} iterations=${report.iterations} ` +
-        `route=[${report.routeHistory.join(" → ")}]`,
-    );
-  }
+  // 2. Render board-by-board, up to PARALLEL boards in flight (each board is its own generate()
+  //    call on its own engine — a single-screen sub-plan), so a finished board is written
+  //    immediately and a crash/retry never repaints it. Results come back in board order.
+  const totalBoards = plan.screens.length;
+  const boardResults = await mapWithConcurrency(
+    plan.screens,
+    PARALLEL,
+    async (screen, index): Promise<{ report: QaScreenReport; reused: boolean }> => {
+      const htmlPath = join(outDir, `${screen.id}.html`);
+      const reportPath = join(outDir, `${screen.id}.report.json`);
+      if (!FRESH && existsSync(htmlPath) && existsSync(reportPath)) {
+        const report = JSON.parse(readFileSync(reportPath, "utf8")) as QaScreenReport;
+        console.log(`✓ ${screen.id}: already rendered — skipping (delete its files to redo)`);
+        return { report, reused: true };
+      }
+      // The engine sees a 1-screen sub-plan, so its logs say "board 1/1"; a board-scoped logger
+      // rewrites that to the real position (safe under concurrency — no shared mutable state).
+      const board = await engineFor(makeLogger(index + 1, totalBoards)).generate({
+        items,
+        brief,
+        constraints: { ...baseConstraints, screens: 1 },
+        plan: { screens: [screen] },
+      });
+      const s = board.screens[0]!;
+      const report = board.qaReport.screens[0]!;
+      writeFileSync(htmlPath, s.html, "utf8");
+      writeFileSync(
+        join(outDir, `${screen.id}.poster.png`),
+        Buffer.from(board.posters[0]!.pngBase64, "base64"),
+      );
+      writeFileSync(reportPath, JSON.stringify(report, null, 2), "utf8");
+      console.log(
+        `▸ ${screen.id}: passed=${report.passed} flagged=${report.flagged} iterations=${report.iterations} ` +
+          `route=[${report.routeHistory.join(" → ")}]`,
+      );
+      return { report, reused: false };
+    },
+  );
+  const reports = boardResults.map((r) => r.report);
+  const reused = boardResults.filter((r) => r.reused).length;
+  const rendered = boardResults.length - reused;
 
   // 3. Assemble the combined QA report across all boards (rendered + reused).
   writeFileSync(
