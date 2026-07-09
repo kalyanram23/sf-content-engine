@@ -118,7 +118,11 @@ function exemplarBlock(design: ResolvedTheme["design"]): string | undefined {
     "that matters. NEVER copy its placeholder item names, prices, or section names — those are dummy " +
     "text; real content comes exclusively from the planned items and section titles below. If the " +
     "target canvas aspect differs from this exemplar's, adapt the proportions (column count, hero " +
-    "size, row counts) to the target while keeping every signature move.\n\n" +
+    "size, row counts) to the target while keeping every signature move. The exemplar's absolute " +
+    "rem sizes suit a DENSE board (~45 rows); they are a floor, not a template — when your board " +
+    "carries fewer rows, scale row type, section titles, and photo cards UP proportionally " +
+    "(e.g. ~30 rows → roughly 1.5× the exemplar's row type and photo sizes) until the canvas is " +
+    "full. Copying the exemplar's sizes onto a sparse board leaves dead cream bands, which fail QA.\n\n" +
     exemplar.html
   );
 }
