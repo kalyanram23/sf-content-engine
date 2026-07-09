@@ -282,6 +282,66 @@ describe("buildSystem", () => {
 });
 
 /**
+ * The theme exemplar (D66): when a theme's `design.exemplar` carries a gold reference board,
+ * buildSystem injects an "EXEMPLAR" section (with a never-copy + adapt-proportions guard) right
+ * after the identity/DO/DON'T block. A theme WITHOUT an exemplar produces a byte-identical prompt
+ * to before — no drift for other themes.
+ */
+describe("buildSystem theme exemplar (D66)", () => {
+  const exemplarHtml =
+    '<div style="height:100vh"><span data-item-id="placeholder-1">Sample Dish</span></div>';
+  const themeWithExemplar = parseOrThrow(
+    resolvedThemeSchema,
+    {
+      ...JSON.parse(JSON.stringify(testTheme)),
+      design: {
+        identity: "TEST IDENTITY",
+        do: ["do one"],
+        dont: ["dont one"],
+        exemplar: { aspect: "9:16", html: exemplarHtml, note: "trimmed gold board" },
+      },
+    },
+    "theme with exemplar",
+  );
+
+  it("omits the exemplar section entirely when the theme has none (no drift)", () => {
+    expect(buildSystem(testTheme)).not.toContain("EXEMPLAR");
+    expect(testTheme.design?.exemplar).toBeUndefined();
+  });
+
+  it("injects the exemplar section, its guard, aspect, note, and the HTML when present", () => {
+    const system = buildSystem(themeWithExemplar);
+    expect(system).toContain("EXEMPLAR — a finished board in this theme");
+    // The never-copy guard: take structure/craft, not the placeholder copy.
+    expect(system).toContain("STRUCTURE and CRAFT");
+    expect(system).toContain("NEVER copy");
+    expect(system).toContain("real content comes exclusively from the planned items");
+    // The adapt-proportions guard names the exemplar's own aspect.
+    expect(system).toContain("adapt the proportions");
+    expect(system).toContain("9:16");
+    expect(system).toContain("trimmed gold board");
+    // The exemplar HTML itself is embedded verbatim.
+    expect(system).toContain(exemplarHtml);
+  });
+
+  it("places the exemplar after the DO/DON'T block and before the engine design goals", () => {
+    const system = buildSystem(themeWithExemplar);
+    expect(system.indexOf("DON'T (this theme)")).toBeLessThan(system.indexOf("EXEMPLAR —"));
+    expect(system.indexOf("EXEMPLAR —")).toBeLessThan(system.indexOf("DESIGN GOALS"));
+  });
+
+  it("keeps the re-paint prompt prefix byte-identical when an exemplar is present (C1 cache prefix)", () => {
+    const paint = buildSystem(themeWithExemplar, false);
+    const repaint = buildSystem(themeWithExemplar, true);
+    const idx = paint.indexOf("- FINAL SELF-CHECK");
+    expect(idx).toBeGreaterThan(0);
+    expect(repaint.slice(0, idx)).toBe(paint.slice(0, idx));
+    // The exemplar lives in the shared, cached prefix.
+    expect(paint.indexOf(exemplarHtml)).toBeLessThan(idx);
+  });
+});
+
+/**
  * The user prompt carries the per-request aspect: only a 9:16 board gets the PORTRAIT composition
  * guidance (single-column vertical flow), so a landscape board is never told to stack into one
  * column. The aspect is per-request, which is why this lives in describeRequest, not buildSystem.

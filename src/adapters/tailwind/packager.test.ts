@@ -30,6 +30,30 @@ describe("TailwindPackager (real compile, hermetic)", () => {
     expect(findings).toEqual([]);
   }, 60_000);
 
+  it("defines EVERY theme color token as a CSS var, even ones used only via inline var() or unused (D67)", async () => {
+    // Regression (dhaba truck-art frame): token-lint blesses `var(--color-<token>)`, so the painter
+    // legitimately references a colour ONLY inside an inline gradient (never via a utility class).
+    // Tailwind v4 `@theme` tree-shakes variables no utility references, so such a token — and any
+    // token used nowhere on a given board — never reached the packaged CSS: the gradient pointed at
+    // an undefined var, the browser dropped the whole background, and the frame rendered invisible.
+    // Invariant: any token the lint blesses must be defined in the packaged CSS unconditionally.
+    const html =
+      // `accent` appears ONLY inside an inline gradient (no utility class references it), mirroring
+      // the dhaba signature frame; the other tokens (sold, surface-strong, …) are used nowhere.
+      `<div style="background:repeating-linear-gradient(45deg,var(--color-accent) 0,var(--color-accent) 8px,transparent 8px,transparent 16px)">` +
+      `<h2 class="text-text">Hi</h2></div>`; // one ordinary utility, to prove utilities still resolve
+    const packaged = await new TailwindPackager().package({ html, theme, items: [] });
+
+    // The utility-referenced token still resolves to a real declaration.
+    expect(packaged).toMatch(/\.text-text\s*\{[^}]*color/);
+    // And EVERY colour token in the resolved theme is defined as a CSS variable.
+    for (const name of Object.keys(theme.tokens.colors)) {
+      expect(packaged, `--color-${name} must be defined in the packaged CSS`).toContain(
+        `--color-${name}:`,
+      );
+    }
+  }, 60_000);
+
   it("inlines item photos as data-URIs and injects the motion runtime for a runtime preset", async () => {
     const item: CanonicalItem = {
       id: "i1",

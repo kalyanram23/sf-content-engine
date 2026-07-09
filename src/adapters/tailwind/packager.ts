@@ -126,7 +126,14 @@ function themeBlock(theme: ResolvedTheme): string {
     lines.push(`  --font-${name}: ${value};`);
   // Type/spacing scale is deliberately NOT a theme token (free-paint engine — the painter picks
   // Tailwind utilities; type/spacing FEEL is directed by the theme's prompt, not a fixed scale).
-  return `@theme {\n${lines.join("\n")}\n}`;
+  //
+  // `static` (Tailwind v4) forces EVERY declared variable into the packaged `:root`, even ones no
+  // utility class references. Plain `@theme` tree-shakes unused vars, but token-lint blesses
+  // `var(--color-<token>)` (and `--radius-*`/`--font-*`) inside inline styles the compiler never
+  // scans — so a token used ONLY via inline `var()` (e.g. the dhaba truck-art gradient) would
+  // point at an undefined variable and silently vanish. `static` makes the lint's contract hold
+  // unconditionally: any token the lint blesses is defined in the packaged CSS (D67).
+  return `@theme static {\n${lines.join("\n")}\n}`;
 }
 
 function baseStyles(theme: ResolvedTheme): string {

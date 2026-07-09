@@ -96,10 +96,39 @@ ${finalSelfCheck}
 }
 
 /**
+ * Render the theme's gold exemplar board (D66) as a high-attention STRUCTURE reference block, placed
+ * immediately after the identity/DO/DON'T block so the painter reads "this is what great looks like"
+ * before the generic engine goals. The guard is load-bearing: the exemplar teaches LAYOUT + CRAFT
+ * (frame, masthead, section/row anatomy, photo strip, full-height balance), never its placeholder
+ * copy — real item/section names and prices come EXCLUSIVELY from the plan — and its proportions are
+ * adapted when the target aspect differs from the exemplar's own. `undefined` when the theme carries
+ * no exemplar, so the prompt is byte-identical to before for every other theme (no drift).
+ */
+function exemplarBlock(design: ResolvedTheme["design"]): string | undefined {
+  const exemplar = design?.exemplar;
+  if (exemplar === undefined) return undefined;
+  const noteLine = exemplar.note !== undefined ? `\n(${exemplar.note})` : "";
+  return (
+    `EXEMPLAR — a finished board in this theme (structure reference, aspect ${exemplar.aspect}):${noteLine}\n` +
+    "This shows the theme's STRUCTURE and CRAFT — the frame, the masthead band, section anatomy " +
+    "(numbered chip + title + rule), row anatomy (name → leader → price), the photo strip, and the " +
+    "full-height balance that leaves no dead bands. TAKE these layout and craft moves. Colours here " +
+    "are theme tokens as var(--color-*) and sizes are rem — match the token ROLES (you may equally " +
+    "use the theme's Tailwind token classes such as text-accent / bg-surface); it is the STRUCTURE " +
+    "that matters. NEVER copy its placeholder item names, prices, or section names — those are dummy " +
+    "text; real content comes exclusively from the planned items and section titles below. If the " +
+    "target canvas aspect differs from this exemplar's, adapt the proportions (column count, hero " +
+    "size, row counts) to the target while keeping every signature move.\n\n" +
+    exemplar.html
+  );
+}
+
+/**
  * Compose the painter system prompt: role + the theme's identity (+ its DO/DON'T lists) +
- * the shared engine design goals + the engine contract. Themes own the look/voice; the
- * engine owns the rails. Structured `design` wins over the legacy `prompt` blob. `isRepaint`
- * only swaps the contract's tail FINAL SELF-CHECK bullet (C1) — the prompt prefix is invariant.
+ * the theme's gold exemplar (D66, when present) + the shared engine design goals + the engine
+ * contract. Themes own the look/voice; the engine owns the rails. Structured `design` wins over the
+ * legacy `prompt` blob. `isRepaint` only swaps the contract's tail FINAL SELF-CHECK bullet (C1) — the
+ * prompt prefix (including the exemplar) is invariant, preserving the OpenRouter prompt-cache prefix.
  */
 export function buildSystem(theme: ResolvedTheme, isRepaint = false): string {
   const design = theme.design;
@@ -114,7 +143,15 @@ export function buildSystem(theme: ResolvedTheme, isRepaint = false): string {
     design !== undefined && design.dont.length > 0
       ? `DON'T (this theme):\n${design.dont.map((d) => `- ${d}`).join("\n")}`
       : undefined;
-  return [PAINTER_ROLE, identity, doList, dontList, ENGINE_DESIGN_GOALS, engineContract(isRepaint)]
+  return [
+    PAINTER_ROLE,
+    identity,
+    doList,
+    dontList,
+    exemplarBlock(design),
+    ENGINE_DESIGN_GOALS,
+    engineContract(isRepaint),
+  ]
     .filter((s): s is string => s !== undefined)
     .join("\n\n");
 }

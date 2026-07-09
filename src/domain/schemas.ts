@@ -256,6 +256,24 @@ export const themeAssetsSchema = z.object({
 });
 
 /**
+ * A gold exemplar board (D66) — a finished, hand-vetted screen in this theme, shown to the painter
+ * as a "this is what great looks like" STRUCTURE reference (frame, masthead, section/row anatomy,
+ * photo treatment, full-height balance). Purely additive prompt content: the painter takes layout
+ * and craft moves from it but NEVER its placeholder copy (real items come from the plan), and adapts
+ * proportions when the target aspect differs. `html` MUST itself be engine-legal — no raw hex/px,
+ * tokens as var(--color-*) — so the exemplar never teaches the exact violations token-lint rejects
+ * (pinned by a token-lint test over every theme file's exemplar).
+ */
+export const themeExemplarSchema = z.object({
+  /** The exemplar board's own aspect; the painter adapts proportions if the target differs. */
+  aspect: z.enum(["16:9", "9:16"]),
+  /** The finished screen markup (a single root element), engine-legal under token-lint. */
+  html: z.string().min(1),
+  /** Optional one-line authoring note surfaced above the exemplar in the prompt. */
+  note: z.string().optional(),
+});
+
+/**
  * Structured design direction — the frame.md-inspired split of the old single `prompt` blob
  * into named, individually consumable fields. `identity` feeds the painter as the creative
  * core; `do`/`dont` are rendered as explicit lists for the painter AND handed to the vision
@@ -270,6 +288,9 @@ export const themeDesignSchema = z.object({
   do: z.array(z.string().min(1)).default([]),
   /** Theme-specific anti-patterns, rendered as a DON'T list and shown to the critic. */
   dont: z.array(z.string().min(1)).default([]),
+  /** Optional gold exemplar board (see {@link themeExemplarSchema}); shown to the painter as a
+   * structure reference. Optional everywhere — no theme is required to carry one. */
+  exemplar: themeExemplarSchema.optional(),
 });
 
 /**

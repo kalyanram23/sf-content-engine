@@ -6,6 +6,7 @@ import {
   brandInputSchema,
   canonicalItemSchema,
   generateInputSchema,
+  themeDesignSchema,
   themePresetSchema,
 } from "./schemas";
 
@@ -117,6 +118,65 @@ describe("themePresetSchema component binds", () => {
       expect((error as ValidationError).message).toContain("components.0.binds.bg");
       expect((error as ValidationError).message).toContain("not a declared token");
     }
+  });
+});
+
+/**
+ * The optional `design.exemplar` field (D66): a gold reference board — a finished screen in this
+ * theme — the painter is shown as a STRUCTURE reference. Optional everywhere (no theme is required
+ * to carry one); when present it must name an aspect and the HTML, with an optional authoring note.
+ */
+describe("themeDesignSchema exemplar", () => {
+  it("accepts a design carrying an exemplar and round-trips aspect/html/note", () => {
+    const design = themeDesignSchema.parse({
+      identity: "TEST IDENTITY",
+      exemplar: {
+        aspect: "9:16",
+        html: "<div>gold board</div>",
+        note: "structure reference only",
+      },
+    });
+    expect(design.exemplar?.aspect).toBe("9:16");
+    expect(design.exemplar?.html).toBe("<div>gold board</div>");
+    expect(design.exemplar?.note).toBe("structure reference only");
+  });
+
+  it("treats the exemplar as optional (a design with none still parses)", () => {
+    const design = themeDesignSchema.parse({ identity: "TEST IDENTITY" });
+    expect(design.exemplar).toBeUndefined();
+  });
+
+  it("rejects a malformed exemplar (bad aspect)", () => {
+    expect(
+      themeDesignSchema.safeParse({
+        identity: "TEST IDENTITY",
+        exemplar: { aspect: "4:3", html: "<div>x</div>" },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects an exemplar missing its html", () => {
+    expect(
+      themeDesignSchema.safeParse({
+        identity: "TEST IDENTITY",
+        exemplar: { aspect: "16:9" },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("flows the exemplar through the full themePresetSchema", () => {
+    const preset = themePresetSchema.parse({
+      id: "t",
+      name: "T",
+      design: { identity: "x", exemplar: { aspect: "9:16", html: "<div>x</div>" } },
+      tokens: {
+        colors: { bg: "#000", surface: "#111", text: "#fff", price: "#fc0" },
+        fontFamilies: { body: "Inter" },
+        radius: { md: "1rem", full: "9999px" },
+      },
+      motion: [{ name: "fade-in", kind: "css" as const }],
+    });
+    expect(preset.design?.exemplar?.aspect).toBe("9:16");
   });
 });
 

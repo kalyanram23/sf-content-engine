@@ -34,6 +34,7 @@ import type {
   severitySchema,
   themeBriefSchema,
   themeDesignSchema,
+  themeExemplarSchema,
   themePresetSchema,
   themeTokensSchema,
   thinPlanSchema,
@@ -65,6 +66,7 @@ export type LayoutBlueprint = z.infer<typeof layoutBlueprintSchema>;
 export type MotionPreset = z.infer<typeof motionPresetSchema>;
 export type ThemeTokens = z.infer<typeof themeTokensSchema>;
 export type ThemeDesign = z.infer<typeof themeDesignSchema>;
+export type ThemeExemplar = z.infer<typeof themeExemplarSchema>;
 export type ComponentRecipe = z.infer<typeof componentRecipeSchema>;
 export type ThemePreset = z.infer<typeof themePresetSchema>;
 export type ResolvedTheme = z.infer<typeof resolvedThemeSchema>;
