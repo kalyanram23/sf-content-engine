@@ -14,6 +14,12 @@ export interface RouteInput {
   iteration: number;
   /** Whether this candidate already passes QA — a passing screen needs no more work. */
   passed?: boolean;
+  /**
+   * True when the most recent repair changed nothing (state-derived, D65). When set, repair-routing
+   * rules are suppressed so a proven-ineffective repair can't be re-chosen — the decision falls
+   * through to the next non-repair rule (a re-paint) instead of looping on a no-op repair.
+   */
+  repairIneffective?: boolean;
 }
 
 function matches(finding: QaFinding, when: RoutingMatch): boolean {
@@ -31,10 +37,19 @@ function matches(finding: QaFinding, when: RoutingMatch): boolean {
   return true;
 }
 
-/** The highest-priority rule with at least one matching finding, or null if none match. */
-function selectRoute(findings: readonly QaFinding[], routing: RoutingRules): Route | null {
+/**
+ * The highest-priority rule with at least one matching finding, or null if none match. When
+ * `suppressRepair` is set (the last repair made no change — D65), repair-routing rules are skipped
+ * so the decision escalates to the next non-repair rule rather than re-choosing a no-op repair.
+ */
+function selectRoute(
+  findings: readonly QaFinding[],
+  routing: RoutingRules,
+  suppressRepair: boolean,
+): Route | null {
   const ordered = [...routing.rules].sort((a, b) => b.priority - a.priority);
   for (const rule of ordered) {
+    if (suppressRepair && rule.route === "repair") continue;
     if (findings.some((f) => matches(f, rule.when))) return rule.route;
   }
   return null;
@@ -46,5 +61,5 @@ export function route(input: RouteInput, routing: RoutingRules, loop: LoopConfig
   // A candidate that already passes QA is done — don't spend remaining budget chasing
   // non-blocking critic nits (vision findings are graded by the rubric, not hard blocks).
   if (input.passed === true) return "freeze";
-  return selectRoute(input.findings, routing) ?? "freeze";
+  return selectRoute(input.findings, routing, input.repairIneffective === true) ?? "freeze";
 }

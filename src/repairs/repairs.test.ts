@@ -317,6 +317,18 @@ describe("applyDeterministicRepairs — overflow shrink-to-fit (D31)", () => {
     expect(twice.html).not.toContain("scale(0.755");
   });
 
+  it("HONESTLY reports no-change on a re-repair of already-shrunk markup (D65 — the silent no-op)", () => {
+    // The repair-loop dead-end's root cause: re-applying the overflow fix on already-shrunk markup
+    // replaces the fit block with a byte-identical one and used to report `applied:true` — printing
+    // "deterministic repair applied" while the output never changed, so the loop repaired forever.
+    // The second pass must now report `applied:false` (no progress) so the loop can escalate.
+    const once = applyDeterministicRepairs("<main>menu</main>", [overflowFinding], theme);
+    expect(once.applied).toBe(true);
+    const twice = applyDeterministicRepairs(once.html, [overflowFinding], theme);
+    expect(twice.html).toBe(once.html); // byte-identical…
+    expect(twice.applied).toBe(false); // …so it must NOT claim it was applied.
+  });
+
   it("fixes a contrast AND an overflow finding in one repair pass", () => {
     const html = `<head></head><body><article data-item-id="id4"><span data-bind="price" style="color:#fff">$8.99</span></article></body>`;
     const result = applyDeterministicRepairs(html, [contrastFinding, overflowFinding], theme);

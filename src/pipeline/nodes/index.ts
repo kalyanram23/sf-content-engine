@@ -148,7 +148,9 @@ export async function paintNode(
     ...(state.input.brand !== undefined ? { brand: state.input.brand } : {}),
   });
   if (!html || html.trim() === "") throw new PaintError("painter returned empty HTML.");
-  return { html, iteration: state.iteration + 1 };
+  // A fresh paint clears the no-progress flag: a subsequent repair operates on new markup and can
+  // be effective again (D65).
+  return { html, iteration: state.iteration + 1, repairIneffective: false };
 }
 
 /** package: compile + inline into the self-contained artifact QA renders (spec §5.2, D4). */
@@ -376,7 +378,12 @@ export async function scoreNode(
   const best = !state.best || candidate.score > state.best.score ? candidate : state.best;
 
   const decision = route(
-    { findings: state.findings, iteration: state.iteration, passed: score.passed },
+    {
+      findings: state.findings,
+      iteration: state.iteration,
+      passed: score.passed,
+      repairIneffective: state.repairIneffective,
+    },
     ctx.config.routing,
     ctx.config.loop,
   );
@@ -404,7 +411,12 @@ export async function scoreNode(
   return { best, route: decision, routeHistory: [...state.routeHistory, decision] };
 }
 
-/** repair: a pure deterministic mechanical fix (D13); the LlmRepairer port is the fallback. */
+/**
+ * repair: a pure deterministic mechanical fix (D13); the LlmRepairer port is the fallback. Sets
+ * `repairIneffective` when the pass produced HTML byte-identical to its input — a no-progress repair
+ * the router must not re-choose (it would loop forever); the router then escalates to a re-paint
+ * (D65). A repair that genuinely changed the markup clears the flag.
+ */
 export async function repairNode(
   ctx: NodeContext,
   state: EngineState,
@@ -412,26 +424,32 @@ export async function repairNode(
   if (state.html === undefined || state.theme === undefined) {
     throw new PaintError("repair requires painted HTML and a theme.");
   }
-  const deterministic = applyDeterministicRepairs(state.html, state.findings, state.theme);
-  if (deterministic.applied) {
+  const before = state.html;
+  const deterministic = applyDeterministicRepairs(before, state.findings, state.theme);
+  if (deterministic.applied && deterministic.html !== before) {
     ctx.ports.logger?.debug("deterministic repair applied", { note: deterministic.note });
-    return { html: deterministic.html, iteration: state.iteration + 1 };
+    return { html: deterministic.html, iteration: state.iteration + 1, repairIneffective: false };
   }
   if (ctx.ports.llmRepairer) {
     const correlation = state.plan
       ? boardCorrelation(state, currentScreen(state.plan, state.screenIndex).id)
       : runCorrelation(state);
     const repaired = await ctx.ports.llmRepairer.repair({
-      html: state.html,
+      html: before,
       theme: state.theme,
       findings: state.findings,
       correlation,
     });
-    return { html: repaired.html, iteration: state.iteration + 1 };
+    return {
+      html: repaired.html,
+      iteration: state.iteration + 1,
+      repairIneffective: repaired.html === before,
+    };
   }
-  // Nothing applicable — advance the budget so the loop terminates (router will then freeze).
+  // Nothing applicable — advance the budget and flag the no-op so the router escalates to a re-paint
+  // rather than re-selecting this same do-nothing repair (D65).
   ctx.ports.logger?.warn("repair node reached with no applicable repair");
-  return { iteration: state.iteration + 1 };
+  return { iteration: state.iteration + 1, repairIneffective: true };
 }
 
 /** freeze: lock the best-scoring artifact and emit screen + poster + report (spec §5.6, D4). */
@@ -453,7 +471,10 @@ export async function freezeNode(
   // board must carry one honest critique. Critique `best` ONCE, merge the findings, and rescore for
   // the REPORT only: this never re-selects `best` (the loop is over) and MUST NOT flip `passed` — a
   // blocked board stays flagged and new vision findings never change routing. On any critic failure
-  // we ship exactly today's report (best untouched).
+  // we ship exactly today's report (best untouched). The `passed: best.passed` pin below is now
+  // LOAD-BEARING (D69): a make-good critique can surface a vision `critical`, which the gate would
+  // block on if rescored freely — but this path only runs for an already-gate-blocked (never-passed)
+  // candidate, and the pin guarantees a merged critical can never retroactively flip a shipped pass.
   if (!best.critiqued) {
     try {
       ctx.ports.logger?.info(

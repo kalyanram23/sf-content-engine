@@ -167,6 +167,8 @@ function applyContrastRepair(
 
   const block = `<style data-repair="contrast">${priorCss}${rules.join("")}</style>`;
   const next = existing ? html.replace(CONTRAST_BLOCK_RE, block) : injectBlock(html, block);
+  // Honesty guard (D65): never claim `applied` on an unchanged document (mirrors the overflow path).
+  if (next === html) return { html, note: "", applied: false };
   return {
     html: next,
     note: `swapped contrast colour for ${rules.length} region(s)`,
@@ -223,6 +225,11 @@ function applyOverflowRepair(
   const next = FIT_BLOCK_RE.test(html)
     ? html.replace(FIT_BLOCK_RE, block)
     : injectBlock(html, block);
+  // Honesty (D65): a re-repair on already-shrunk markup REPLACES the fit block with a byte-identical
+  // one — no change. Reporting `applied:true` on an unchanged document is what silently looped the
+  // repair path ("deterministic repair applied", output identical, forever). Report no-change so the
+  // caller (repairNode) can flag no-progress and the router escalates to a re-paint.
+  if (next === html) return { html, note: "", applied: false };
   return { html: next, note: `shrank content to fit (×${factor})`, applied: true };
 }
 
@@ -253,6 +260,10 @@ export function applyDeterministicRepairs(
 
   if (notes.length === 0)
     return { html, note: "no deterministic repair applicable", applied: false };
+  // Final honesty guard (D65): if every sub-repair together left the markup byte-identical, report
+  // no-change — an "applied" flag on unchanged HTML is what silently looped the repair path.
+  if (current === html)
+    return { html, note: "no deterministic repair changed the markup", applied: false };
   return { html: current, note: notes.join("; "), applied: true };
 }
 

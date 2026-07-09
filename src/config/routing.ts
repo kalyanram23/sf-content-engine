@@ -39,6 +39,14 @@ export const routingRuleSchema = z.object({
  *     re-paint. A repair pass mechanically can't mend it, so it must outrank the mechanical-fix
  *     rule below — otherwise a co-occurring cosmetic FIXABLE finding wins repair and the loop
  *     budget dies polishing cosmetics on a content-broken board that never gets re-painted.
+ *  2b. a MAJOR-or-worse, deterministically-UNFIXABLE, deterministic-source finding (e.g. a broken
+ *     matrix comparison table — "row has 1 cell; expected 2") → re-paint (D65). Same rationale as (2)
+ *     one severity tier down: because `qa.blockingSeverity` is `major`, such a finding ALWAYS blocks
+ *     the pass this iteration, so a token-swap/shrink on a co-occurring FIXABLE finding merely polishes
+ *     a board that cannot pass — the mechanical fix wins repair every iteration and the real defect
+ *     (broken DOM) never gets the re-paint it needs (the confirmed "repair-loop dead-end", D65). It
+ *     outranks the mechanical-fix rule so the re-paint isn't starved; it excludes vision findings
+ *     (source-scoped) and fixable mechanical ones (fixable=false).
  *  3. a deterministically-fixable mechanical finding → repair (cheap/free, never the
  *     painter — §5.6);
  *  4. any other actionable finding → re-paint (minimal-change-first default — §10.6).
@@ -57,6 +65,12 @@ export const routingRulesSchema = z.object({
       when: { minSeverity: "critical", deterministicallyFixable: false },
       route: "paint",
       priority: 95,
+    },
+    {
+      id: "structural-unfixable-to-repaint",
+      when: { source: "deterministic", minSeverity: "major", deterministicallyFixable: false },
+      route: "paint",
+      priority: 92,
     },
     {
       id: "mechanical-fix-to-repair",

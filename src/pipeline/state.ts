@@ -83,6 +83,14 @@ export const engineStateSchema = z.object({
   visionCritiqued: z.boolean().default(false),
   /** Paint/repair cycles performed for this screen. */
   iteration: z.number().int().default(0),
+  /**
+   * True when the most recent repair produced HTML byte-identical to its input — a no-progress
+   * repair (e.g. a deterministic fix that re-emits an already-present block, or an LLM repair that
+   * returned the same markup). The router suppresses repair-routing rules while this is set so the
+   * decision escalates to a re-paint instead of re-choosing a repair that provably changes nothing
+   * (the "repair-loop dead-end", D65). `paint` clears it (a fresh paint makes repair viable again).
+   */
+  repairIneffective: z.boolean().default(false),
   /** Most recent routing decision (set by the score node; read by the conditional edge). */
   route: routeSchema.optional(),
   routeHistory: z.array(z.string()).default([]),

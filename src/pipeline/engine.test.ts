@@ -34,6 +34,25 @@ class SpyPainter implements Painter {
   }
 }
 
+/**
+ * A painter that emits a structurally BROKEN matrix — it strips the first cell's `data-matrix-cell`
+ * marker so its row carries one fewer cell than there are columns. That trips checkMatrixStructure's
+ * "Matrix row … has N cell(s); expected M" — a deterministically-UNFIXABLE major. Used to reproduce
+ * the repair-loop dead-end (D65): a board whose broken DOM can only be fixed by a re-paint. Records
+ * every request so a test can prove the re-paint actually happened.
+ */
+class CorruptMatrixPainter implements Painter {
+  readonly requests: PaintRequest[] = [];
+  private readonly inner = new FakePainter();
+
+  async paint(request: PaintRequest): Promise<string> {
+    this.requests.push(request);
+    const html = await this.inner.paint(request);
+    // `String.replace(string, string)` swaps only the FIRST occurrence — one cell loses its marker.
+    return html.replace('data-matrix-cell="', 'data-broken-cell="');
+  }
+}
+
 describe("createEngine — end-to-end pipeline (fakes)", () => {
   it("produces a passing screen + poster + report on a clean render", async () => {
     const engine = createFakeEngine({ observations: [cleanObservation()] });
@@ -220,6 +239,85 @@ describe("createEngine — end-to-end pipeline (fakes)", () => {
     expect(html).toContain("—");
   });
 
+  it("does NOT dead-end on a fixable-contrast + unfixable-matrix board — it re-paints (D65)", async () => {
+    // Mirror the live 6-board run's stuck board: iteration 1 renders BOTH a fixable WCAG contrast
+    // failure (routes to the cheap deterministic repair) AND a structurally broken matrix (an
+    // UNFIXABLE major a token-swap can never mend). Before D65 the fixable contrast won the route
+    // every iteration (mechanical-fix, priority 90), the broken matrix never got its re-paint, and
+    // the loop shipped iteration 1 flagged after repair→repair→freeze. Now the unfixable-structural
+    // rule (priority 92) outranks the mechanical fix, so the very first decision is a re-paint.
+    const menu: CanonicalItem[] = [
+      { id: "b-chicken", name: "Chicken Biryani", category: "Biryani", available: true, price: 12 },
+      { id: "b-paneer", name: "Paneer Biryani", category: "Biryani", available: true, price: 11 },
+      { id: "p-chicken", name: "Chicken Pulav", category: "Pulav", available: true, price: 13 },
+    ];
+    const layout: PlanLayout = {
+      blocks: [
+        {
+          title: "Biryani & Pulav",
+          categories: ["Biryani", "Pulav"],
+          representation: "matrix",
+          layoutHint: "price table: rows = base dish, columns = Biryani | Pulav",
+        },
+      ],
+    };
+    const plan = expandLayoutToPlan(layout, menu, 1);
+    const painter = new CorruptMatrixPainter();
+    const engine = createFakeEngine({
+      // Contrast persists across renders; the corrupt painter re-breaks the matrix on every paint.
+      observations: [
+        contrastFailObservation(),
+        contrastFailObservation(),
+        contrastFailObservation(),
+      ],
+      ports: { painter },
+    });
+    const out = await engine.generate({
+      items: menu,
+      brief: { presetId: "botanical" },
+      constraints: { aspect: "16:9", screens: plan.screens.length },
+      plan,
+    });
+
+    const report = out.qaReport.screens[0]!;
+    // The broken matrix is present as an unfixable major…
+    expect(report.findings.some((f) => f.kind === "matrix-structure")).toBe(true);
+    // …so the board re-paints from the very first decision and NEVER loops on the contrast repair.
+    expect(report.routeHistory[0]).toBe("paint");
+    expect(report.routeHistory).not.toContain("repair");
+    // The re-paint actually happened (the painter ran again) — not one paint then endless repairs.
+    expect(painter.requests.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("escalates a no-progress repair to a re-paint instead of looping (D65)", async () => {
+    // A board whose overflow the deterministic shrink cannot actually clear (the render keeps
+    // reporting the same overflow). Iteration 1 injects the fit block (real change → repair). On the
+    // next iteration the same overflow at the same factor re-emits a BYTE-IDENTICAL fit block — a
+    // no-progress repair that used to loop until the budget ran out. The repair node now flags the
+    // no-op and the router escalates to a re-paint. maxIterations is raised to 4 so the escalation
+    // has room to occur before the budget freeze (it collides with the freeze at the default 3).
+    const spy = new SpyPainter();
+    const engine = createFakeEngine({
+      observations: [
+        overflowObservation(),
+        overflowObservation(),
+        overflowObservation(),
+        cleanObservation(),
+      ],
+      ports: { painter: spy },
+      config: { loop: { maxIterations: 4 } },
+    });
+    const out = await engine.generate(fixtures.input);
+
+    const report = out.qaReport.screens[0]!;
+    // iter1 repair (fit block injected) → iter2 repair (byte-identical no-op) → iter3 ESCALATE to paint.
+    expect(report.routeHistory[0]).toBe("repair");
+    expect(report.routeHistory[1]).toBe("repair");
+    expect(report.routeHistory[2]).toBe("paint");
+    // The escalation re-invoked the painter (initial paint + the escalated re-paint).
+    expect(spy.requests.length).toBeGreaterThanOrEqual(2);
+  });
+
   it("ships the best-scoring screen flagged when the critic never lets it converge (D12)", async () => {
     // The browser is clean, but the critic keeps returning a blocking finding forever.
     const engine = createFakeEngine({
@@ -247,6 +345,42 @@ describe("createEngine — end-to-end pipeline (fakes)", () => {
     // Budget bounded the loop (default maxIterations 3), and we still got an artifact.
     expect(out.screens).toHaveLength(1);
     expect(out.qaReport.passedAll).toBe(false);
+  });
+
+  it("never freezes a vision-CRITICAL board as passed — its rubric clears threshold but the gate blocks (D69)", async () => {
+    // The render is clean (no deterministic block), so vision runs every iteration. A single vision
+    // CRITICAL fails ONE weight-1 rubric dimension, so the weighted rubric is 0.84 ≥ 0.7 — pre-D69
+    // this shipped `passed: true` (nothing blocked, threshold cleared). Now a vision critical
+    // hard-blocks: it can never pass, re-paints until the budget, and freezes flagged.
+    const engine = createFakeEngine({
+      observations: [cleanObservation()],
+      critiques: [
+        {
+          findings: [
+            {
+              dimension: "balance",
+              severity: "critical" as const,
+              tag: "layout" as const,
+              region: "bottom edge",
+              message: "last row of items clipped at the canvas edge",
+            },
+          ],
+        },
+      ],
+    });
+    const out = await engine.generate(fixtures.input);
+
+    const report = out.qaReport.screens[0]!;
+    expect(report.passed).toBe(false);
+    expect(report.flagged).toBe(true);
+    expect(report.routeHistory.at(-1)).toBe("freeze");
+    expect(out.qaReport.passedAll).toBe(false);
+    // The blocking critical is carried on the shipped report.
+    const critical = report.findings.filter(
+      (f) => f.source === "vision" && f.severity === "critical",
+    );
+    expect(critical).toHaveLength(1);
+    expect(critical[0]!.kind).toBe("balance");
   });
 
   it("skips the paid vision critique on a gate-blocked iteration, runs it once the render is clean (D27)", async () => {
