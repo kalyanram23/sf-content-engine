@@ -67,7 +67,7 @@ export const modelRoutingSchema = z.object({
     .array(z.string().min(1))
     .default([
       "z-ai/glm-5.2",
-      "anthropic/claude-sonnet-4.6",
+      "anthropic/claude-sonnet-5",
       "anthropic/claude-opus-4.8",
       "openai/gpt-5.5",
       "openai/gpt-5.4",

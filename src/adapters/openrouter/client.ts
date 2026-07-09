@@ -177,11 +177,11 @@ export function logUsage(
 
 /**
  * Compose the per-call `onUsage` sink an adapter passes into a {@link StructuredCall} /
- * {@link requestText}: it fires the existing {@link logUsage} debug line AND records a structured
- * {@link UsageEvent} on the optional {@link UsageSink} (D28). BOTH fire — the debug line is
- * unchanged. `primaryModel` is the role's primary id; the actual model that served the call arrives
- * per-attempt (the fallback id when the primary was exhausted), so the event carries the true model
- * and a `fallback` flag. Returns undefined when neither a logger nor a sink is present, so the
+ * {@link requestText}: it fires the {@link logUsage} debug line AND records a structured
+ * {@link UsageEvent} on the optional {@link UsageSink} (D28). `primaryModel` is the role's primary
+ * id; the actual model that served the call arrives per-attempt (the fallback id when the primary
+ * was exhausted), so BOTH the debug line and the event carry the true model, and the event adds a
+ * `fallback` flag. Returns undefined when neither a logger nor a sink is present, so the
  * no-telemetry path stays exactly as before (callers conditionally spread it).
  */
 export function buildUsageReporter(
@@ -190,10 +190,12 @@ export function buildUsageReporter(
   role: string,
   primaryModel: string,
 ): ((usage: LlmUsage, model: string) => void) | undefined {
-  const log = logUsage(logger, role, primaryModel);
-  if (log === undefined && usageSink === undefined) return undefined;
+  if (logger === undefined && usageSink === undefined) return undefined;
   return (usage, model) => {
-    log?.(usage);
+    // The debug line carries the model that ACTUALLY served the attempt (the fallback id once the
+    // primary is exhausted), matching the UsageEvent below — not the curried primary id, which
+    // made fallback rescues read as primary-model calls in run logs.
+    logUsage(logger, role, model)?.(usage);
     void usageSink?.record({
       role,
       model,
