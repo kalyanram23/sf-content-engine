@@ -75,13 +75,22 @@ describe("typeScaleFor / sizeDirectiveFor — one sizing verdict for painter, cr
   });
   const viewport = { width: 1080, height: 1920 };
 
-  it("marks a board over the planning budget as over-budget (D26)", () => {
-    const directive = typeScaleFor(boardOf(34), viewport, { legibilityBudget: 24 });
+  it("marks a board over even two comfortable columns as over-budget (D26, column-aware D70)", () => {
+    const directive = typeScaleFor(boardOf(50), viewport, { legibilityBudget: 24 });
     expect(directive.overBudget).toBe(true);
     expect(directive.columns).toBe(2);
-    expect(boardRowCount(boardOf(34))).toBe(34);
+    expect(boardRowCount(boardOf(50))).toBe(50);
     // The prompt text is exactly the directive's text — painter and critic see the same words.
-    expect(sizeDirectiveFor(boardOf(34), viewport, { legibilityBudget: 24 })).toBe(directive.text);
+    expect(sizeDirectiveFor(boardOf(50), viewport, { legibilityBudget: 24 })).toBe(directive.text);
+  });
+
+  it("a board over the raw budget but within two comfortable columns is NOT over-budget (D70)", () => {
+    // 34 rows on portrait (budget 24) render as 2×17 — an effectively-comfortable board that gets
+    // the concrete sparse two-column targets, not the dense floor directive.
+    const directive = typeScaleFor(boardOf(34), viewport, { legibilityBudget: 24 });
+    expect(directive.overBudget).toBe(false);
+    expect(directive.columns).toBe(2);
+    expect(directive.text).toContain("SIZE DIRECTIVE (sparse two-column board");
   });
 
   it("stays within budget for a comfortable board", () => {
@@ -109,8 +118,11 @@ describe("densityTierFor — stamped tier wins, else recomputed (D30)", () => {
   });
 
   it("recomputes the tier for a hand-authored plan that carries none", () => {
+    // Landscape budget tightens to the 18-row canvas capacity; classification is column-aware
+    // (D70): 30 rows render as 2×15 — within budget per column → comfortable, not dense.
     expect(densityTierFor(listBoard(12), viewport, { legibilityBudget: 24 })).toBe("comfortable");
-    expect(densityTierFor(listBoard(30), viewport, { legibilityBudget: 24 })).toBe("dense");
+    expect(densityTierFor(listBoard(30), viewport, { legibilityBudget: 24 })).toBe("comfortable");
+    expect(densityTierFor(listBoard(40), viewport, { legibilityBudget: 24 })).toBe("packed");
     expect(densityTierFor(listBoard(60), viewport, { legibilityBudget: 24 })).toBe("packed");
   });
 });

@@ -1369,3 +1369,110 @@ repaint`) until the budget, then freezes the board flagged rather than shipping 
   `passed: false`/flagged and carries the critical, proving it no longer ships as passed.
   `src/config/rubric.test.ts` (new) — cheap pin that the `invented-copy` description names footnotes and
   legends so it can't silently regress.
+
+## D70 — A sparse board's size directive gets COMPUTED rem targets, not "scale up" prose
+
+**Problem (2026-07-09).** On a comfortable-tier 9:16 board (1080×1920) with room to breathe, the
+painter (claude-sonnet-5) repeatedly copies the theme exemplar's DENSE floor-scale sizes (~1.1rem
+rows, ~16rem photo cards) and leaves 150–300px of empty cream band; the deterministic under-fill
+check fails it every time (fill ~24–28% vs the 0.4 `minFill` floor). Three separate wording attempts
+had already failed to move it: the theme's DO-list prose ("scale UP on sparse boards"), the exemplar
+guard sentence ("sizes are a floor, scale up ~1.5× for ~30 rows", `exemplarBlock`,
+`src/adapters/openrouter/painter.ts`), and the critic's findings. This is a MECHANISM gap, not a
+wording gap: LLMs under-commit on RELATIVE instructions and comply with CONCRETE numeric targets.
+
+**The confirmed gap.** The size directive already flows to two consumers the same way
+(`sizeDirectiveFor` → the painter; `buildCritiqueRequest` → the vision critic — "two consumers, same
+text"), and its text is computed in `computeTypeScale` (`src/planning/sizing.ts`). But its
+COMFORTABLE (sparse) branch spoke only Tailwind ladder rungs (`names at text-2xl`) and RELATIVE prose
+("you MUST go bigger", "hero up to ~40%") — never an absolute rem row height, type size, photo-band,
+or section-spacing target. The OVER-BUDGET (dense) branch already prescribes concrete-ish sizing (two
+columns, ~N rows/col, `text-xl`). So the sparse path commanded UP-scaling without numbers — exactly
+the direction LLMs ignore.
+
+**Decision.** Extend the EXISTING directive computation (no parallel mechanism). A new pure helper
+`sparseFillTargets(rows, canvas, sections, columns)` (`src/planning/sizing.ts`) distributes the
+USABLE body height — canvas minus frame inset (`DEFAULT_CHROME_PX`), the masthead band
+(`MASTHEAD_FRACTION`), and per-section header overhead (`SECTION_HEADER_REM` × the planned section
+count) — across the rows PER COLUMN, yielding a target row height (`usable ÷ ceil(rows/columns)`), a
+clamped type size (row pitch × 0.45, bounded text-xl…text-5xl), a photo-band budget, and a section
+gap, all rounded to sane rem steps. A 2-column layout halves the effective rows and so earns a bigger
+per-row target — this is how the directive "respects the blueprint's column structure". The
+comfortable branch APPENDS a `SIZE DIRECTIVE (sparse board, N rows across S sections …)` line quoting
+those numbers for BOTH the single- and two-column layouts, with "content must reach within ~2rem of
+the bottom frame". The legacy ladder-rung prose is kept verbatim as the prefix.
+
+**Threshold — column-aware, not raw rows (revised after live validation, same day).** The first cut
+gated the sparse branch on the raw comfortable tier (`rows ≤ comfortableRowBudget`), noting that a
+~30-row portrait board classifies `dense` and keeps the dense directive. Live validation immediately
+disproved that reading: the failing board (36 rows / 6 sections on 1080×1920) classified over the raw
+24-row budget → dense branch → the sparse directive never fired, and fill moved only within noise
+(26%→31%). The geometry proves the mechanism gap: the dense directive itself prescribes TWO columns,
+so the board renders ~18 rows/column at the compact floor pitch (18 × 44px ≈ 792px of a 1605px body ≈
+half) — matching the observed ~31% fill — while a 49-row board (~25/col, over budget even at two
+columns) fills 90%+ and passes. Tier selection and sizing were classifying on the RAW row count where
+the painter's actual layout is PER COLUMN.
+
+Classification now derives from ONE shared helper, `effectiveRowLoad(rows, budget)`
+(`src/planning/sizing.ts`): the ladder's own column choice (1 column at/under budget, 2 beyond — the
+D26 prescription) and the resulting rows-per-column. `computeTypeScale` branches on it:
+
+1. rows ≤ budget → the single-column comfortable branch (text byte-unchanged from the first cut).
+2. rows over budget but rows-per-column ≤ budget (raw rows ≤ 2×budget) → the NEW
+   effectively-comfortable TWO-COLUMN branch: the COMFORTABLE ladder rung for the per-column load +
+   the concrete two-column targets only (no misleading single-column option — one column can't
+   comfortably hold the rows). `overBudget: false`, `columns: 2`.
+3. rows-per-column still over budget → the genuinely over-budget dense regime, byte-unchanged.
+
+`computeTypeScale` gains a trailing optional `sections` argument (default 1) feeding ONLY the
+comfortable branches' SIZE DIRECTIVE, threaded from `typeScaleFor(screen, …)` as
+`screen.sections.length`; the dense branch ignores it (pinned byte-identical).
+
+**QA/tier reconciliation — one notion of density, no fork.** Two classifiers ride on this:
+
+- The >90% plan-forced over-fill allowance (`checkDensity`, `src/qa/rendered-checks.ts`, the
+  `sizing.overBudget === true` branch) takes its flag from `typeScale.overBudget` in
+  `deterministicQaNode` (`src/pipeline/nodes/index.ts`) — the SAME `computeTypeScale` output. It
+  flips together with the branch selection automatically; no separate row budget, no disagreement
+  possible. The 40% under-fill floor is tier-INDEPENDENT (it keys on planned item count and type-led
+  representations only), so it needed nothing.
+- `densityTier` (D30) WAS a second classifier on raw rows (shared `comfortableRowBudget`, own
+  thresholds) — stamped on the plan by `expandLayoutToPlan` (`src/planning/coverage.ts`, drives
+  per-section vs shared image-slot planning) and recomputed by `densityTierFor`
+  (`src/pipeline/nodes/shared.ts`, drives the painter's register directive, the critic's brief and
+  the packed legibility floor). Left as-was, a 36-row board would be sizing-comfortable but
+  tier-dense: the painter would receive the compact dense register AND big sparse rem targets in one
+  prompt. Reconciled by deriving `densityTier` from the same `effectiveRowLoad`: comfortable while
+  rows fit the budget per column, dense beyond that up to `packedMultiplier`×budget, packed past it.
+  Consequences owned deliberately: with the default multiplier (2) the dense band is EMPTY (two
+  comfortable columns hold exactly 2×budget) — default-config boards classify comfortable or packed,
+  and the dense register stays reachable via a larger multiplier or a plan-stamped tier; the former
+  dense band (budget..2×budget rows) now plans per-section image slots and the SPACE & SCALE
+  register, i.e. the full comfortable treatment its effective per-column load warrants.
+
+**Two-consumers invariant.** Both the painter and the critic read `computeTypeScale(...).text`, so the
+critic keeps receiving the SAME directive with zero extra wiring; tier consumers all flow through the
+one stamped/recomputed `densityTier`.
+
+**Example — the live failing shape (1080×1920, 36 rows / 6 sections → 2×18).** body 1605px =
+100.3rem; overhead 6×3 + 5×2 = 28rem; usable 72.3rem ÷ 18 rows/col ≈ 4.0rem. Emitted: "TYPE SCALE
+(two-column comfortable board): … TWO balanced columns (~18 rows per column) … Names at text-2xl,
+prices text-3xl … SIZE DIRECTIVE (sparse two-column board, 36 rows across 6 sections → ~18 rows per
+column …) target row height ≈ 4rem per row (item name/price type ≈ 1.75rem) … photo panel ≈ 12rem …
+Section spacing ≈ 2rem … content reaches within ~2rem of the bottom frame." The 49-row board stays on
+the byte-unchanged over-budget path (packed tier), exactly as it ships today.
+
+**Tests.** `src/planning/sizing.test.ts` — `sparseFillTargets` unit tests (single/two-column split,
+per-section overhead lowers the target, type clamp, rem rounding); the comfortable branch emits the
+concrete `SIZE DIRECTIVE`; the 36-row/6-section shape takes the two-column comfortable branch with
+4rem/1.75rem targets and equals the 18-row single-column targets; the band boundary is pinned at
+48/49 rows; the dense path carries NO sparse directive and is byte-identical regardless of the new
+`sections` argument (60-row fixture — a true dense case under column-aware selection); `densityTier`
+column-aware edges + an exhaustive `tier === "comfortable" ⟺ !overBudget` reconciliation sweep.
+`src/pipeline/nodes/shared.test.ts` — over-budget now begins past two comfortable columns; a 34-row
+portrait board is NOT over-budget and carries the sparse two-column directive; recomputed tiers are
+column-aware. `src/planning/coverage.test.ts` — tier-stamping edges column-aware; the never-split
+matrix fixture raised to 50 rows so it remains genuinely dense. `src/pipeline/engine.test.ts` — the
+plan-forced-dense e2e pin's fixture raised 34→50 items so it stays a true over-budget board.
+`src/adapters/openrouter/painter.test.ts` — the computed size directive lands verbatim in the user
+prompt. Untouched: themes/, the exemplar, gate/rubric, routing, repairs, models config.

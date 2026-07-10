@@ -502,6 +502,25 @@ describe("describeRequest sparse register (D33)", () => {
 });
 
 /**
+ * The computed size directive (D26/D70) is passed in on the request and echoed verbatim into the
+ * user prompt — this is the wiring that lands the sparse SIZE DIRECTIVE's concrete rem targets in
+ * front of the painter (and, via the same shared text, the vision critic — "two consumers, same
+ * text"). The directive TEXT itself is computed and unit-tested in src/planning/sizing.ts.
+ */
+describe("describeRequest size directive wiring (D70)", () => {
+  it("lands the provided size directive verbatim in the user prompt", () => {
+    const directive =
+      "SIZE DIRECTIVE (sparse board — computed targets): Single column (18 rows): target row height ≈ 4rem";
+    const request: PaintRequest = { ...makeRequest("9:16"), sizeDirective: directive };
+    expect(describeRequest(request)).toContain(directive);
+  });
+
+  it("omits any size directive when none is computed", () => {
+    expect(describeRequest(makeRequest("9:16"))).not.toContain("SIZE DIRECTIVE");
+  });
+});
+
+/**
  * The image slot must render as a CATEGORY-anchored panel captioned with its category name (D33) —
  * never a free-floating hero. The caption resolves from the slot's categoryId, then the shared item
  * category. The engine contract carries the always-on anchoring rule.

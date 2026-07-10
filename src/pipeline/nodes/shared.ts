@@ -126,7 +126,13 @@ export function typeScaleFor(
   viewport: { width: number; height: number },
   planning?: Pick<PlanningConfig, "legibilityBudget">,
 ): TypeScaleDirective {
-  return computeTypeScale(boardRowCount(screen), viewport, undefined, planning?.legibilityBudget);
+  return computeTypeScale(
+    boardRowCount(screen),
+    viewport,
+    undefined,
+    planning?.legibilityBudget,
+    screen.sections.length,
+  );
 }
 
 /**

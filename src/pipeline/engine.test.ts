@@ -783,10 +783,12 @@ describe("createEngine — end-to-end pipeline (fakes)", () => {
   });
 
   it("passes a plan-forced dense over-budget board with a warning-level density note (D25/D26)", async () => {
-    // A 34-item single category is the caller's data problem: exact mode keeps it on ONE board,
+    // A 50-item single category is the caller's data problem: exact mode keeps it on ONE board,
     // the painter gets the two-column over-budget directive, and a 96% fill grades as a MINOR
     // plan-forced note — the board PASSES instead of burning the budget on an impossible major.
-    const menu: CanonicalItem[] = Array.from({ length: 34 }, (_, i) => ({
+    // 50 rows exceed even TWO comfortable columns (column-aware classification, D70) — a smaller
+    // fixture (the old 34) now classifies effectively-comfortable and gets sparse targets instead.
+    const menu: CanonicalItem[] = Array.from({ length: 50 }, (_, i) => ({
       id: `c${i}`,
       name: `Curry ${i}`,
       category: "Curries",

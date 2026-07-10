@@ -555,10 +555,11 @@ describe("category atomicity (D25) — a category never spans two screens", () =
     ],
   };
 
-  it("keeps a 26-row matrix as ONE section with ONE title on ONE screen (never split)", () => {
+  it("keeps a 50-row matrix as ONE section with ONE title on ONE screen (never split)", () => {
     const warnings: string[] = [];
-    // 26 rows exceed the 24-row budget — the old splitOversizedMatrices made "(1)"/"(2)" halves.
-    const plan = expandLayoutToPlan(matrixLayout, matrixMenu(26), 1, {
+    // 50 rows exceed even TWO comfortable columns of the 24-row budget (column-aware, D70) — the
+    // old splitOversizedMatrices would have made "(1)"/"(2)" halves.
+    const plan = expandLayoutToPlan(matrixLayout, matrixMenu(50), 1, {
       legibilityBudget: 24,
       logger: { warn: (m) => warnings.push(m) },
     });
@@ -567,11 +568,11 @@ describe("category atomicity (D25) — a category never spans two screens", () =
     const section = plan.screens[0]!.sections[0]!;
     // ONE title, verbatim — no "(1)"/"(2)" suffix machinery.
     expect(section.title).toBe("Biryani & Pulav");
-    expect(section.matrix?.rows).toHaveLength(26);
+    expect(section.matrix?.rows).toHaveLength(50);
     // The dense board is the intended SIGNAL now: warned, never split.
     expect(warnings.some((w) => /dense/i.test(w))).toBe(true);
     const placed = plan.screens.flatMap((s) => s.sections.flatMap((sec) => sec.items));
-    expect(placed).toHaveLength(52);
+    expect(placed).toHaveLength(100);
   });
 
   it("no plan section title ever carries a split suffix, and boards never exceed sections", () => {
@@ -672,17 +673,19 @@ describe("density tier stamping (D30)", () => {
     expect(plan.screens.every((s) => s.densityTier !== undefined)).toBe(true);
   });
 
-  it("is comfortable at/under the budget and dense just over it (budget edge)", () => {
+  it("is comfortable at/under the budget (budget edge)", () => {
     expect(tierOf(10, { legibilityBudget: 10 })).toBe("comfortable");
-    expect(tierOf(11, { legibilityBudget: 10 })).toBe("dense");
   });
 
-  it("is dense up to packedMultiplier×budget and packed beyond it (2× edge)", () => {
-    expect(tierOf(20, { legibilityBudget: 10 })).toBe("dense"); // == 2×budget
-    expect(tierOf(21, { legibilityBudget: 10 })).toBe("packed"); // > 2×budget
+  it("stays comfortable while two comfortable columns hold it; packed beyond (column-aware, D70)", () => {
+    // The classification is per-COLUMN (the sizing ladder itself lays >budget boards in two
+    // columns): 11 rows render as 2×6 and 20 as 2×10 — both within budget per column.
+    expect(tierOf(11, { legibilityBudget: 10 })).toBe("comfortable");
+    expect(tierOf(20, { legibilityBudget: 10 })).toBe("comfortable"); // == 2×budget
+    expect(tierOf(21, { legibilityBudget: 10 })).toBe("packed"); // 11/col > budget AND > 2×budget
   });
 
-  it("honours a custom packedMultiplier", () => {
+  it("honours a custom packedMultiplier (the dense band survives for multiplier > 2)", () => {
     expect(tierOf(30, { legibilityBudget: 10, packedMultiplier: 3 })).toBe("dense"); // == 3×
     expect(tierOf(31, { legibilityBudget: 10, packedMultiplier: 3 })).toBe("packed");
   });

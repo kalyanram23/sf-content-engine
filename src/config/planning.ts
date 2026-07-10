@@ -30,11 +30,15 @@ export const planningConfigSchema = z.object({
    */
   screensMode: z.enum(["exact", "elastic"]).default("elastic"),
   /**
-   * Multiplier on `legibilityBudget` that splits the two over-budget density tiers (D30): a board
-   * carrying more rows than `legibilityBudget` is `dense`; more than `packedMultiplier ×
-   * legibilityBudget` is `packed`. The painter drops to a progressively more compact price-list
-   * idiom per tier and the critic judges each against that register. Default 2 — a packed board
-   * carries at least twice the comfortable load.
+   * Multiplier on `legibilityBudget` that splits the two over-budget density tiers (D30). Tier
+   * classification is COLUMN-AWARE (D70): a board stays `comfortable` while its rows fit the
+   * budget PER COLUMN at the sizing ladder's own column choice (≤ budget in one column, or ≤
+   * budget per column in two — i.e. up to 2×budget raw rows); beyond that it is `dense` up to
+   * `packedMultiplier × legibilityBudget` and `packed` past it. With the default of 2 the dense
+   * band is empty (two comfortable columns hold exactly 2×budget), so default-config boards
+   * classify comfortable or packed; raise the multiplier above 2 to reopen a dense band. The
+   * painter drops to a progressively more compact price-list idiom per tier and the critic judges
+   * each against that register.
    */
   packedMultiplier: z.number().min(1).default(2),
 });
