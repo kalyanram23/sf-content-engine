@@ -15,6 +15,8 @@ export default tseslint.config(
       // and the eval-loop iteration archive — reference artifacts, not source; out of the gate.
       "reference-boards",
       "eval-loop",
+      // Throwaway Phase 0 falsification prototype (component-vocab) — scratch code, out of the gate.
+      "prototypes",
       // Untracked one-off render-check scratch scripts (e.g. .rendercheck.tmp.mjs) — same scratch
       // category as design-explorations above, just dropped at the repo root; keep out of the gate.
       "*.tmp.mjs",

@@ -17,6 +17,7 @@ samples/plan.json
 samples/plan.full.json
 reference-boards
 eval-loop
+prototypes/
 eval-output*
 eval-smoke*
 *.tmp.mjs

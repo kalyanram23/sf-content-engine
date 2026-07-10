@@ -1,0 +1,35 @@
+{
+  "title": "Hashtag Dhaba",
+  "blocks": [
+    {
+      "type": "section",
+      "section": "Dosa"
+    },
+    {
+      "type": "section",
+      "section": "Desserts"
+    },
+    {
+      "type": "collage",
+      "itemIds": [
+        "t1",
+        "w1",
+        "x1",
+        "x2",
+        "v4"
+      ]
+    },
+    {
+      "type": "section",
+      "section": "Snack Box"
+    },
+    {
+      "type": "triBand",
+      "sections": [
+        "Hot Drinks",
+        "Falooda'S",
+        "Chaat"
+      ]
+    }
+  ]
+}

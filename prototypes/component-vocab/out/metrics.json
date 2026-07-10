@@ -1,0 +1,12 @@
+{
+  "model": "anthropic/claude-sonnet-5",
+  "promptTokens": 1944,
+  "completionTokens": 327,
+  "llmMs": 5221,
+  "totalMs": 6773,
+  "compositionBytes": 274,
+  "htmlBytes": 23241,
+  "register": "L",
+  "fillPct": 77,
+  "blockSequence": "section(Dosa) → section(Desserts) → collage(t1,w1,x1,x2,v4) → section(Snack Box) → triBand(Hot Drinks+Falooda'S+Chaat)"
+}
