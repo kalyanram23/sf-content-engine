@@ -49,6 +49,19 @@ export interface Canvas {
   height: number;
 }
 
+/**
+ * How a `collage` block renders its photos:
+ *   - "collage"   — the original static tilted-polaroid pile (overlaps, ≤5 photos).
+ *   - "crossfade" — a pure-CSS stacked-layer deck: one polaroid at a time, cross-fading through ALL
+ *                   photos on an infinite loop. Every layer carries its OWN image + caption, so the
+ *                   caption can never desync from the photo (photo-truth by construction).
+ *   - "filmstrip" — a pure-CSS marquee: a horizontal track of spaced, tilted polaroids scrolling
+ *                   continuously; the track is duplicated once and translated -50% for a seamless
+ *                   loop. Each card carries its own caption, so image + caption travel as one unit.
+ * All three are self-contained static HTML; the motion is CSS `@keyframes` only (no JS, no library).
+ */
+export type PhotoMode = "collage" | "crossfade" | "filmstrip";
+
 /** One size register (px). The fitter picks L/M/S for the whole board; templates read these numbers. */
 export interface Register {
   name: "L" | "M" | "S";
@@ -196,10 +209,134 @@ export function triBand(
 }
 
 // ── 4. polaroidCollage ────────────────────────────────────────────────────────────────────────────
-const TILTS = [-2, 1.5, -1, 2.5, -1.5, 1, -2];
+const TILTS = [-2, 1.5, -1, 2.5, -1.5, 1, -2.5, 2, -1.5, 1.5];
+const CARD_PAD_TOP = 10; // white polaroid margin above the photo (px)
+
+/** Caption band height (text + its 10/12 vertical padding) for a given caption font size. */
+function captionBandH(capFont: number): number {
+  return Math.round(capFont * 1.25) + 22;
+}
 
 /**
- * polaroidCollage — tilted white cards, photo + caption, slight overlaps and a tape accent.
+ * One white polaroid: tape accent + photo + caption, tilted by `tilt`. The image and caption live in
+ * the SAME element, so whatever a carousel does to this card (fade it, slide it), photo + caption move
+ * together — the caption can never show over a different dish's photo. `position:relative` anchors the
+ * tape; the tape counter-rotates so it reads level against the tilt.
+ */
+function polaroidCard(c: MenuItem, w: number, photoH: number, capFont: number, tilt: number): string {
+  return (
+    `<div style="width:${w}px;background:var(--color-surface);padding:${CARD_PAD_TOP}px 10px 0;` +
+    `box-shadow:0 10px 24px rgba(42,26,14,0.28);transform:rotate(${tilt}deg);position:relative">` +
+    `<div style="position:absolute;top:-9px;left:50%;transform:translateX(-50%) rotate(${-tilt}deg);` +
+    `width:64px;height:20px;background:rgba(242,181,58,0.55);box-shadow:0 1px 2px rgba(42,26,14,0.2)"></div>` +
+    `<div style="height:${photoH}px;position:relative;overflow:hidden">` +
+    `<img src="${c.imageUrl ?? ""}" alt="${esc(c.name)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></div>` +
+    `<div style="text-align:center;font-size:${capFont}px;font-weight:700;padding:10px 6px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.name)}</div>` +
+    `</div>`
+  );
+}
+
+/** Photo height that makes a polaroid (with caption + padding + tilt slack) fill exactly `bandHeight`. */
+function fitPhotoH(bandHeight: number, capFont: number): number {
+  const tiltSlack = 16;
+  return Math.max(120, bandHeight - tiltSlack - CARD_PAD_TOP - captionBandH(capFont));
+}
+
+/**
+ * Variant A — CROSS-FADE DECK (pure CSS). N polaroids absolutely stacked in a fixed-height band; each
+ * is visible for `dwell`s then cross-fades to the next, looping through ALL N forever. Each layer runs
+ * the SAME keyframes over the full `cycle = N*dwell`, staggered by `animation-delay: i*dwell`, with
+ * `backwards` fill so a layer is invisible (opacity 0) until its slot. Its visible window sits at the
+ * head of its own timeline: fade-in over the first `fade`s, hold, fade-out over the last `fade`s of the
+ * slot — which lands exactly on the NEXT layer's fade-in, so the two cross-dissolve. No overlap of
+ * cards (only one is opaque at a time); nothing below shifts (band height is reserved).
+ */
+function crossfadeDeck(
+  cards: MenuItem[],
+  r: Register,
+  bandHeight: number,
+  _bandWidth: number,
+  uid: string,
+): string {
+  const n = cards.length;
+  const dwell = 3.5; // seconds each photo is held on screen
+  const fade = 0.7; // cross-dissolve seconds
+  const cycle = +(n * dwell).toFixed(2);
+  const slotPct = 100 / n;
+  const fadePct = (fade / cycle) * 100;
+  const anim = `xfade_${uid}`;
+  const capFont = r.captionFont;
+  const photoH = fitPhotoH(bandHeight, capFont);
+  const w = Math.round(photoH * (r.cardW / r.cardPhotoH));
+  const keyframes =
+    `@keyframes ${anim}{` +
+    `0%{opacity:0}` +
+    `${fadePct.toFixed(3)}%{opacity:1}` +
+    `${slotPct.toFixed(3)}%{opacity:1}` +
+    `${(slotPct + fadePct).toFixed(3)}%{opacity:0}` +
+    `100%{opacity:0}}`;
+  const layers = cards
+    .map((c, i) => {
+      const tilt = TILTS[i % TILTS.length];
+      const delay = (i * dwell).toFixed(2);
+      return (
+        `<div style="position:absolute;inset:0;display:flex;justify-content:center;align-items:center;` +
+        `opacity:0;animation:${anim} ${cycle}s linear ${delay}s infinite backwards">` +
+        polaroidCard(c, w, photoH, capFont, tilt) +
+        `</div>`
+      );
+    })
+    .join("");
+  return (
+    `<style>${keyframes}</style>` +
+    `<div style="height:${bandHeight}px;flex:none;position:relative;overflow:hidden">${layers}</div>`
+  );
+}
+
+/**
+ * Variant B — SLIDING FILMSTRIP / marquee (pure CSS). A row of spaced, tilted polaroids that scrolls
+ * left forever. The track holds TWO identical copies of the N cards; `translateX(0 → -50%)` linear
+ * infinite moves it by exactly one copy's width, at which point copy 2 sits where copy 1 began — a
+ * seamless wrap. Cards are separated by margin (never overlapping) and each carries its own caption,
+ * so image + caption travel as one unit. Duration = N * `perCard`s so it reads calm, not frantic.
+ */
+function filmstrip(
+  cards: MenuItem[],
+  r: Register,
+  bandHeight: number,
+  _bandWidth: number,
+  uid: string,
+): string {
+  const n = cards.length;
+  const perCard = 4.5; // seconds of travel per card — calm, readable
+  const duration = +(n * perCard).toFixed(2);
+  const anim = `slide_${uid}`;
+  const gap = 30; // px between cards (margin → guaranteed no overlap)
+  const capFont = r.captionFont;
+  const photoH = fitPhotoH(bandHeight, capFont);
+  const w = Math.round(photoH * (r.cardW / r.cardPhotoH));
+  const card = (c: MenuItem, i: number): string =>
+    `<div style="flex:none;margin:0 ${gap / 2}px">` +
+    polaroidCard(c, w, photoH, capFont, TILTS[i % TILTS.length]!) +
+    `</div>`;
+  const copy = cards.map(card).join("");
+  const keyframes =
+    `@keyframes ${anim}{from{transform:translateX(0)}to{transform:translateX(-50%)}}`;
+  return (
+    `<style>${keyframes}</style>` +
+    `<div style="height:${bandHeight}px;flex:none;position:relative;overflow:hidden">` +
+    `<div style="position:absolute;top:0;left:0;height:100%;width:max-content;display:flex;` +
+    `align-items:center;animation:${anim} ${duration}s linear infinite">${copy}${copy}</div>` +
+    `</div>`
+  );
+}
+
+/**
+ * polaroidCollage — tilted white cards, photo + caption, tape accent.
+ * `mode` picks the presentation: the original static overlap pile ("collage", default), or one of the
+ * two pure-CSS carousels ("crossfade" / "filmstrip") that cycle through ALL the block's photos so a
+ * menu with more photos than fit at once still shows every one. `uid` scopes the carousel's @keyframes
+ * name so multiple carousels on one board don't collide.
  * `bandWidth` is the width of the container the strip must span (portrait body = 976; a landscape
  * newspaper column or a full-width banner pass their own width) so cards size to fill it.
  */
@@ -208,7 +345,12 @@ export function polaroidCollage(
   r: Register,
   bandHeight: number,
   bandWidth = 976,
+  mode: PhotoMode = "collage",
+  uid = "c0",
 ): string {
+  if (mode === "crossfade") return crossfadeDeck(cards, r, bandHeight, bandWidth, uid);
+  if (mode === "filmstrip") return filmstrip(cards, r, bandHeight, bandWidth, uid);
+
   const n = cards.length;
   // One anchor card + smaller snapshots. Shrink cards as the count grows so they span the width.
   const baseW = Math.min(r.cardW, Math.floor((bandWidth + (n - 1) * 20) / n) - 8);

@@ -24,6 +24,7 @@ import {
   type Canvas,
   type Composition,
   type MenuItem,
+  type PhotoMode,
   type ResolvedSection,
 } from "./catalog";
 import {
@@ -42,6 +43,17 @@ export interface RenderContext {
   photoCandidates: MenuItem[];
   canvas: Canvas;
   tagline: string | null;
+  /**
+   * How every `collage` block renders (experiment knob — the LLM schema is unchanged). "collage" is the
+   * static pile; "crossfade"/"filmstrip" are the pure-CSS carousels that cycle through ALL a block's
+   * photos. Defaults to "collage".
+   */
+  photoMode?: PhotoMode;
+}
+
+/** Carousel modes may show many photos (they rotate through time); the static pile stays ≤5. */
+function collageMax(mode: PhotoMode): number {
+  return mode === "collage" ? 5 : 12;
 }
 
 export interface RenderResult {
@@ -107,8 +119,8 @@ function expandTriBands(blocks: Block[]): Block[] {
   return out;
 }
 
-/** Resolve a collage block's ids into real photo items (photo-truth), clamped to 3–5. */
-function resolveCollage(ids: string[], ctx: RenderContext): MenuItem[] {
+/** Resolve a collage block's ids into real photo items (photo-truth), clamped to 3–`max`. */
+function resolveCollage(ids: string[], ctx: RenderContext, max = 5): MenuItem[] {
   const byId = new Map(ctx.photoCandidates.map((c) => [c.id, c]));
   const picked: MenuItem[] = [];
   const seen = new Set<string>();
@@ -127,7 +139,7 @@ function resolveCollage(ids: string[], ctx: RenderContext): MenuItem[] {
       seen.add(c.id);
     }
   }
-  return picked.slice(0, 5);
+  return picked.slice(0, max);
 }
 
 /**
@@ -145,11 +157,12 @@ function renderBlockList(
   maxInternalCols: number,
 ): { html: string; endNumber: number } {
   let n = startNumber;
-  const parts = list.map((b) => {
+  const mode = ctx.photoMode ?? "collage";
+  const parts = list.map((b, i) => {
     if (b.type === "collage") {
-      const cards = resolveCollage(b.itemIds ?? [], ctx);
+      const cards = resolveCollage(b.itemIds ?? [], ctx, collageMax(mode));
       if (cards.length === 0) return "";
-      return polaroidCollage(cards, r, collageBandHeight(r), bandWidth);
+      return polaroidCollage(cards, r, collageBandHeight(r), bandWidth, mode, `b${startNumber}_${i}`);
     }
     if (b.type === "triBand") {
       const secs = (b.sections ?? [])
@@ -231,13 +244,14 @@ function renderColumns(
   const r = f.register;
   const { columnWidth, maxInternalCols, gap, bodyWidth } = f.layout;
 
+  const mode = ctx.photoMode ?? "collage";
   let bannerHtml = "";
   if (banner) {
-    const cards = resolveCollage(banner.itemIds ?? [], ctx);
+    const cards = resolveCollage(banner.itemIds ?? [], ctx, collageMax(mode));
     if (cards.length) {
       bannerHtml =
         `<div style="flex:none;margin-bottom:24px">` +
-        polaroidCollage(cards, r, collageBandHeight(r), bodyWidth) +
+        polaroidCollage(cards, r, collageBandHeight(r), bodyWidth, mode, "banner") +
         `</div>`;
     }
   }
