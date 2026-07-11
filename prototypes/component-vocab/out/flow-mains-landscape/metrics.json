@@ -1,0 +1,53 @@
+{
+  "name": "flow-mains-landscape",
+  "model": "anthropic/claude-sonnet-5",
+  "canvas": {
+    "width": 1920,
+    "height": 1080
+  },
+  "orientation": "landscape",
+  "categories": [
+    "Biryani",
+    "Mandi",
+    "Pulav",
+    "Special Rice",
+    "Non Veg Curries"
+  ],
+  "appliedCaps": [
+    {
+      "category": "Biryani",
+      "kept": 10,
+      "total": 20
+    },
+    {
+      "category": "Mandi",
+      "kept": 10,
+      "total": 22
+    },
+    {
+      "category": "Pulav",
+      "kept": 10,
+      "total": 14
+    },
+    {
+      "category": "Non Veg Curries",
+      "kept": 10,
+      "total": 14
+    }
+  ],
+  "itemCount": 48,
+  "photoCandidates": 8,
+  "promptTokens": 2345,
+  "completionTokens": 536,
+  "llmMs": 7429,
+  "totalMs": 8917,
+  "compositionBytes": 304,
+  "htmlBytes": 35472,
+  "layoutMode": "columns",
+  "layoutColumns": 3,
+  "register": "M",
+  "fillPct": 95,
+  "title": "Biryani & Mandi Feast",
+  "llmBlockSequence": "section(Biryani) → section(Mandi) → collage(a1,a7,d6,d9,g5) → section(Pulav) → section(Special Rice) → section(Non Veg Curries)",
+  "renderedBlockSequence": "collage(a1,a7,d6,d9,g5) → section(Biryani) → section(Mandi) → section(Pulav) → section(Special Rice) → section(Non Veg Curries)"
+}

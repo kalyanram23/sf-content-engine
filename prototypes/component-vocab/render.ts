@@ -17,6 +17,7 @@ import {
   masthead,
   polaroidCollage,
   priceList,
+  priceRow,
   sectionHeader,
   triBand,
   TOKENS,
@@ -25,12 +26,15 @@ import {
   type Composition,
   type MenuItem,
   type PhotoMode,
+  type Register,
   type ResolvedSection,
 } from "./catalog";
 import {
   collageBandHeight,
   fit,
+  LANDSCAPE_BANNER_H,
   planLayout,
+  SECTION_GAP,
   sectionInternalCols,
   type FitResult,
   type LayoutPlan,
@@ -226,7 +230,33 @@ function renderStack(
   return { html: shell(ctx, comp, f.register, inner), f, finalBlocks: blocks };
 }
 
-/** Render the landscape/square newspaper-column body. */
+/**
+ * One flowing section for the balanced multi-column body: header + rows as single-stream lines.
+ * Break controls make the section SPLIT only at a row boundary and never orphan its header:
+ *   - the header is GLUED to its first row inside one `break-inside:avoid` box (+ `break-after:avoid`),
+ *     so a header can never sit alone at the bottom of a column;
+ *   - every subsequent row is its own `break-inside:avoid` box, so the split always lands cleanly
+ *     between two rows — the remaining rows continue seamlessly at the top of the next column.
+ * `margin-bottom` (space AFTER, never a top margin) gives inter-section rhythm without opening a gap
+ * at a column top when a section happens to start there.
+ */
+function flowSection(n: number, sec: ResolvedSection, r: Register, last: boolean): string {
+  const avoid = "break-inside:avoid;-webkit-column-break-inside:avoid";
+  const items = sec.items;
+  const head =
+    `<div style="${avoid};break-after:avoid;-webkit-column-break-after:avoid">` +
+    sectionHeader(n, sec.title, r) +
+    (items[0] ? priceRow(items[0], r, false) : "") +
+    `</div>`;
+  const rest = items
+    .slice(1)
+    .map((it) => `<div style="${avoid}">${priceRow(it, r, false)}</div>`)
+    .join("");
+  const mb = last ? "" : `margin-bottom:${SECTION_GAP}px`;
+  return `<div style="${mb}">${head}${rest}</div>`;
+}
+
+/** Render the landscape balanced multi-column flow body. */
 function renderColumns(
   comp: Composition,
   blocks: Block[],
@@ -235,14 +265,14 @@ function renderColumns(
   plan: LayoutPlan,
 ): { html: string; f: FitResult; finalBlocks: Block[] } {
   const flat = expandTriBands(blocks);
-  // Lift the first collage into a full-width banner above the columns.
+  // Lift the first collage into a full-width filmstrip banner above the columns.
   const bannerIdx = flat.findIndex((b) => b.type === "collage");
   const banner: Block | null = bannerIdx >= 0 ? flat[bannerIdx]! : null;
   const flow = bannerIdx >= 0 ? flat.filter((_, i) => i !== bannerIdx) : flat;
 
   const f = fit({ blocks: flow, sectionsByTitle, plan, banner });
   const r = f.register;
-  const { columnWidth, maxInternalCols, gap, bodyWidth } = f.layout;
+  const { columns, gap, bodyWidth } = f.layout;
 
   const mode = ctx.photoMode ?? "collage";
   let bannerHtml = "";
@@ -251,51 +281,35 @@ function renderColumns(
     if (cards.length) {
       bannerHtml =
         `<div style="flex:none;margin-bottom:24px">` +
-        polaroidCollage(cards, r, collageBandHeight(r), bodyWidth, mode, "banner") +
+        polaroidCollage(cards, r, LANDSCAPE_BANNER_H, bodyWidth, mode, "banner") +
         `</div>`;
     }
   }
 
-  const cols = f.columnBlocks ?? [flow];
-  const colHeights = f.columnHeights ?? cols.map(() => 0);
-  const availColHeight = f.layout.bodyHeight - f.bannerHeight;
-  let num = 0;
-  const colHtml = cols
-    .map((colBlocks, ci) => {
-      const { html, endNumber } = renderBlockList(
-        colBlocks,
-        num,
-        r,
-        ctx,
-        sectionsByTitle,
-        columnWidth,
-        maxInternalCols,
-      );
-      num = endNumber;
-      const first = ci === 0;
-      const sep = first ? "" : `border-left:2px solid ${DIVIDER};`;
-      const pad = first
-        ? `padding-right:${Math.round(gap / 2)}px`
-        : `padding-left:${Math.round(gap / 2)}px`;
-      // Distribute a full-enough column (space-between = intentional airy gaps, like the gold board);
-      // top-pack a short one (flex-start) so its slack lands as clean bottom whitespace, never a void.
-      const fillRatio = availColHeight > 0 ? (colHeights[ci] ?? 0) / availColHeight : 1;
-      const justify = fillRatio >= 0.75 ? "space-between" : "flex-start";
-      const rowGap = justify === "flex-start" ? "gap:28px;" : "";
-      return (
-        `<div style="flex:1;min-width:0;display:flex;flex-direction:column;` +
-        `justify-content:${justify};${rowGap}${sep}${pad}">${html}</div>`
-      );
-    })
+  // Sections numbered 1..N in DOM (== reading) order; the browser balances where each break falls.
+  const flowSecs = flow
+    .map((b) => (b.type === "section" ? sectionsByTitle.get(b.section!) : undefined))
+    .filter((s): s is ResolvedSection => Boolean(s));
+  const flowHtml = flowSecs
+    .map((sec, i) => flowSection(i + 1, sec, r, i === flowSecs.length - 1))
     .join("");
+
+  // CSS multi-column: `column-fill:balance` evens the column heights at ROW granularity; `column-rule`
+  // draws the vertical ink rule between columns (the newspaper divider, full body height).
+  const body =
+    `<div style="flex:1;min-height:0;column-count:${columns};column-gap:${gap}px;` +
+    `column-rule:2px solid ${DIVIDER};column-fill:balance;overflow:hidden">${flowHtml}</div>`;
 
   const inner =
     `<div style="flex:1;display:flex;flex-direction:column;padding:24px 36px 30px;min-height:0">` +
     bannerHtml +
-    `<div style="flex:1;display:flex;flex-direction:row;min-height:0">${colHtml}</div>` +
+    body +
     `</div>`;
 
-  const finalBlocks = banner ? [banner, ...cols.flat()] : cols.flat();
+  const finalBlocks: Block[] = [
+    ...(banner ? [banner] : []),
+    ...flowSecs.map((s): Block => ({ type: "section", section: s.title })),
+  ];
   return { html: shell(ctx, comp, r, inner), f, finalBlocks };
 }
 

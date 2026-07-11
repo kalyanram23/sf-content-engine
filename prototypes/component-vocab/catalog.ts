@@ -154,7 +154,8 @@ export function sectionHeader(n: number, title: string, r: Register, small = fal
 }
 
 // ── 3. priceList ──────────────────────────────────────────────────────────────────────────────────
-function priceRow(item: MenuItem, r: Register, small: boolean): string {
+/** One item row (name → dotted leader → price). Exported so the landscape flow can place rows itself. */
+export function priceRow(item: MenuItem, r: Register, small: boolean): string {
   const nameSize = small ? r.smRowName : r.rowName;
   const pad = small ? r.smRowPad : r.rowPad;
   const priceHtml =
@@ -322,9 +323,13 @@ function filmstrip(
   const copy = cards.map(card).join("");
   const keyframes =
     `@keyframes ${anim}{from{transform:translateX(0)}to{transform:translateX(-50%)}}`;
+  // Soft edge-fade: cards melt in/out at the band's left/right instead of hard-clipping at the edge.
+  const edgeFade =
+    "mask-image:linear-gradient(to right,transparent,black 6%,black 94%,transparent);" +
+    "-webkit-mask-image:linear-gradient(to right,transparent,black 6%,black 94%,transparent);";
   return (
     `<style>${keyframes}</style>` +
-    `<div style="height:${bandHeight}px;flex:none;position:relative;overflow:hidden">` +
+    `<div style="height:${bandHeight}px;flex:none;position:relative;overflow:hidden;${edgeFade}">` +
     `<div style="position:absolute;top:0;left:0;height:100%;width:max-content;display:flex;` +
     `align-items:center;animation:${anim} ${duration}s linear infinite">${copy}${copy}</div>` +
     `</div>`

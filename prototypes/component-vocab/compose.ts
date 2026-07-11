@@ -77,6 +77,30 @@ const STREET_CAPS: Record<string, number> = {
 };
 
 export const RUNS: RunConfig[] = [
+  // ── the flow hero + portrait control (run these two: `npx tsx compose.ts flow`) ──
+  {
+    // BEFORE/AFTER hero: same slice + canvas as the committed out/menu-mains-landscape, NEW balanced
+    // multi-column row flow (sections split across column breaks at row granularity → bigger register).
+    name: "flow-mains-landscape",
+    menuPath: "samples/menu.json",
+    canvas: { width: 1920, height: 1080 },
+    categories: MAINS,
+    caps: MAINS_CAPS,
+    tagline: "Garma Garam!",
+    titleHint: "a rice-and-meat feast board — biryani, mandi & curries",
+  },
+  {
+    // Portrait control: confirms the stack path (full-width sections, internal 2-col price lists,
+    // filmstrip band) is UNCHANGED by the landscape rewrite.
+    name: "flow-street-portrait",
+    menuPath: "samples/menu.json",
+    canvas: { width: 1080, height: 1920 },
+    categories: STREET,
+    caps: STREET_CAPS,
+    tagline: "Chai • Chaat • Sweets",
+    titleHint: "a street-food & sweets board — tiffins, dosa, chaat, desserts, falooda",
+  },
+  // ── original reference boards (the committed befores; kept for comparison, not re-run) ──
   {
     name: "menu-mains-portrait",
     menuPath: "samples/menu.json",
@@ -99,15 +123,6 @@ export const RUNS: RunConfig[] = [
     name: "menu-street-portrait",
     menuPath: "samples/menu.json",
     canvas: { width: 1080, height: 1920 },
-    categories: STREET,
-    caps: STREET_CAPS,
-    tagline: "Chai • Chaat • Sweets",
-    titleHint: "a street-food & sweets board — tiffins, dosa, chaat, desserts, falooda",
-  },
-  {
-    name: "menu-street-square",
-    menuPath: "samples/menu.json",
-    canvas: { width: 1080, height: 1080 },
     categories: STREET,
     caps: STREET_CAPS,
     tagline: "Chai • Chaat • Sweets",
@@ -194,13 +209,8 @@ export function selectContent(config: RunConfig): SelectedContent {
 
 // ── prompt (dimensions reflect the actual run canvas) ─────────────────────────────────────────────
 function buildSystem(canvas: Canvas): string {
-  const orient =
-    canvas.height > canvas.width
-      ? "portrait"
-      : canvas.width > canvas.height
-        ? "landscape"
-        : "square";
-  return `You are the composer for a roadside-dhaba menu POSTER (${canvas.width}×${canvas.height} ${orient}). You do NOT write HTML or CSS. You emit a small JSON "composition" that a deterministic renderer expands into the final board using a fixed set of hand-designed components. The renderer arranges your blocks to fill this canvas (stacking them on a tall portrait, or flowing them into newspaper columns on a wide/square one) — you never think about columns or sizes.
+  const orient = canvas.height > canvas.width ? "portrait" : "landscape";
+  return `You are the composer for a roadside-dhaba menu POSTER (${canvas.width}×${canvas.height} ${orient}). You do NOT write HTML or CSS. You emit a small JSON "composition" that a deterministic renderer expands into the final board using a fixed set of hand-designed components. The renderer arranges your blocks to fill this canvas (stacking them on a tall portrait, or flowing them into balanced newspaper columns on a wide landscape one) — you never think about columns or sizes.
 
 The board masthead (title) and the truck-art stripe frame are drawn automatically — you never place them. You choose only the BODY blocks and their order.
 
@@ -312,12 +322,7 @@ async function runOne(config: RunConfig, apiKey: string, browser: Browser): Prom
   const outDir = join(OUT, config.name);
   if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
 
-  const orient =
-    config.canvas.height > config.canvas.width
-      ? "portrait"
-      : config.canvas.width > config.canvas.height
-        ? "landscape"
-        : "square";
+  const orient = config.canvas.height > config.canvas.width ? "portrait" : "landscape";
   console.log(`\n════════ ${config.name}  (${config.canvas.width}×${config.canvas.height} ${orient}) ════════`);
 
   const { sections, photoCandidates, digest, appliedCaps } = selectContent(config);
@@ -360,12 +365,13 @@ async function runOne(config: RunConfig, apiKey: string, browser: Browser): Prom
   console.log(`composition ${compBytes} bytes  title="${comp.title}"`);
   console.log(`LLM blocks: ${llmSeq}`);
 
-  // render (aspect-aware)
+  // render (aspect-aware). Filmstrip is the default photo band for these boards (edge-faded marquee).
   const { html, finalBlocks, fit, warnings } = render(comp, {
     sections,
     photoCandidates,
     canvas: config.canvas,
     tagline: config.tagline,
+    photoMode: "filmstrip",
   });
   for (const w of warnings) console.warn(`  render warning: ${w}`);
   const renderedSeq = blockSeqOf(finalBlocks);

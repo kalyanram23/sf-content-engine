@@ -9,12 +9,15 @@
  *   - "stack"   (portrait, h > w): the original behaviour — full-width component stripes stacked
  *     top-to-bottom; a section may run 1–2 internal price-list columns; `justify-content:space-between`
  *     turns a modest under-fill into airy gaps (like the gold board).
- *   - "columns" (landscape / square, w ≥ h): the body flows blocks into 2 newspaper columns so the
- *     board fills horizontally. Each section becomes a single-stream price list (1 internal column);
- *     triBands are expanded upstream into individual sections (the newspaper columns already supply
- *     the horizontal division triBand was faking); one photo collage, if present, is lifted into a
- *     full-width banner above the columns (see render.ts). Blocks are split into columns by a
- *     linear-partition DP that minimises the tallest column while preserving reading order.
+ *   - "columns" (landscape, w ≥ h): the body is a BALANCED MULTI-COLUMN ROW FLOW. Sections render
+ *     single-stream (one price row per line) and flow down column 1, spilling into column 2, etc; a
+ *     long section SPLITS across a column boundary at a ROW boundary (its header is glued to its first
+ *     row so it never orphans). The renderer draws this with CSS `column-count`/`column-fill:balance`,
+ *     so column heights even out at row granularity — no whole-section lumps, no half-empty column.
+ *     triBands are expanded upstream into individual sections; one photo collage, if present, is a
+ *     full-width filmstrip banner above the columns (see render.ts). Because balancing is now at row
+ *     granularity, the fitter re-derives the register UPWARD: it picks the LARGEST register whose
+ *     balanced flow (≈ total flow height / column count) still fits the body height under the banner.
  *
  * The three registers are anchored on the gold board's own numbers (M ≈ gold), scaled up (L) for a
  * sparse board and down (S) for a dense one.
@@ -30,10 +33,21 @@ const HEADER = 96;
 const PAD_TOP = 24;
 const PAD_BOTTOM = 30;
 const PAD_SIDE = 36;
-const COL_GAP = 44; // gutter between newspaper columns (columns mode)
-const BANNER_GAP = 24; // space under a full-width collage banner (columns mode)
-const MIN_COL_WIDTH = 300; // don't make a newspaper column narrower than this
-const INTERNAL_2COL_MIN = 560; // a newspaper column this wide can run 2 internal price columns
+const COL_GAP = 44; // gutter between newspaper columns (columns mode) == CSS column-gap
+export const BANNER_GAP = 24; // space under a full-width filmstrip banner (columns mode)
+
+// ── balanced-flow (landscape "columns") tuning ─────────────────────────────────────────────────────
+// A landscape column narrower than this would wrap the longest dish names onto a second line (which
+// wrecks the row-height estimate), so we never subdivide the body below it.
+const MIN_STREAM_WIDTH = 430;
+// Vertical rhythm between two flowing sections (margin-bottom on each section in the flow).
+export const SECTION_GAP = 14;
+// Full-width filmstrip banner height in landscape (fixed, register-independent, so the register search
+// isn't chasing its own tail). Comfortable enough to read the food photos; small enough to leave the
+// body room for a LARGE type register — the whole point of the row-flow rewrite.
+export const LANDSCAPE_BANNER_H = 224;
+// Pick the largest register whose balanced column height ≤ this fraction of the body under the banner.
+const COLUMNS_FILL = 0.95;
 
 export function contentBox(canvas: Canvas): { width: number; height: number } {
   return {
@@ -68,16 +82,14 @@ export interface ResolvedLayout {
 function columnWidthFor(bodyWidth: number, columns: number): number {
   return Math.floor((bodyWidth - (columns - 1) * COL_GAP) / columns);
 }
-function internalColsFor(columnWidth: number): number {
-  return columnWidth >= INTERNAL_2COL_MIN ? 2 : 1;
-}
 
 /**
  * Derive the layout plan from the canvas aspect.
- *   portrait (h > w)   → stack (1 column, original behaviour)
- *   landscape / square → newspaper columns; the fitter escalates the count (2 → maxColumns) until the
- *     content fits, because the wide/square body is SHORT (≈half the portrait body height) and a
- *     dense slice needs the extra columns to fill without overflowing.
+ *   portrait (h > w)      → stack (1 column, original behaviour)
+ *   landscape (w ≥ h)     → balanced multi-column flow; the fitter searches the column count (2 →
+ *     maxColumns, capped so each column stays ≥ MIN_STREAM_WIDTH) jointly with the register, biasing
+ *     to the LARGEST register (fewest columns for it). A non-portrait square canvas is treated as
+ *     landscape — we no longer special-case square.
  */
 export function planLayout(canvas: Canvas): LayoutPlan {
   const box = contentBox(canvas);
@@ -92,7 +104,8 @@ export function planLayout(canvas: Canvas): LayoutPlan {
       maxColumns: 1,
     };
   }
-  const maxColumns = Math.max(2, Math.min(4, Math.floor(box.width / MIN_COL_WIDTH)));
+  // How many MIN_STREAM_WIDTH columns (plus their gutters) fit across the body.
+  const maxColumns = Math.max(2, Math.floor((box.width + COL_GAP) / (MIN_STREAM_WIDTH + COL_GAP)));
   return {
     mode: "columns",
     bodyWidth: box.width,
@@ -213,76 +226,36 @@ function blockHeight(
   return headerH(r, false) + Math.ceil(count / cols) * rowH(r, false);
 }
 
-/**
- * Partition `heights` (in reading order) into `k` CONTIGUOUS groups minimising the largest group
- * sum (classic linear-partition DP — same idea as the engine's section balancer). Returns k
- * `[start, end)` index ranges; preserves order so newspaper columns read top-to-bottom.
- */
-export function linearPartition(heights: number[], k: number): Array<[number, number]> {
-  const n = heights.length;
-  if (n === 0) return Array.from({ length: k }, () => [0, 0] as [number, number]);
-  const kk = Math.max(1, Math.min(k, n));
-  const prefix = [0];
-  for (let i = 0; i < n; i++) prefix.push(prefix[i]! + heights[i]!);
-  const rangeSum = (a: number, b: number): number => prefix[b]! - prefix[a]!;
-
-  const dp: number[][] = Array.from({ length: n + 1 }, () => Array(kk + 1).fill(Infinity));
-  const cut: number[][] = Array.from({ length: n + 1 }, () => Array(kk + 1).fill(0));
-  dp[0]![0] = 0;
-  for (let j = 1; j <= kk; j++) {
-    for (let i = j; i <= n; i++) {
-      for (let p = j - 1; p < i; p++) {
-        const val = Math.max(dp[p]![j - 1]!, rangeSum(p, i));
-        if (val < dp[i]![j]!) {
-          dp[i]![j] = val;
-          cut[i]![j] = p;
-        }
-      }
-    }
-  }
-  const ranges: Array<[number, number]> = [];
-  let i = n;
-  let j = kk;
-  while (j > 0) {
-    const p = cut[i]![j]!;
-    ranges.unshift([p, i]);
-    i = p;
-    j--;
-  }
-  // Pad to exactly k groups (trailing empties) if fewer blocks than columns.
-  while (ranges.length < k) ranges.push([n, n]);
-  return ranges;
-}
-
 export interface FitInput {
   blocks: Block[]; // flowing blocks (stack: all; columns: everything except the extracted banner)
   sectionsByTitle: Map<string, ResolvedSection>;
   plan: LayoutPlan;
-  banner?: Block | null; // columns mode: a full-width collage band reserved above the columns
+  banner?: Block | null; // columns mode: a full-width filmstrip band reserved above the columns
 }
 
 export interface FitResult {
   register: Register;
   layout: ResolvedLayout;
   contentHeight: number; // bodyHeight (px)
-  usedHeight: number; // stack: total block height; columns: tallest column + banner
+  usedHeight: number; // stack: total block height; columns: est. balanced column height + banner
   fill: number; // usedHeight / bodyHeight
   bannerHeight: number; // 0 in stack mode / when no banner
-  columnBlocks?: Block[][]; // columns mode: blocks assigned to each newspaper column
-  columnHeights?: number[]; // columns mode: estimated content height of each column (px)
 }
 
 const REGISTER_ORDER: Array<"L" | "M" | "S"> = ["L", "M", "S"];
+const registerRank = (name: "L" | "M" | "S"): number => REGISTER_ORDER.length - REGISTER_ORDER.indexOf(name);
 
 /**
- * Pick the layout that fits with the largest type and the fewest columns.
+ * Pick the layout that fits with the largest type.
  *
  *   stack:   pick the LARGEST register whose total estimated height ≤ 92% of the body (the rest
  *            becomes distributed air).
- *   columns: escalate the newspaper-column count from 2 upward; at each count take the LARGEST
- *            register whose tallest column ≤ 94% of the body height left after the banner. The first
- *            (fewest-columns) count that admits any register wins — so we stay as readable as the
- *            short body allows and only add columns when the content demands it.
+ *   columns: BALANCED ROW FLOW. Total flow height (single-stream section heights + inter-section
+ *            gaps) balanced across N columns is ≈ total/N. Search (columns, register) jointly and
+ *            keep the LARGEST register that fits — with the FEWEST columns for that register. More
+ *            columns lets a bigger register fit (shorter balanced height), but a column may not be
+ *            narrower than MIN_STREAM_WIDTH (long dish names would wrap). Row-granularity balancing
+ *            means no whole-section lump forces the type down — the escape from the old forced-small.
  *
  * If nothing fits even at maxColumns/S, return the densest attempt (renderer clips; the screenshot
  * reveals it — an honest broken board, never a silent lie).
@@ -318,41 +291,53 @@ export function fit(input: FitInput): FitResult {
     return last!;
   }
 
-  // columns mode: escalate column count, prefer fewest columns / largest register.
+  // columns mode: balanced multi-column flow. Banner height is fixed (register-independent) so the
+  // register search doesn't chase its own tail; sections flow single-stream (1 internal column).
+  const bannerH = banner ? LANDSCAPE_BANNER_H + BANNER_GAP : 0;
+  const avail = plan.bodyHeight - bannerH;
+  let best: FitResult | null = null;
   let densest: FitResult | null = null;
   for (let columns = plan.minColumns; columns <= plan.maxColumns; columns++) {
     const columnWidth = columnWidthFor(plan.bodyWidth, columns);
-    const maxInternalCols = internalColsFor(columnWidth);
+    if (columnWidth < MIN_STREAM_WIDTH) break; // narrower would wrap long dish names → stop escalating
     const layout: ResolvedLayout = {
       mode: "columns",
       columns,
       columnWidth,
-      maxInternalCols,
+      maxInternalCols: 1, // flow rows are single-stream; the browser balances them across columns
       gap: plan.gap,
       bodyWidth: plan.bodyWidth,
       bodyHeight: plan.bodyHeight,
     };
     for (const key of REGISTER_ORDER) {
       const r = REGISTERS[key];
-      const bannerH = banner ? collageBandHeight(r) + BANNER_GAP : 0;
-      const avail = plan.bodyHeight - bannerH;
-      const heights = blocks.map((b) => blockHeight(b, sectionsByTitle, r, maxInternalCols));
-      const ranges = linearPartition(heights, columns);
-      const colSums = ranges.map(([a, b]) => heights.slice(a, b).reduce((s, h) => s + h, 0));
-      const used = colSums.length ? Math.max(...colSums) : 0;
+      const total =
+        blocks.reduce((s, b) => s + blockHeight(b, sectionsByTitle, r, 1), 0) +
+        Math.max(0, blocks.length - 1) * SECTION_GAP;
+      const estCol = total / columns; // ≈ height of each balanced column
       const res: FitResult = {
         register: r,
         layout,
         contentHeight: plan.bodyHeight,
-        usedHeight: used + bannerH,
-        fill: (used + bannerH) / plan.bodyHeight,
+        usedHeight: estCol + bannerH,
+        fill: (estCol + bannerH) / plan.bodyHeight,
         bannerHeight: bannerH,
-        columnBlocks: ranges.map(([a, b]) => blocks.slice(a, b)),
-        columnHeights: colSums,
       };
-      if (used <= avail * 0.94) return res;
+      if (estCol <= avail * COLUMNS_FILL) {
+        // This is the largest register that fits at THIS column count. Keep the overall largest
+        // register (fewest columns for it) across the whole search.
+        if (
+          !best ||
+          registerRank(r.name) > registerRank(best.register.name) ||
+          (registerRank(r.name) === registerRank(best.register.name) &&
+            columns < best.layout.columns)
+        ) {
+          best = res;
+        }
+        break; // larger registers already tried (order is L,M,S); move to the next column count
+      }
       densest = res; // densest so far = most columns, smallest register attempted
     }
   }
-  return densest!;
+  return best ?? densest!;
 }
