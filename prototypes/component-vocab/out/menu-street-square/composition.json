@@ -1,0 +1,41 @@
+{
+  "title": "Street & Sweets",
+  "blocks": [
+    {
+      "type": "section",
+      "section": "Tiffins"
+    },
+    {
+      "type": "collage",
+      "itemIds": [
+        "p1",
+        "p4",
+        "x1",
+        "w1",
+        "t1"
+      ]
+    },
+    {
+      "type": "section",
+      "section": "Dosa"
+    },
+    {
+      "type": "triBand",
+      "sections": [
+        "Snack Box",
+        "Chaat"
+      ]
+    },
+    {
+      "type": "section",
+      "section": "Desserts"
+    },
+    {
+      "type": "triBand",
+      "sections": [
+        "Falooda'S",
+        "Hot Drinks"
+      ]
+    }
+  ]
+}

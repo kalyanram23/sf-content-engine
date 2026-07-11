@@ -198,11 +198,20 @@ export function triBand(
 // ── 4. polaroidCollage ────────────────────────────────────────────────────────────────────────────
 const TILTS = [-2, 1.5, -1, 2.5, -1.5, 1, -2];
 
-/** polaroidCollage — tilted white cards, photo + caption, slight overlaps and a tape accent. */
-export function polaroidCollage(cards: MenuItem[], r: Register, bandHeight: number): string {
+/**
+ * polaroidCollage — tilted white cards, photo + caption, slight overlaps and a tape accent.
+ * `bandWidth` is the width of the container the strip must span (portrait body = 976; a landscape
+ * newspaper column or a full-width banner pass their own width) so cards size to fill it.
+ */
+export function polaroidCollage(
+  cards: MenuItem[],
+  r: Register,
+  bandHeight: number,
+  bandWidth = 976,
+): string {
   const n = cards.length;
   // One anchor card + smaller snapshots. Shrink cards as the count grows so they span the width.
-  const baseW = Math.min(r.cardW, Math.floor((976 - (n - 1) * -20) / n) - 8);
+  const baseW = Math.min(r.cardW, Math.floor((bandWidth + (n - 1) * 20) / n) - 8);
   const html = cards
     .map((c, i) => {
       const isAnchor = i === 0;

@@ -1,0 +1,35 @@
+{
+  "title": "Biryani & Mandi Junction",
+  "blocks": [
+    {
+      "type": "section",
+      "section": "Biryani"
+    },
+    {
+      "type": "section",
+      "section": "Mandi"
+    },
+    {
+      "type": "collage",
+      "itemIds": [
+        "a1",
+        "a2",
+        "d6",
+        "d9",
+        "i3"
+      ]
+    },
+    {
+      "type": "section",
+      "section": "Pulav"
+    },
+    {
+      "type": "section",
+      "section": "Special Rice"
+    },
+    {
+      "type": "section",
+      "section": "Non Veg Curries"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "name": "menu-street-portrait",
+  "model": "anthropic/claude-sonnet-5",
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "orientation": "portrait",
+  "categories": [
+    "Tiffins",
+    "Dosa",
+    "Snack Box",
+    "Chaat",
+    "Desserts",
+    "Falooda'S",
+    "Hot Drinks"
+  ],
+  "appliedCaps": [
+    {
+      "category": "Desserts",
+      "kept": 10,
+      "total": 15
+    }
+  ],
+  "itemCount": 44,
+  "photoCandidates": 10,
+  "promptTokens": 2236,
+  "completionTokens": 180,
+  "llmMs": 4167,
+  "totalMs": 5450,
+  "compositionBytes": 359,
+  "htmlBytes": 28683,
+  "layoutMode": "stack",
+  "layoutColumns": 1,
+  "register": "M",
+  "fillPct": 92,
+  "title": "Street & Sweets",
+  "llmBlockSequence": "section(Tiffins) → collage(p1,p4,x1,x2) → section(Dosa) → triBand(Snack Box+Chaat) → section(Desserts) → collage(t1,w1,w2) → triBand(Falooda'S+Hot Drinks)",
+  "renderedBlockSequence": "section(Tiffins) → collage(p1,p4,x1,x2) → section(Dosa) → triBand(Snack Box+Chaat) → section(Desserts) → collage(t1,w1,w2) → triBand(Falooda'S+Hot Drinks)"
+}
