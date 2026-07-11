@@ -49,6 +49,9 @@ interface RunConfig {
   caps?: Record<string, number>; // per-category "keep first N items" cap (legibility; noted in metrics)
   tagline: string | null; // rendered verbatim next to the masthead title
   titleHint: string; // a one-line angle fed to the composer (it still picks the actual title)
+  // Reuse a saved composition (path relative to out/) instead of calling the LLM — makes a
+  // before/after comparison run deterministic and free (identical composition, only mechanism differs).
+  frozenCompositionPath?: string;
 }
 
 // A "feast" slice: rice-forward mains. Big categories capped so one board stays legible.
@@ -77,6 +80,21 @@ const STREET_CAPS: Record<string, number> = {
 };
 
 export const RUNS: RunConfig[] = [
+  // ── continuation-cue hero (run: `npx tsx compose.ts cont`) ──
+  {
+    // SAME slice + canvas + composition as out/flow-mains-landscape, rendered through the NEW explicit
+    // MEASURED columns path: sections split at self-computed break points and every column that opens
+    // mid-section gets a subtle "<Section> (cont.)" cue. Reuses the frozen flow composition so it's a
+    // pure mechanism-vs-mechanism comparison against the no-cue flow board.
+    name: "cont-mains-landscape",
+    menuPath: "samples/menu.json",
+    canvas: { width: 1920, height: 1080 },
+    categories: MAINS,
+    caps: MAINS_CAPS,
+    tagline: "Garma Garam!",
+    titleHint: "a rice-and-meat feast board — biryani, mandi & curries",
+    frozenCompositionPath: "flow-mains-landscape/composition.json",
+  },
   // ── the flow hero + portrait control (run these two: `npx tsx compose.ts flow`) ──
   {
     // BEFORE/AFTER hero: same slice + canvas as the committed out/menu-mains-landscape, NEW balanced
@@ -275,6 +293,36 @@ async function callLLM(
   return { content: json.choices[0]?.message?.content ?? "", usage: json.usage ?? {} };
 }
 
+// ── measure pass (landscape flow) ─────────────────────────────────────────────────────────────────
+// Load the off-screen measure document, WAIT FOR THE FONTS (Shrikhand/Archivo — heights are wrong if
+// they haven't loaded), then read each data-mk element's rendered height. Runs in the SAME browser as
+// the final screenshot; the renderer partitions explicit columns off these true heights.
+async function measureHeights(
+  browser: Browser,
+  html: string,
+  canvas: Canvas,
+): Promise<Record<string, number>> {
+  const context = await browser.newContext({
+    viewport: { width: canvas.width, height: Math.max(canvas.height, 3000) },
+    deviceScaleFactor: 1,
+  });
+  try {
+    const page = await context.newPage();
+    await page.setContent(html, { waitUntil: "load", timeout: 45000 });
+    await page.evaluate(() => document.fonts.ready.then(() => undefined));
+    return await page.evaluate(() => {
+      const out: Record<string, number> = {};
+      document.querySelectorAll("[data-mk]").forEach((el) => {
+        const key = el.getAttribute("data-mk");
+        if (key) out[key] = (el as HTMLElement).getBoundingClientRect().height;
+      });
+      return out;
+    });
+  } finally {
+    await context.close();
+  }
+}
+
 // ── screenshot (browser reused across runs; one context per run at the run's viewport) ─────────────
 async function screenshot(
   browser: Browser,
@@ -340,22 +388,28 @@ async function runOne(config: RunConfig, apiKey: string, browser: Browser): Prom
   const system = buildSystem(config.canvas);
   const runStart = Date.now();
 
-  // LLM (one repair retry on Zod-validation failure)
+  // Composition: reuse a frozen one (deterministic before/after) or ask the LLM (one repair retry).
   let comp: Composition | null = null;
   let usage: Usage = {};
   let llmMs = 0;
-  let repairNote: string | null = null;
-  for (let attempt = 0; attempt < 2 && !comp; attempt++) {
-    const t0 = Date.now();
-    const { content, usage: u } = await callLLM(apiKey, system, digest, repairNote);
-    llmMs += Date.now() - t0;
-    usage = u;
-    const parsed = compositionSchema.safeParse(JSON.parse(content));
-    if (parsed.success) {
-      comp = parsed.data;
-    } else {
-      repairNote = JSON.stringify(parsed.error.issues.slice(0, 5));
-      console.warn(`  attempt ${attempt + 1} validation failed: ${repairNote}`);
+  if (config.frozenCompositionPath) {
+    const raw = readFileSync(join(OUT, config.frozenCompositionPath), "utf8");
+    comp = compositionSchema.parse(JSON.parse(raw));
+    console.log(`using frozen composition ${config.frozenCompositionPath} (no LLM call)`);
+  } else {
+    let repairNote: string | null = null;
+    for (let attempt = 0; attempt < 2 && !comp; attempt++) {
+      const t0 = Date.now();
+      const { content, usage: u } = await callLLM(apiKey, system, digest, repairNote);
+      llmMs += Date.now() - t0;
+      usage = u;
+      const parsed = compositionSchema.safeParse(JSON.parse(content));
+      if (parsed.success) {
+        comp = parsed.data;
+      } else {
+        repairNote = JSON.stringify(parsed.error.issues.slice(0, 5));
+        console.warn(`  attempt ${attempt + 1} validation failed: ${repairNote}`);
+      }
     }
   }
   if (!comp) throw new Error(`[${config.name}] composition failed validation after retry`);
@@ -366,18 +420,39 @@ async function runOne(config: RunConfig, apiKey: string, browser: Browser): Prom
   console.log(`LLM blocks: ${llmSeq}`);
 
   // render (aspect-aware). Filmstrip is the default photo band for these boards (edge-faded marquee).
-  const { html, finalBlocks, fit, warnings } = render(comp, {
-    sections,
-    photoCandidates,
-    canvas: config.canvas,
-    tagline: config.tagline,
-    photoMode: "filmstrip",
-  });
+  // The landscape flow measures its rows/headers in `browser` (fonts loaded) to partition explicit
+  // columns; the measure runs in the SAME browser as the screenshot below.
+  const measure = (measureHtml: string): Promise<Record<string, number>> =>
+    measureHeights(browser, measureHtml, config.canvas);
+  const { html, finalBlocks, fit, warnings, columnPlan } = await render(
+    comp,
+    {
+      sections,
+      photoCandidates,
+      canvas: config.canvas,
+      tagline: config.tagline,
+      photoMode: "filmstrip",
+    },
+    measure,
+  );
   for (const w of warnings) console.warn(`  render warning: ${w}`);
   const renderedSeq = blockSeqOf(finalBlocks);
   console.log(
     `layout: ${fit.layout.mode}${fit.layout.mode === "columns" ? `(${fit.layout.columns}col)` : ""}  register ${fit.register.name}  fill≈${(fit.fill * 100).toFixed(0)}%`,
   );
+  if (columnPlan) {
+    console.log(
+      `columns: heights=[${columnPlan.columnHeights.join(", ")}]px  avail=${columnPlan.avail}px  ` +
+        `delta=${columnPlan.balanceDelta}px  overflow=${columnPlan.overflow}`,
+    );
+    console.log(
+      `cues: ${
+        columnPlan.cues.length
+          ? columnPlan.cues.map((c) => `col${c.column} "${c.section} (cont.)"`).join("; ")
+          : "(none)"
+      }`,
+    );
+  }
   console.log(`rendered: ${renderedSeq}`);
 
   writeFileSync(join(outDir, "composition.json"), JSON.stringify(comp, null, 2));
@@ -410,6 +485,7 @@ async function runOne(config: RunConfig, apiKey: string, browser: Browser): Prom
     title: comp.title,
     llmBlockSequence: llmSeq,
     renderedBlockSequence: renderedSeq,
+    ...(columnPlan ? { columnPlan } : {}),
   };
   writeFileSync(join(outDir, "metrics.json"), JSON.stringify(metrics, null, 2));
   console.log(`  wrote out/${config.name}/{board.html,board.png,composition.json,metrics.json}`);

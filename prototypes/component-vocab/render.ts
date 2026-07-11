@@ -14,6 +14,7 @@
  */
 
 import {
+  continuationCue,
   masthead,
   polaroidCollage,
   priceList,
@@ -33,14 +34,32 @@ import {
   collageBandHeight,
   fit,
   LANDSCAPE_BANNER_H,
+  partitionColumns,
   planLayout,
   SECTION_GAP,
   sectionInternalCols,
   type FitResult,
+  type FlowUnitSize,
   type LayoutPlan,
 } from "./fitter";
 
 const DIVIDER = "rgba(42,26,14,0.2)"; // vertical newspaper-column rule (matches catalog's DIVIDER)
+
+// The <head> that loads the board fonts (Shrikhand + Archivo). Shared by the live shell AND the
+// off-screen MEASURE document so measured row/header heights use the SAME loaded faces as the board.
+const FONT_HEAD =
+  `<meta charset="utf-8">` +
+  `<link rel="preconnect" href="https://fonts.googleapis.com">` +
+  `<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">` +
+  `<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Shrikhand&display=swap" rel="stylesheet">`;
+
+/**
+ * A MEASURE port: given a self-contained HTML document (with `data-mk`-tagged elements), return each
+ * element's rendered height keyed by its `data-mk`. The landscape flow injects this so it can partition
+ * explicit columns off TRUE heights (fonts loaded) instead of leaving the break points to CSS. The
+ * caller (compose.ts) fulfils it with Playwright, in the same browser run as the final screenshot.
+ */
+export type Measurer = (measureHtml: string) => Promise<Record<string, number>>;
 
 export interface RenderContext {
   sections: ResolvedSection[];
@@ -60,11 +79,23 @@ function collageMax(mode: PhotoMode): number {
   return mode === "collage" ? 5 : 12;
 }
 
+/** Per-column diagnostics for the measured landscape flow (undefined for stack / CSS-fallback). */
+export interface ColumnPlan {
+  columns: number;
+  register: Register["name"];
+  columnHeights: number[]; // measured content height of each column (rows + gaps + cue), px
+  avail: number; // body height available to the columns (bodyHeight − banner), px
+  balanceDelta: number; // tallest − shortest column height, px
+  overflow: boolean; // true if any column exceeds `avail` (would clip)
+  cues: Array<{ column: number; section: string }>; // 1-based columns that got a "(cont.)" cue
+}
+
 export interface RenderResult {
   html: string;
   finalBlocks: Block[];
   fit: FitResult;
   warnings: string[];
+  columnPlan?: ColumnPlan;
 }
 
 /** Validate the type/field pairing and normalize; collect human-readable warnings. */
@@ -190,10 +221,8 @@ function shell(ctx: RenderContext, comp: Composition, r: FitResult["register"], 
     .map(([k, v]) => `--color-${k}:${v}`)
     .join(";");
   return (
-    `<!DOCTYPE html><html><head><meta charset="utf-8">` +
-    `<link rel="preconnect" href="https://fonts.googleapis.com">` +
-    `<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">` +
-    `<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Shrikhand&display=swap" rel="stylesheet">` +
+    `<!DOCTYPE html><html><head>` +
+    FONT_HEAD +
     `<style>:root{${cssVars}}*{box-sizing:border-box}body{margin:0}</style></head><body>` +
     `<div style="width:${ctx.canvas.width}px;height:${ctx.canvas.height}px;` +
     `background:repeating-linear-gradient(45deg,var(--color-accent) 0 16px,var(--color-stripe) 16px 32px);` +
@@ -256,14 +285,80 @@ function flowSection(n: number, sec: ResolvedSection, r: Register, last: boolean
   return `<div style="${mb}">${head}${rest}</div>`;
 }
 
-/** Render the landscape balanced multi-column flow body. */
-function renderColumns(
-  comp: Composition,
+/**
+ * One atomic flow unit for the measured landscape flow. A section becomes: one LEAD unit (numbered
+ * header GLUED to its first row — the pairing that guarantees a header is never orphaned at a column
+ * top or bottom) followed by one unit per remaining row. The partitioner may break between any two
+ * units but never inside one, so a break always lands cleanly between two rows.
+ */
+interface FlowUnit {
+  mk: string; // measure key ("u0","u1",…) matched back to a measured height
+  sectionTitle: string;
+  isLead: boolean;
+  html: string; // rendered at the chosen register; re-used verbatim in the measure doc AND the board
+}
+
+/** Expand the flowing sections into atomic units, numbering sections 1..N in reading order. */
+function buildFlowUnits(secs: ResolvedSection[], r: Register): FlowUnit[] {
+  const units: FlowUnit[] = [];
+  secs.forEach((sec, i) => {
+    const items = sec.items;
+    units.push({
+      mk: `u${units.length}`,
+      sectionTitle: sec.title,
+      isLead: true,
+      html: sectionHeader(i + 1, sec.title, r) + (items[0] ? priceRow(items[0], r, false) : ""),
+    });
+    for (const it of items.slice(1)) {
+      units.push({
+        mk: `u${units.length}`,
+        sectionTitle: sec.title,
+        isLead: false,
+        html: priceRow(it, r, false),
+      });
+    }
+  });
+  return units;
+}
+
+/**
+ * The off-screen MEASURE document: every flow unit stacked in a single column of the EXACT newspaper
+ * column width, at the chosen register, plus one sample continuation cue (`__cue__`). The measurer
+ * loads it, waits for the fonts, and reports each `data-mk`'s true height so the partitioner balances
+ * off real metrics. Same fonts/tokens/`box-sizing` as the board so heights transfer 1:1.
+ */
+function buildMeasureDoc(r: Register, columnWidth: number, units: FlowUnit[]): string {
+  const cssVars = Object.entries(TOKENS)
+    .map(([k, v]) => `--color-${k}:${v}`)
+    .join(";");
+  const rows = units.map((u) => `<div data-mk="${u.mk}">${u.html}</div>`).join("");
+  const sampleTitle = units.reduce((a, u) => (u.sectionTitle.length > a.length ? u.sectionTitle : a), "Section");
+  const cue = `<div data-mk="__cue__">${continuationCue(sampleTitle, r)}</div>`;
+  return (
+    `<!DOCTYPE html><html><head>` +
+    FONT_HEAD +
+    `<style>:root{${cssVars}}*{box-sizing:border-box}body{margin:0}</style></head><body>` +
+    `<div style="width:${columnWidth}px;font-family:'Archivo',sans-serif;color:var(--color-text)">` +
+    rows +
+    cue +
+    `</div></body></html>`
+  );
+}
+
+/** Assemble the shared banner + finalBlocks used by both the measured and CSS-fallback column paths. */
+function columnsShared(
   blocks: Block[],
   ctx: RenderContext,
   sectionsByTitle: Map<string, ResolvedSection>,
   plan: LayoutPlan,
-): { html: string; f: FitResult; finalBlocks: Block[] } {
+): {
+  f: FitResult;
+  r: Register;
+  bannerHtml: string;
+  flowSecs: ResolvedSection[];
+  finalBlocks: Block[];
+  banner: Block | null;
+} {
   const flat = expandTriBands(blocks);
   // Lift the first collage into a full-width filmstrip banner above the columns.
   const bannerIdx = flat.findIndex((b) => b.type === "collage");
@@ -272,7 +367,7 @@ function renderColumns(
 
   const f = fit({ blocks: flow, sectionsByTitle, plan, banner });
   const r = f.register;
-  const { columns, gap, bodyWidth } = f.layout;
+  const { bodyWidth } = f.layout;
 
   const mode = ctx.photoMode ?? "collage";
   let bannerHtml = "";
@@ -286,38 +381,131 @@ function renderColumns(
     }
   }
 
-  // Sections numbered 1..N in DOM (== reading) order; the browser balances where each break falls.
   const flowSecs = flow
     .map((b) => (b.type === "section" ? sectionsByTitle.get(b.section!) : undefined))
     .filter((s): s is ResolvedSection => Boolean(s));
-  const flowHtml = flowSecs
-    .map((sec, i) => flowSection(i + 1, sec, r, i === flowSecs.length - 1))
-    .join("");
+  const finalBlocks: Block[] = [
+    ...(banner ? [banner] : []),
+    ...flowSecs.map((s): Block => ({ type: "section", section: s.title })),
+  ];
+  return { f, r, bannerHtml, flowSecs, finalBlocks, banner };
+}
 
-  // CSS multi-column: `column-fill:balance` evens the column heights at ROW granularity; `column-rule`
-  // draws the vertical ink rule between columns (the newspaper divider, full body height).
+/**
+ * Render the landscape flow body with EXPLICIT MEASURED COLUMNS (the default when a `measure` port is
+ * available). We keep the register the fitter picked and the column count it chose, MEASURE every
+ * header/row at that register + column width, then partition the units into balanced columns OURSELVES
+ * — so we know which section leads each column and can stamp a "<Section> (cont.)" cue on any column
+ * that opens mid-section. Falls back to the CSS `column-fill:balance` body (no cues) when no measurer
+ * is supplied.
+ */
+async function renderColumns(
+  comp: Composition,
+  blocks: Block[],
+  ctx: RenderContext,
+  sectionsByTitle: Map<string, ResolvedSection>,
+  plan: LayoutPlan,
+  measure: Measurer | undefined,
+  warnings: string[],
+): Promise<{ html: string; f: FitResult; finalBlocks: Block[]; columnPlan?: ColumnPlan }> {
+  const { f, r, bannerHtml, flowSecs, finalBlocks } = columnsShared(blocks, ctx, sectionsByTitle, plan);
+  const { columns, gap, columnWidth } = f.layout;
+
+  // ── CSS-balance fallback (no measurer): original behaviour, no continuation cues ──
+  if (!measure) {
+    const flowHtml = flowSecs
+      .map((sec, i) => flowSection(i + 1, sec, r, i === flowSecs.length - 1))
+      .join("");
+    const body =
+      `<div style="flex:1;min-height:0;column-count:${columns};column-gap:${gap}px;` +
+      `column-rule:2px solid ${DIVIDER};column-fill:balance;overflow:hidden">${flowHtml}</div>`;
+    const inner =
+      `<div style="flex:1;display:flex;flex-direction:column;padding:24px 36px 30px;min-height:0">` +
+      bannerHtml +
+      body +
+      `</div>`;
+    return { html: shell(ctx, comp, r, inner), f, finalBlocks };
+  }
+
+  // ── measured explicit columns ──
+  const units = buildFlowUnits(flowSecs, r);
+  const heights = await measure(buildMeasureDoc(r, columnWidth, units));
+  const fallbackH = (u: FlowUnit): number =>
+    u.isLead ? r.sectionTitle * 1.4 + r.rowName * 1.4 : r.rowName * 1.4; // safety net only
+  const sizes: FlowUnitSize[] = units.map((u) => ({
+    height: heights[u.mk] ?? fallbackH(u),
+    isLead: u.isLead,
+  }));
+  const cueH = heights["__cue__"] ?? r.sectionTitle * 0.66 * 1.1 + r.headerMb;
+
+  const groups = partitionColumns(sizes, columns, cueH);
+
+  // Emit each column; stamp the cue when its first unit is a continuation row.
+  const avail = f.contentHeight - f.bannerHeight;
+  const cues: Array<{ column: number; section: string }> = [];
+  const columnHeights: number[] = [];
+  const columnHtml = groups.map((idxs, colIdx) => {
+    const colUnits = idxs.map((k) => units[k]!);
+    const first = colUnits[0];
+    let cueHtml = "";
+    if (first && !first.isLead) {
+      cueHtml = continuationCue(first.sectionTitle, r);
+      cues.push({ column: colIdx + 1, section: first.sectionTitle });
+    }
+    let h = cueHtml ? cueH : 0;
+    const inner = colUnits
+      .map((u, idx) => {
+        const gapTop = idx > 0 && u.isLead;
+        h += sizes[idxs[idx]!]!.height + (gapTop ? SECTION_GAP : 0);
+        return `<div style="${gapTop ? `margin-top:${SECTION_GAP}px` : ""}">${u.html}</div>`;
+      })
+      .join("");
+    columnHeights.push(h);
+    return `<div style="width:${columnWidth}px;flex:none">${cueHtml}${inner}</div>`;
+  });
+
+  // Explicit sibling columns with full-height vertical ink rules centred in each gutter (the same
+  // newspaper divider the CSS `column-rule` drew).
+  const rulePad = (gap - 2) / 2;
+  const divider = `<div style="width:2px;flex:none;background:${DIVIDER};margin:0 ${rulePad}px"></div>`;
   const body =
-    `<div style="flex:1;min-height:0;column-count:${columns};column-gap:${gap}px;` +
-    `column-rule:2px solid ${DIVIDER};column-fill:balance;overflow:hidden">${flowHtml}</div>`;
-
+    `<div style="flex:1;min-height:0;display:flex;align-items:stretch;overflow:hidden">` +
+    columnHtml.join(divider) +
+    `</div>`;
   const inner =
     `<div style="flex:1;display:flex;flex-direction:column;padding:24px 36px 30px;min-height:0">` +
     bannerHtml +
     body +
     `</div>`;
 
-  const finalBlocks: Block[] = [
-    ...(banner ? [banner] : []),
-    ...flowSecs.map((s): Block => ({ type: "section", section: s.title })),
-  ];
-  return { html: shell(ctx, comp, r, inner), f, finalBlocks };
+  const tallest = Math.max(...columnHeights);
+  const overflow = tallest > avail + 1;
+  if (overflow) {
+    warnings.push(
+      `columns overflow: tallest column ${tallest.toFixed(0)}px > available ${avail.toFixed(0)}px at register ${r.name}`,
+    );
+  }
+  const columnPlan: ColumnPlan = {
+    columns,
+    register: r.name,
+    columnHeights: columnHeights.map((x) => Math.round(x)),
+    avail: Math.round(avail),
+    balanceDelta: Math.round(tallest - Math.min(...columnHeights)),
+    overflow,
+    cues,
+  };
+  return { html: shell(ctx, comp, r, inner), f, finalBlocks, columnPlan };
 }
 
-export function render(comp: Composition, ctx: RenderContext): RenderResult {
+export async function render(
+  comp: Composition,
+  ctx: RenderContext,
+  measure?: Measurer,
+): Promise<RenderResult> {
   const warnings: string[] = [];
   const sectionsByTitle = new Map(ctx.sections.map((s) => [s.title, s]));
 
-  let blocks = normalizeBlocks(comp.blocks, sectionsByTitle, warnings);
+  const blocks = normalizeBlocks(comp.blocks, sectionsByTitle, warnings);
 
   // COVERAGE GUARANTEE: append any section the LLM forgot as its own full-width block.
   const covered = coveredTitles(blocks);
@@ -330,11 +518,17 @@ export function render(comp: Composition, ctx: RenderContext): RenderResult {
   }
 
   const layout = planLayout(ctx.canvas);
-  const rendered =
-    layout.mode === "columns"
-      ? renderColumns(comp, blocks, ctx, sectionsByTitle, layout)
-      : renderStack(comp, blocks, ctx, sectionsByTitle, layout);
-
+  if (layout.mode === "columns") {
+    const rendered = await renderColumns(comp, blocks, ctx, sectionsByTitle, layout, measure, warnings);
+    return {
+      html: rendered.html,
+      finalBlocks: rendered.finalBlocks,
+      fit: rendered.f,
+      warnings,
+      ...(rendered.columnPlan ? { columnPlan: rendered.columnPlan } : {}),
+    };
+  }
+  const rendered = renderStack(comp, blocks, ctx, sectionsByTitle, layout);
   return {
     html: rendered.html,
     finalBlocks: rendered.finalBlocks,

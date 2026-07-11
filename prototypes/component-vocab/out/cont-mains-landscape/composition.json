@@ -1,0 +1,35 @@
+{
+  "title": "Biryani & Mandi Feast",
+  "blocks": [
+    {
+      "type": "section",
+      "section": "Biryani"
+    },
+    {
+      "type": "section",
+      "section": "Mandi"
+    },
+    {
+      "type": "collage",
+      "itemIds": [
+        "a1",
+        "a7",
+        "d6",
+        "d9",
+        "g5"
+      ]
+    },
+    {
+      "type": "section",
+      "section": "Pulav"
+    },
+    {
+      "type": "section",
+      "section": "Special Rice"
+    },
+    {
+      "type": "section",
+      "section": "Non Veg Curries"
+    }
+  ]
+}

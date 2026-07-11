@@ -153,6 +153,23 @@ export function sectionHeader(n: number, title: string, r: Register, small = fal
   );
 }
 
+/**
+ * Continuation cue — a SUBTLE marker stamped at the top of a landscape column that opens mid-section
+ * (its section's numbered header lives in an earlier column). Deliberately subordinate to the real
+ * numbered header: italic Shrikhand in the MUTED ink (never the bright accent red), no number chip,
+ * smaller type, and a thin muted rule (vs the header's 2px ink rule). Text: "<Section> (cont.)".
+ */
+export function continuationCue(title: string, r: Register): string {
+  const size = Math.max(16, Math.round(r.sectionTitle * 0.66));
+  return (
+    `<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:${r.headerMb}px">` +
+    `<span style="font-family:'Shrikhand',serif;font-style:italic;font-size:${size}px;color:var(--color-muted);` +
+    `line-height:1.1">${esc(title)} (cont.)</span>` +
+    `<span style="flex:1;border-bottom:1px solid ${DIVIDER};transform:translateY(-5px)"></span>` +
+    `</div>`
+  );
+}
+
 // ── 3. priceList ──────────────────────────────────────────────────────────────────────────────────
 /** One item row (name → dotted leader → price). Exported so the landscape flow can place rows itself. */
 export function priceRow(item: MenuItem, r: Register, small: boolean): string {

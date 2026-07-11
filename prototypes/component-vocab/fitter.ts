@@ -226,6 +226,88 @@ function blockHeight(
   return headerH(r, false) + Math.ceil(count / cols) * rowH(r, false);
 }
 
+// ── explicit measured-column partition (landscape flow) ─────────────────────────────────────────────
+/** One measured flow unit for the partitioner: its true rendered height + whether it leads a section. */
+export interface FlowUnitSize {
+  height: number; // measured px (getBoundingClientRect height at the chosen register + column width)
+  isLead: boolean; // true = a section's header+first-row unit; false = a continuation row
+}
+
+/**
+ * Split a flat list of MEASURED flow units into `columns` contiguous groups, minimizing the TALLEST
+ * column so the columns end within a small delta (the balance quality CSS `column-fill:balance` gave,
+ * but now WE own the break points so the renderer can stamp a continuation cue at each column top).
+ *
+ * Hard rules honoured by construction:
+ *   - a break may only land BETWEEN two units (groups are contiguous index ranges);
+ *   - a section header can never be orphaned — the header + its first row are ONE unit upstream, so no
+ *     break can fall between them.
+ *
+ * Balance model:
+ *   - SECTION_GAP is added before every lead unit, EXCEPT when the lead sits at a column top (no
+ *     leading margin is rendered at a break), so that gap is dropped from that column's cost;
+ *   - a column whose FIRST unit is a continuation row will carry a "<Section> (cont.)" cue, so `cueH`
+ *     is charged to that column — the balancer compensates by handing cue columns slightly fewer rows
+ *     (this is the "nudge the balance target rather than drop the register" the cue asks for).
+ */
+export function partitionColumns(
+  units: FlowUnitSize[],
+  columns: number,
+  cueH: number,
+): number[][] {
+  const m = units.length;
+  if (columns <= 1 || m === 0) return [Array.from({ length: m }, (_, i) => i)];
+
+  const step = units.map((u) => u.height + (u.isLead ? SECTION_GAP : 0));
+  const pre: number[] = [0];
+  for (let i = 0; i < m; i++) pre.push(pre[i]! + step[i]!);
+
+  // Cost of a column covering units [i..j]: sum of steps, minus the lead-gap we don't render at the
+  // column top, plus a cue line when unit i is a continuation (its header is in an earlier column).
+  const colCost = (i: number, j: number): number => {
+    const raw = pre[j + 1]! - pre[i]!;
+    const leadGapAtTop = units[i]!.isLead ? SECTION_GAP : 0;
+    const cue = units[i]!.isLead ? 0 : cueH;
+    return raw - leadGapAtTop + cue;
+  };
+
+  // dp[c][i] = min achievable tallest-column height to split units[i..m-1] into c columns.
+  const INF = Number.POSITIVE_INFINITY;
+  const dp: number[][] = Array.from({ length: columns + 1 }, () => new Array(m + 1).fill(INF));
+  for (let i = 0; i < m; i++) dp[1]![i] = colCost(i, m - 1);
+  for (let c = 2; c <= columns; c++) {
+    for (let i = 0; i <= m - c; i++) {
+      let best = INF;
+      for (let j = i; j <= m - c; j++) {
+        const cand = Math.max(colCost(i, j), dp[c - 1]![j + 1]!);
+        if (cand < best) best = cand;
+      }
+      dp[c]![i] = best;
+    }
+  }
+  const target = dp[columns]![0]!; // the minimal possible tallest column
+
+  // Greedy fill each column as full as possible without exceeding `target`, always leaving one unit
+  // per remaining column. This reproduces the minimal-max partition as balanced columns.
+  const groups: number[][] = [];
+  let i = 0;
+  for (let c = columns; c >= 1; c--) {
+    if (c === 1) {
+      groups.push(Array.from({ length: m - i }, (_, k) => i + k));
+      break;
+    }
+    const maxJ = m - c; // leave c-1 units for the remaining columns
+    let end = i; // at least one unit per column
+    for (let j = i; j <= maxJ; j++) {
+      if (colCost(i, j) <= target + 0.5) end = j;
+      else break;
+    }
+    groups.push(Array.from({ length: end - i + 1 }, (_, k) => i + k));
+    i = end + 1;
+  }
+  return groups;
+}
+
 export interface FitInput {
   blocks: Block[]; // flowing blocks (stack: all; columns: everything except the extracted banner)
   sectionsByTitle: Map<string, ResolvedSection>;

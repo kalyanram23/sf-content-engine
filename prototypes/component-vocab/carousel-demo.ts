@@ -128,7 +128,8 @@ async function runVariant(
   const photoIds = photoCandidates.map((c) => c.id);
 
   const comp = buildComposition(photoIds);
-  const { html, fit, warnings } = render(comp, {
+  // Portrait stack — no measurer needed (the measured-column path is landscape-only).
+  const { html, fit, warnings } = await render(comp, {
     sections,
     photoCandidates,
     canvas: CANVAS,
