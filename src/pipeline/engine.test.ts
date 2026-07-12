@@ -8,6 +8,7 @@ import type { Painter, PaintRequest } from "../ports/painter";
 import type { CritiqueRequest, VisionCritic } from "../ports/vision-critic";
 import {
   createFakeEngine,
+  FakeComposer,
   FakeImageFetcher,
   FakePainter,
   ScriptedVisionCritic,
@@ -21,7 +22,45 @@ import {
   overflowObservation,
 } from "../testing/fakes/browser";
 import { fixtures } from "../testing/fixtures/index";
+import { botanicalPreset, InMemoryThemeRepository } from "../theme/presets/index";
 import { PLACEHOLDER_IMAGE_BASE64 } from "../util/placeholder-image";
+
+/**
+ * A theme repository whose botanical preset carries `vocabulary: "dhaba"`, so the default fake
+ * engine (auto paint mode + builtinVocabularies) routes its boards through the composition path.
+ * Cloning the real preset keeps the theme fully valid; only the vocabulary opt-in is added.
+ */
+const dhabaThemeRepository = (): InMemoryThemeRepository =>
+  new InMemoryThemeRepository([{ ...botanicalPreset, vocabulary: "dhaba" }]);
+
+/**
+ * A dhaba-appropriate board: scalar-priced items in `list` sections with NO per-category image
+ * slot. The composition path renders a deterministic price LIST (one price per item), so this
+ * content satisfies every structural check — the free-paint contracts a price list doesn't honour
+ * (per-size matrix cells, variant rows, image slots) simply don't apply to this menu.
+ */
+const dhabaMenu: CanonicalItem[] = [
+  { id: "d-samosa", name: "Samosa", category: "Starters", available: true, price: 6 },
+  { id: "d-pakora", name: "Onion Pakora", category: "Starters", available: true, price: 7 },
+  { id: "d-dal", name: "Dal Tadka", category: "Mains", available: true, price: 12 },
+  { id: "d-paneer", name: "Paneer Masala", category: "Mains", available: true, price: 14 },
+];
+const dhabaInput = {
+  items: dhabaMenu,
+  brief: { presetId: "botanical" },
+  constraints: { aspect: "16:9", screens: 1 },
+  plan: {
+    screens: [
+      {
+        id: "screen-1",
+        sections: [
+          { title: "STARTERS", representation: "list", items: ["d-samosa", "d-pakora"] },
+          { title: "MAINS", representation: "list", items: ["d-dal", "d-paneer"] },
+        ],
+      },
+    ],
+  },
+};
 
 /** A painter that records every request while delegating to the real FakePainter. */
 class SpyPainter implements Painter {
@@ -958,5 +997,70 @@ describe("composition — QA trusts composed markup (D73)", () => {
 
     expect(critic.requests.length).toBeGreaterThan(0);
     expect(critic.requests.some((r) => (r.layoutStrategy ?? "").includes("TYPE SCALE"))).toBe(true);
+  });
+});
+
+describe("composition paint path (D71)", () => {
+  it("a vocabulary theme paints via composition: composed root ships, QA passes, coverage holds", async () => {
+    // botanical + vocabulary:"dhaba" → AutoPainter (auto mode) routes the board to the
+    // CompositionPainter, which composes (FakeComposer default) then deterministically renders it.
+    const engine = createFakeEngine({
+      observations: [cleanObservation()],
+      ports: { themeRepository: dhabaThemeRepository() },
+    });
+    const out = await engine.generate(dhabaInput);
+
+    const screen = out.screens[0]!;
+    // The frozen board carries the composed-root marker (the deterministic renderer's signature).
+    expect(screen.html).toContain("data-composed=");
+    // QA trusts the composed markup and the clean render passes.
+    expect(out.qaReport.screens[0]!.passed).toBe(true);
+    // Coverage guarantee: EVERY planned item id is bound, even though the composition had no blocks.
+    const plannedIds = dhabaInput.plan.screens[0]!.sections.flatMap((s) => s.items);
+    expect(plannedIds.length).toBeGreaterThan(0);
+    for (const id of plannedIds) {
+      expect(screen.html).toContain(`data-item-id="${id}"`);
+    }
+  });
+
+  it("a theme WITHOUT a vocabulary still free-paints (fallback intact)", async () => {
+    // The default botanical theme has no vocabulary → AutoPainter falls back to the free painter.
+    const painterSpy = new SpyPainter();
+    const engine = createFakeEngine({
+      observations: [cleanObservation()],
+      ports: { painter: painterSpy },
+    });
+    const out = await engine.generate(fixtures.input);
+
+    // Free paint ships NO composed marker…
+    expect(out.screens[0]!.html).not.toContain("data-composed=");
+    // …and the AutoPainter genuinely routed to the injected free painter.
+    expect(painterSpy.requests.length).toBeGreaterThan(0);
+    expect(out.qaReport.screens[0]!.passed).toBe(true);
+  });
+
+  it("QA findings on a composed board re-compose (composer sees findingsNote)", async () => {
+    // Iteration 1 renders dead space → a density major that routes to a re-paint; on the composition
+    // path a re-paint is a RE-COMPOSE, so the composer is asked a second time WITH the findings note.
+    // Iteration 2 is clean and converges.
+    const composer = new FakeComposer([
+      { title: "First Pass", blocks: [] },
+      { title: "Second Pass", blocks: [] },
+    ]);
+    const engine = createFakeEngine({
+      observations: [deadSpaceObservation(), cleanObservation()],
+      ports: { themeRepository: dhabaThemeRepository() },
+      composer,
+    });
+    const out = await engine.generate(dhabaInput);
+
+    expect(out.qaReport.screens[0]!.passed).toBe(true);
+    // Composed exactly twice: the initial compose + one re-compose after the dead-space finding.
+    expect(composer.callCount.value).toBe(2);
+    // The re-compose carried the dead-space finding as its findingsNote (the first compose had none).
+    expect(composer.requests[0]!.findingsNote).toBeUndefined();
+    const reCompose = composer.requests[1]!;
+    expect(reCompose.findingsNote).toBeDefined();
+    expect(reCompose.findingsNote).toContain("dead space");
   });
 });
