@@ -658,6 +658,11 @@ promptNotes: {
 },
 ```
 
+8. **QA-required markers (pipeline compatibility — verified against `src/qa/structural-checks.ts`, do not skip):**
+   - The photo band's root element must carry `data-image-slot="shared"`, and a photo band whose items all belong to one section should carry `data-image-slot="<section title>"` — the image-slot presence check (structural-checks.ts ~line 574) fires "image-slot-missing" majors otherwise. Simplest correct behavior: always stamp `data-image-slot="shared"` on the band root (board-level `imageSlot` is what the dhaba plans produce).
+   - Read the binding-integrity check + `config.requiredBindings` FIRST and stamp exactly what it requires on each row: at minimum `data-item-id` on the row root and `data-bind="price"` on the price span (a non-whitespace price text is what the check treats as "filled"). Add `data-bind="name"` on the name span if the required-bindings config lists it.
+9. **Carousel settled state (screenshot correctness — verified against `src/adapters/playwright/browser.ts`):** the QA browser renders with `reducedMotion: "reduce"` and then force-finishes finite animations; **infinite CSS animations are left running**, and the crossfade deck's keyframes start every layer at `opacity:0` — an un-handled crossfade band screenshots as EMPTY (dead-space false-major, ghost poster). Both carousel modes MUST include a `@media (prefers-reduced-motion: reduce)` block that suspends the animation and shows a settled, representative frame: filmstrip → `animation: none` on the track (cards visible at translateX(0)); crossfade → `animation: none` + first layer forced `opacity:1`. The TV never sets reduced-motion, so live boards still animate — same bytes, honest QA frame (same trade the packaged motion runtime already makes).
+
 - [ ] **Step 1: Write the failing tests**
 
 ```ts
@@ -721,6 +726,31 @@ describe("dhabaVocabulary", () => {
     expect(html).not.toMatch(/<img[^>]*\bsrc=/);
     expect(html).toContain("@keyframes slide_b1");
     expect(html).toContain("mask-image");
+  });
+
+  it("photo band carries the image-slot marker and a reduced-motion settled state (QA contract)", () => {
+    for (const mode of ["filmstrip", "crossfade"] as const) {
+      const html = dhabaVocabulary.renderPhotoBand({
+        items: items(4, true),
+        register: "M",
+        bandHeight: 300,
+        bandWidth: 976,
+        mode,
+        uid: "b1",
+      });
+      expect(html).toContain('data-image-slot="shared"');
+      expect(html).toContain("prefers-reduced-motion");
+    }
+  });
+
+  it("price rows carry data-bind=\"price\" (binding-integrity contract)", () => {
+    const html = dhabaVocabulary.renderSection({
+      number: 1,
+      section: { title: "Biryani", items: items(3) },
+      internalCols: 1,
+      register: "M",
+    });
+    expect(html).toContain('data-bind="price"');
   });
 
   it("metrics are monotone: more items → taller section; S register ≤ M ≤ L row heights", () => {
@@ -985,7 +1015,7 @@ export class CompositionPainter implements Painter {
 ```
 
 **Behavior spec for `paint()` (implement exactly):**
-1. `const vocabId = request.theme.vocabulary` (Task 7 adds the field; use `(request.theme as { vocabulary?: string }).vocabulary` until then — **no**: Task 7 lands before this compiles in CI only if ordered… keep order as written: this task reads `request.theme.vocabulary!` — add the schema field in THIS task instead if the compiler demands it; see Step 3 note).
+1. `const vocabId = request.theme.vocabulary` — the `vocabulary` theme-schema field is added in THIS task (see below), so this compiles.
 2. Missing vocabulary id or unregistered id → throw `PaintError` (`src/domain/errors.ts`) with code preserved — the AutoPainter (this task) prevents reaching here for free themes.
 3. Build sections/photoCandidates/digest/vocabularyPrompt via `buildComposerContent` — sections from `planScreen.sections` joined to `items` by id (name cleaned of a trailing `" *"` marker, price `?? null`, `hasImage` = item images non-empty), photoCandidates = `planScreen.imageSlot.items ∩ items-with-images`.
 4. `composer.compose({...})` with `canvas` = `request.viewport ?? { width: 1080, height: 1920 }` and, when `request.findings?.length`, a `findingsNote` = bulleted findings messages (re-compose instead of HTML repair).
@@ -1183,17 +1213,22 @@ git commit -m "feat(adapters): OpenRouterComposer with strict structured outputs
 
 ---
 
-### Task 8: QA — trust composed markup against token-lint
+### Task 8: QA — trust composed markup (token-lint, matrix contract, critic size directive)
 
-Composed HTML is deterministic renderer output: px sizes and alpha-composite inks are correct by construction, and the LLM never touched them. token-lint exists to constrain the *free* painter; it must skip composed boards and keep linting free-paint boards byte-identically.
+Composed HTML is deterministic renderer output: px sizes and alpha-composite inks are correct by construction, and the LLM never touched them. Three checks were written for the *free* painter and must adapt for `data-composed` boards while keeping free-paint behavior byte-identical:
+
+1. **token-lint** skips composed roots (raw-px/hex constraints target LLM-authored markup).
+2. **matrix-structure check** skips composed roots: v1 vocabularies render `representation: "matrix"` sections as price lists (no `data-matrix-cell` DOM), so the fixed-table contract would fire a major UNFIXABLE finding every iteration → routing rule 92 → re-paint loop → budget burn → freeze flagged. Coverage + binding integrity (which still run) already guarantee every item present with a price; the matrix DOM contract is a free-paint contract. (The combo/matrix component in vocabulary v2 re-enables it.)
+3. **vision-critic size directive**: `visionQaNode` briefs the critic with `sizeDirectiveFor(...)` — the free-painter's rem targets. A composed board was sized by the fitter's register search, not the directive, so the critic would grade against numbers the board never received (false "type too small" findings). When the candidate HTML root carries `data-composed`, the visionQA node omits `sizeDirective` (and keeps `densityTier` — it describes content, not painter instructions).
 
 **Files:**
-- Modify: `src/qa/structural-checks.ts` (locate the token-lint check function; it parses raw HTML)
-- Test: extend the existing structural-checks test file (find `token-lint` describe blocks; add cases)
+- Modify: `src/qa/structural-checks.ts` (token-lint + matrix-structure check entry points; both parse HTML already)
+- Modify: `src/pipeline/nodes/index.ts` (visionQA brief: conditional sizeDirective — ~line 294, the `layoutStrategy` assembly)
+- Test: extend the existing structural-checks test file + `engine.test.ts` (find `token-lint` / matrix describe blocks; add cases)
 
 **Interfaces:**
 - Consumes: the `data-composed` root marker (Tasks 4/5).
-- Produces: no signature changes — behavior only.
+- Produces: no signature changes — behavior only. Export a tiny shared helper `isComposedHtml(html: string): boolean` from `src/qa/structural-checks.ts` (root-element attribute test via node-html-parser) so the node and both checks share one definition.
 
 - [ ] **Step 1: Write the failing tests** (in the existing structural-checks test file, matching its local helpers/style — read it first):
 
@@ -1211,17 +1246,37 @@ it("token-lint still fires on free-paint markup (no marker)", () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify the first fails** (second already passes — it pins the non-regression).
+Also add (matrix + critic brief):
 
-- [ ] **Step 3: Implement**: at the top of the token-lint evaluation, parse the root element (the file already uses `node-html-parser`); if the first element child of the fragment has a `data-composed` attribute, return `[]` with a comment citing D73 ("deterministic vocabulary output is trusted; the lint's target is LLM-authored markup").
+```ts
+it("matrix-structure check SKIPS composed roots (v1 vocabularies render matrix sections as lists)", () => {
+  // plan section with matrix data + composed html WITHOUT data-matrix DOM → no findings
+});
+it("matrix-structure check still fires on free-paint markup missing matrix cells", () => {
+  // existing fixture, no data-composed → finding present (non-regression pin)
+});
+```
 
-- [ ] **Step 4: Run the qa suite** — `npx vitest run src/qa` → PASS; `npm run verify` → green.
+And in `engine.test.ts` (composition describe block from Task 9 — write it there if this task lands first):
+
+```ts
+it("visionQA brief omits sizeDirective for composed boards", async () => {
+  // ScriptedVisionCritic captures its CritiqueRequest; assert layoutStrategy does not
+  // contain the rem-target directive text for a data-composed candidate.
+});
+```
+
+- [ ] **Step 2: Run to verify the new cases fail** (non-regression pins already pass).
+
+- [ ] **Step 3: Implement**: add `isComposedHtml`; token-lint returns `[]` for composed roots (comment cites D73: "deterministic vocabulary output is trusted; the lint's target is LLM-authored markup"); matrix-structure check returns `[]` for composed roots (comment cites the v1 list-rendering limitation + rule-92 loop rationale); visionQA node spreads `...(isComposedHtml(state.html) ? {} : { sizeDirective })` into the brief assembly.
+
+- [ ] **Step 4: Run the qa + pipeline suites** — `npx vitest run src/qa src/pipeline` → PASS; `npm run verify` → green.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/qa/
-git commit -m "feat(qa): token-lint trusts data-composed roots — deterministic vocabulary output is exempt, free paint unchanged (D73)"
+git add src/qa/ src/pipeline/nodes/index.ts src/pipeline/engine.test.ts
+git commit -m "feat(qa): composed-board trust — token-lint + matrix contract skip data-composed roots; critic brief drops free-paint size directive (D73)"
 ```
 
 ---
@@ -1354,6 +1409,12 @@ git commit -m "docs: D71–D74 composition paint path — vocabulary packages, m
 - **Shared token names across themes; second theme vocabulary; fork-and-extract onboarding** — Phase 3 (per the roadmap discussion).
 - **Retiring the free painter** — it stays as the fallback for the five vocabulary-less themes indefinitely.
 - **Matrix representation**: plan sections with `representation: "matrix"` render as price lists in v1 (known limitation; combo/matrix component is the v2 flagship).
+
+## Pipeline-compatibility review (verified against source, already folded into tasks)
+
+Checks that need NO change for composed boards (verified): contrast/overflow/density rendered checks (real observations, fitter targets ≥92% fill vs the 0.4 minFill floor), binding-integrity + image-slot presence (the vocabulary emits the required markers — T4 delta 8), motion-vocab lint (scans `data-motion`, which composed boards don't use; CSS keyframes are invisible to it), self-contained/no-baked-player (packager output unchanged), router/scoring/freeze (findings-driven, path-agnostic), repairs (deterministic contrast token-swap + overflow shrink work on composed HTML too — inline `var()` styles are what the repair emits anyway).
+
+Checks that DO adapt (folded into T8): token-lint (skip composed), matrix-structure (skip composed — v1 renders matrix sections as lists; without the skip, rule-92 re-paint loops burn the budget), visionQA sizeDirective (omit for composed — the board was sized by the register search, not the free-painter rem directive). Screenshot settling (reducedMotion + finish()) is handled at the SOURCE: carousels ship a `prefers-reduced-motion` settled state (T4 delta 9) so the QA frame is honest without adapter changes.
 
 ## Self-review notes (already applied)
 
