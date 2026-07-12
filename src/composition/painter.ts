@@ -81,6 +81,7 @@ export class CompositionPainter implements Painter {
       photoMode: this.deps.photoMode ?? vocab.defaultPhotoMode,
       colorTokens: request.theme.tokens.colors,
       fontFamilies: request.theme.tokens.fontFamilies,
+      fontFaces: request.theme.assets.fonts,
       measure: (req) => browser.measure(req),
       ...(request.brand !== undefined ? { brand: request.brand } : {}),
     });

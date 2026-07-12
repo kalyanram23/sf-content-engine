@@ -37,6 +37,14 @@ export const BANNER_GAP = 24; // space under a full-width filmstrip banner (colu
 export const STACK_FILL = 0.92;
 export const COLUMNS_FILL = 0.95;
 
+// Bottom safety margin (engine-generic px). The landscape measured-overflow guard treats a column as
+// overflowing when its measured height comes within this MUCH of the body height, so the tallest
+// column's last row keeps a hair of breathing room below the bottom frame and any sub-pixel /
+// residual face-metric error can't slip a price under it. Kept small on purpose: the measure document
+// now loads the REAL theme faces (see the renderer's buildMeasureDoc), so wrapping matches the poster
+// and the measured heights are accurate — this only guards the final couple of pixels.
+export const COLUMNS_BOTTOM_SAFETY = 8;
+
 export type LayoutMode = "stack" | "columns";
 
 /** Canvas-derived plan (pre-fit): mode + the search space for the newspaper-column count. */
@@ -60,7 +68,7 @@ export interface ResolvedLayout {
   bodyHeight: number;
 }
 
-function columnWidthFor(bodyWidth: number, columns: number): number {
+export function columnWidthFor(bodyWidth: number, columns: number): number {
   return Math.floor((bodyWidth - (columns - 1) * COL_GAP) / columns);
 }
 

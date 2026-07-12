@@ -28,6 +28,8 @@ import type {
 } from "../ports/vocabulary-registry";
 import {
   BANNER_GAP,
+  columnWidthFor,
+  COLUMNS_BOTTOM_SAFETY,
   fit,
   partitionColumns,
   planLayout,
@@ -53,6 +55,14 @@ export interface RenderComposedInput {
   colorTokens: Readonly<Record<string, string>>;
   /** Font family tokens for the measure document (font-dependent heights). */
   fontFamilies: Readonly<Record<string, string>>;
+  /**
+   * The theme's embedded font faces (offline `data:` URIs). Inlined as `@font-face` into the landscape
+   * MEASURE document so the offline measure renders with the REAL theme faces — headers/rows then wrap
+   * exactly as the poster does, and the measured column partition matches the render (closing the D72
+   * offline-vs-real gap at its source, not just absorbing it in slack). Optional / defaults to none: a
+   * theme with no embedded faces measures against system fallbacks as before.
+   */
+  fontFaces?: ReadonlyArray<{ family: string; dataUri: string; weight?: string | undefined }>;
 }
 
 /** Per-column diagnostics for the measured landscape flow (undefined for stack / CSS-fallback). */
@@ -112,6 +122,14 @@ function cssVars(colorTokens: Readonly<Record<string, string>>): string {
  * renderer stays token-pure instead of baking a theme ink.
  */
 const RULE = "color-mix(in srgb,var(--color-text) 20%,transparent)";
+
+/**
+ * The base (root) line-height the composed board inherits once packaged. The packager compiles
+ * Tailwind, whose preflight sets a unitless `line-height:1.5` on the root; price rows declare a
+ * font-size but no line-height, so they inherit it. The off-screen MEASURE document replicates this so
+ * measured row heights equal the shipped render (engine-generic: a property of the packaged output).
+ */
+const PACKAGED_BASE_LINE_HEIGHT = 1.5;
 
 /** Validate the kind/field pairing and normalize; collect human-readable warnings. */
 function normalizeBlocks(
@@ -405,6 +423,27 @@ function buildFlowUnits(
   return units;
 }
 
+/**
+ * Measured content height of ONE landscape column: its units' measured heights + the section gap
+ * before every lead EXCEPT the one at the column top + a continuation-cue line when the column opens
+ * mid-section. The single source of truth shared by the emit (which stamps the same markup) and the
+ * measured-overflow guard (which compares it — plus a per-row font-drift budget — against the body).
+ */
+function measuredColumnHeight(
+  idxs: number[],
+  units: FlowUnit[],
+  sizes: FlowUnitSize[],
+  cueH: number,
+  sectionGap: number,
+): number {
+  const hasCue = idxs.length > 0 && !units[idxs[0]!]!.isLead;
+  let h = hasCue ? cueH : 0;
+  idxs.forEach((k, idx) => {
+    h += sizes[k]!.height + (idx > 0 && units[k]!.isLead ? sectionGap : 0);
+  });
+  return h;
+}
+
 /** Collect the inner text of every `<style>` block a set of HTML fragments emitted (hoist target). */
 function collectStyles(htmls: string[]): string {
   const out: string[] = [];
@@ -420,11 +459,13 @@ function collectStyles(htmls: string[]): string {
  * STRAIGHT to `BrowserPort.measure` (NOT the packager), so it is a full standalone document:
  *   - keep the DOCTYPE + head;
  *   - inline the SAME `--color-*` vars the board wrapper declares;
- *   - declare `@font-face`-FREE font-family fallbacks from `fontFamilies` — offline, none of the theme
- *     faces load, so every element falls back to a SYSTEM face. Heights only need the same
- *     font-size/line-height (carried verbatim in the reused unit HTML); the resulting ±2px face-metric
- *     error is absorbed by the balance slack (the accepted offline trade — D72; the prototype loaded
- *     Google Fonts, the engine must stay offline);
+ *   - inline the theme's `@font-face` faces from `fontFaces` (offline `data:` URIs, the same faces the
+ *     packager embeds) so the measure renders with the REAL theme fonts — `measure` awaits
+ *     `document.fonts.ready`, so headers/rows WRAP exactly as the poster does and the measured column
+ *     partition matches the render. This closes the D72 offline-vs-real gap at its source (a decorative
+ *     display face like Shrikhand wraps a header very differently from a serif fallback — a whole-line
+ *     error the ±2px "balance slack" never covered). A theme with no embedded faces measures against the
+ *     `system-ui` fallback as before;
  *   - HOIST any `<style>` blocks the flow units emitted into the head so their rules apply while
  *     measuring (dhaba's flow pieces emit none; a theme with animated rows would).
  */
@@ -435,22 +476,44 @@ function buildMeasureDoc(
   vocab: ComponentVocabulary,
   colorTokens: Readonly<Record<string, string>>,
   fontFamilies: Readonly<Record<string, string>>,
+  fontFaces: ReadonlyArray<{ family: string; dataUri: string; weight?: string | undefined }>,
 ): string {
-  const fontStack = [
-    ...Object.values(fontFamilies).map((f) => `'${f}'`),
-    "system-ui",
-    "sans-serif",
-  ].join(",");
+  // The measure wrapper's default font = the theme's BODY stack (rows inherit it; headers set their own
+  // family). The fontFamilies values are already valid CSS font stacks (e.g. "'Archivo', system-ui,
+  // sans-serif") — used VERBATIM: quoting the whole stack again yields malformed CSS and silently drops
+  // rows to a system fallback, mis-measuring every row (the offline-measure clip bug). With the theme's
+  // @font-face above now loaded, the real body face resolves and rows measure at their true height.
+  const fontStack =
+    fontFamilies["body"] ?? Object.values(fontFamilies)[0] ?? "system-ui, sans-serif";
+  // Same @font-face shape the packager emits — real theme faces so offline wrapping matches the poster.
+  const fontFaceCss = fontFaces
+    .map(
+      (f) =>
+        `@font-face{font-family:'${f.family}';font-weight:${f.weight ?? "normal"};` +
+        `src:url(${f.dataUri}) format('woff2');font-display:swap;}`,
+    )
+    .join("");
   const rows = units.map((u) => `<div data-mk="${u.mk}">${u.html}</div>`).join("");
   const sampleTitle = units.reduce(
     (a, u) => (u.sectionTitle.length > a.length ? u.sectionTitle : a),
     "Section",
   );
-  const cue = `<div data-mk="__cue__">${vocab.renderContinuationCue({ sectionTitle: sampleTitle, register })}</div>`;
+  // `display:flow-root` establishes a BFC so the cue's OWN bottom margin (e.g. the header rhythm the
+  // theme puts under it) is CONTAINED in the measured box — getBoundingClientRect otherwise excludes
+  // margins, but in the rendered board the cue lives in a flex column (also a BFC) where that margin
+  // DOES push the units below it down. Without this a continuation column is under-measured by the cue
+  // margin (~a header's worth), which is exactly enough to let a near-full column clip past the frame.
+  const cue = `<div data-mk="__cue__" style="display:flow-root">${vocab.renderContinuationCue({ sectionTitle: sampleTitle, register })}</div>`;
   const hoisted = collectStyles(units.map((u) => u.html));
+  // The shipped board is packaged through Tailwind, whose preflight sets a unitless `line-height:1.5`
+  // on the root that every price row inherits (rows declare a font-size but no line-height). The measure
+  // MUST render in that same base or rows measure at the UA `normal` (~1.2) — ~9px short each, ~a
+  // hundred px over a full column — and a genuinely overflowing board looks like it fits. Headers/cues
+  // set their own line-height inline and are unaffected. Mirrors PACKAGED_BASE_LINE_HEIGHT.
   return (
     `<!DOCTYPE html><html><head>` +
-    `<style>:root{${cssVars(colorTokens)}}*{box-sizing:border-box}body{margin:0}${hoisted}</style>` +
+    `<style>${fontFaceCss}:root{${cssVars(colorTokens)}}*{box-sizing:border-box}` +
+    `body{margin:0;line-height:${PACKAGED_BASE_LINE_HEIGHT}}${hoisted}</style>` +
     `</head><body>` +
     `<div style="width:${columnWidth}px;font-family:${fontStack};color:var(--color-text)">` +
     rows +
@@ -468,8 +531,9 @@ function columnsShared(
   warnings: string[],
 ): {
   f: FitResult;
-  register: string;
-  bannerHtml: string;
+  /** Render the full-width banner at a given register — called ONCE, at whatever register the measured
+   *  re-fit settles on (its height is register-independent, so avail is unaffected). */
+  renderBanner: (register: string) => string;
   flowSecs: VocabSection[];
   finalBlocks: CompositionBlock[];
 } {
@@ -481,27 +545,34 @@ function columnsShared(
   const flow = bannerIdx >= 0 ? flat.filter((_, i) => i !== bannerIdx) : flat;
 
   const f = fit({ blocks: flow, sectionsByTitle, plan, vocab, banner });
-  const register = f.register;
   const { bodyWidth } = f.layout;
 
-  let bannerHtml = "";
-  if (banner) {
-    const capacity = bandCapacity(photoMode, bodyWidth, vocab);
-    const cards = resolveCollage(banner.itemIds, photoCandidates, capacity, warnings);
-    if (cards.length) {
-      bannerHtml =
-        `<div style="flex:none;margin-bottom:${BANNER_GAP}px">` +
-        vocab.renderPhotoBand({
-          items: cards,
-          register,
-          bandHeight: vocab.landscapeBannerHeight,
-          bandWidth: bodyWidth,
-          mode: photoMode,
-          uid: "banner",
-        }) +
-        `</div>`;
-    }
-  }
+  // Resolve the band's cards ONCE (resolveCollage pushes warnings; a second call would duplicate them),
+  // then render at whatever register the caller finally picks — the band's height is fixed
+  // (landscapeBannerHeight), so its register only affects card geometry, never avail.
+  const bannerCards = banner
+    ? resolveCollage(
+        banner.itemIds,
+        photoCandidates,
+        bandCapacity(photoMode, bodyWidth, vocab),
+        warnings,
+      )
+    : [];
+  const renderBanner = (register: string): string => {
+    if (!banner || bannerCards.length === 0) return "";
+    return (
+      `<div style="flex:none;margin-bottom:${BANNER_GAP}px">` +
+      vocab.renderPhotoBand({
+        items: bannerCards,
+        register,
+        bandHeight: vocab.landscapeBannerHeight,
+        bandWidth: bodyWidth,
+        mode: photoMode,
+        uid: "banner",
+      }) +
+      `</div>`
+    );
+  };
 
   const flowSecs = flow
     .map((b) => (b.kind === "section" ? sectionsByTitle.get(b.section) : undefined))
@@ -510,7 +581,7 @@ function columnsShared(
     ...(banner ? [banner] : []),
     ...flowSecs.map((s) => sectionBlock(s.title)),
   ];
-  return { f, register, bannerHtml, flowSecs, finalBlocks };
+  return { f, renderBanner, flowSecs, finalBlocks };
 }
 
 /**
@@ -535,18 +606,22 @@ async function renderColumns(
   columnPlan?: ColumnPlan;
 }> {
   const { vocab, colorTokens, fontFamilies } = input;
-  const { f, register, bannerHtml, flowSecs, finalBlocks } = columnsShared(
+  const fontFaces = input.fontFaces ?? [];
+  const { f, renderBanner, flowSecs, finalBlocks } = columnsShared(
     blocks,
     input,
     sectionsByTitle,
     plan,
     warnings,
   );
-  const { columns, gap, columnWidth } = f.layout;
-  const m = vocab.metrics(register);
+  const { gap } = f.layout;
+  // Body height available to the columns — bodyHeight minus the (register-independent) banner.
+  const avail = f.contentHeight - f.bannerHeight;
 
   // ── CSS-balance fallback (no measurer): original behaviour, no continuation cues ──
   if (!measure) {
+    const register = f.register;
+    const { columns } = f.layout;
     const flowHtml = flowSecs
       .map((sec, i) => flowSection(i + 1, sec, register, i === flowSecs.length - 1, vocab))
       .join("");
@@ -554,25 +629,88 @@ async function renderColumns(
       `<div style="flex:1;min-height:0;column-count:${columns};column-gap:${gap}px;` +
       `column-rule:2px solid ${RULE};column-fill:balance;overflow:hidden">${flowHtml}</div>`;
     // The shell owns the body inset + the padded flex column; hand it the banner + column body directly.
-    return { html: buildShell(comp, input, register, bannerHtml + body), f, finalBlocks };
+    return {
+      html: buildShell(comp, input, register, renderBanner(register) + body),
+      f,
+      finalBlocks,
+    };
   }
 
-  // ── measured explicit columns ──
-  const units = buildFlowUnits(flowSecs, register, vocab);
-  const heights = await measure({
-    html: buildMeasureDoc(columnWidth, units, register, vocab, colorTokens, fontFamilies),
-    width: columnWidth,
-  });
-  const sizes: FlowUnitSize[] = units.map((u) => ({
-    height: heights[u.mk] ?? (u.isLead ? m.flowLeadHeight() : m.flowRowHeight()), // safety net only
-    isLead: u.isLead,
-  }));
-  const cueH = heights["__cue__"] ?? m.cueHeight();
+  // ── measured explicit columns, with a deterministic MEASURED-OVERFLOW GUARD ──
+  // `fit` chose (columns, register) on ESTIMATES; the real partition here runs over MEASURED pixels —
+  // now measured with the REAL theme faces (buildMeasureDoc inlines them), so the partition matches the
+  // poster's wrapping. Measure one candidate: partition its units into balanced columns and report the
+  // tallest column's measured height. A candidate "fits" only when the tallest column clears the body
+  // minus a small bottom safety, so its last row can't slip under the bottom frame.
+  interface Candidate {
+    columns: number;
+    register: string;
+    columnWidth: number;
+    units: FlowUnit[];
+    sizes: FlowUnitSize[];
+    cueH: number;
+    groups: number[][];
+    tallest: number; // measured height of the tallest balanced column
+  }
+  const planColumns = async (columns: number, register: string): Promise<Candidate> => {
+    const columnWidth = columnWidthFor(plan.bodyWidth, columns);
+    const m = vocab.metrics(register);
+    const units = buildFlowUnits(flowSecs, register, vocab);
+    const heights = await measure({
+      html: buildMeasureDoc(
+        columnWidth,
+        units,
+        register,
+        vocab,
+        colorTokens,
+        fontFamilies,
+        fontFaces,
+      ),
+      width: columnWidth,
+    });
+    const sizes: FlowUnitSize[] = units.map((u) => ({
+      height: heights[u.mk] ?? (u.isLead ? m.flowLeadHeight() : m.flowRowHeight()), // safety net only
+      isLead: u.isLead,
+    }));
+    const cueH = heights["__cue__"] ?? m.cueHeight();
+    const groups = partitionColumns(sizes, columns, cueH, vocab.sectionGap);
+    const tallest = Math.max(
+      ...groups.map((idxs) => measuredColumnHeight(idxs, units, sizes, cueH, vocab.sectionGap)),
+    );
+    return { columns, register, columnWidth, units, sizes, cueH, groups, tallest };
+  };
 
-  const groups = partitionColumns(sizes, columns, cueH, vocab.sectionGap);
+  // The next STRONGER (shorter-column) candidate: add a column first — preserving the type size, which
+  // mirrors `fit`'s largest-register bias — as long as the plan allows another legible column; otherwise
+  // demote the register one step at the same column count. `null` = search exhausted (ship the densest).
+  const strongerLayout = (
+    columns: number,
+    register: string,
+  ): { columns: number; register: string } | null => {
+    if (
+      columns + 1 <= plan.maxColumns &&
+      columnWidthFor(plan.bodyWidth, columns + 1) >= vocab.minStreamWidth
+    ) {
+      return { columns: columns + 1, register };
+    }
+    const i = vocab.registerNames.indexOf(register);
+    if (i >= 0 && i + 1 < vocab.registerNames.length) {
+      return { columns, register: vocab.registerNames[i + 1]! };
+    }
+    return null;
+  };
+
+  const overflows = (c: Candidate): boolean => c.tallest > avail - COLUMNS_BOTTOM_SAFETY;
+  let candidate = await planColumns(f.layout.columns, f.register);
+  while (overflows(candidate)) {
+    const next = strongerLayout(candidate.columns, candidate.register);
+    if (!next) break; // exhausted — keep the densest attempt; the overflow warning stays honest below
+    candidate = await planColumns(next.columns, next.register);
+  }
+
+  const { columns, register, columnWidth, units, sizes, cueH, groups } = candidate;
 
   // Emit each column; stamp the cue when its first unit is a continuation row.
-  const avail = f.contentHeight - f.bannerHeight;
   const cues: Array<{ column: number; section: string }> = [];
   const columnHeights: number[] = [];
   const columnHtml = groups.map((idxs, colIdx) => {
@@ -583,15 +721,13 @@ async function renderColumns(
       cueHtml = vocab.renderContinuationCue({ sectionTitle: first.sectionTitle, register });
       cues.push({ column: colIdx + 1, section: first.sectionTitle });
     }
-    let h = cueHtml ? cueH : 0;
     const innerCol = colUnits
       .map((u, idx) => {
         const gapTop = idx > 0 && u.isLead;
-        h += sizes[idxs[idx]!]!.height + (gapTop ? vocab.sectionGap : 0);
         return `<div style="${gapTop ? `margin-top:${vocab.sectionGap}px` : ""}">${u.html}</div>`;
       })
       .join("");
-    columnHeights.push(h);
+    columnHeights.push(measuredColumnHeight(idxs, units, sizes, cueH, vocab.sectionGap));
     return `<div style="width:${columnWidth}px;flex:none">${cueHtml}${innerCol}</div>`;
   });
 
@@ -604,13 +740,14 @@ async function renderColumns(
     columnHtml.join(divider) +
     `</div>`;
   // The shell owns the body inset + the padded flex column; hand it the banner + column body directly.
-  const inner = bannerHtml + body;
+  // The banner renders at the register the guard settled on so its cards match the columns.
+  const inner = renderBanner(register) + body;
 
   const tallest = Math.max(...columnHeights);
   const overflow = tallest > avail + 1;
   if (overflow) {
     warnings.push(
-      `columns overflow: tallest column ${tallest.toFixed(0)}px > available ${avail.toFixed(0)}px at register ${register}`,
+      `columns overflow: tallest column ${tallest.toFixed(0)}px > available ${avail.toFixed(0)}px at register ${register} (${columns} cols) — re-fit exhausted`,
     );
   }
   const columnPlan: ColumnPlan = {

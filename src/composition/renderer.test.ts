@@ -296,3 +296,196 @@ describe("renderComposed — photo band width capacity", () => {
     expect(imgIds(res.html).size).toBe(3); // 2 distinct slots + 1 filler to the ≥3 floor, capped at 3
   });
 });
+
+describe("renderComposed — landscape measured-overflow guard (re-fit vs measured pixels)", () => {
+  // A controllable vocabulary whose flow pieces are TAGGED with their register (`data-reg`) so a fake
+  // `measure` can return DIFFERENT per-row heights per register — the only way to exercise a register
+  // demotion at the layout/renderer seam. `contentBox` fixes the body at 600px (no banner → avail=600)
+  // and `minStreamWidth`/canvas force maxColumns=2, so ADDING a column is unavailable → the guard's
+  // only lever is demotion, which is the live landscape board's situation (already at maxColumns).
+  // The ESTIMATE metrics (what `fit` reads) deliberately UNDER-shoot the measured heights: `fit` picks
+  // BIG on estimate, but the real measured tallest column overflows — exactly the estimate-vs-measured
+  // gap the guard closes.
+  const flowVocab = (): ComponentVocabulary => ({
+    id: "flow",
+    version: 1,
+    registerNames: ["BIG", "SMALL"],
+    defaultPhotoMode: "static",
+    minStreamWidth: 700,
+    sectionGap: 0,
+    landscapeBannerHeight: 0,
+    photoBandCapacity: () => 5,
+    contentBox: (c) => ({ width: c.width - 100, height: 600 }),
+    metrics: (register) => {
+      const row = register === "BIG" ? 20 : 8; // ESTIMATE only — measure returns the real (bigger) px
+      return {
+        sectionHeight: (n: number, cols: number) => 40 + Math.ceil(n / Math.max(1, cols)) * row,
+        groupHeight: (ns: number[]) => 40 + Math.max(1, ...ns) * row,
+        photoBandHeight: () => 0,
+        flowRowHeight: () => row,
+        flowLeadHeight: () => 40 + row,
+        cueHeight: () => (register === "BIG" ? 20 : 10),
+        sectionInternalCols: () => 1,
+      };
+    },
+    renderShell: ({ bodyHtml }) => `<div data-composed="flow@1">${bodyHtml}</div>`,
+    renderSection: () => "<div></div>",
+    renderGroup: () => "<div></div>",
+    renderPhotoBand: () => "<div></div>",
+    renderFlowLead: ({ register, number, section }) =>
+      `<span data-reg="${register}">L${number} ${section.title}</span>`,
+    renderFlowRow: ({ register, item }) =>
+      `<span data-reg="${register}" data-item-id="${item.id}">${item.name}</span>`,
+    renderContinuationCue: ({ register, sectionTitle }) =>
+      `<span data-reg="${register}">${sectionTitle} (cont.)</span>`,
+    promptNotes: { section: "", group: "", photoBand: "" },
+  });
+
+  const flowSecs = (specs: Array<[string, number]>) =>
+    specs.map(([title, n]) => ({
+      title,
+      items: Array.from({ length: n }, (_, i) => ({
+        id: `${title}-${i}`,
+        name: `${title} ${i}`,
+        price: 1,
+        hasImage: false,
+      })),
+    }));
+
+  /** A fake `measure` returning per-register heights, keyed off the `data-reg` the flow pieces carry. */
+  const regMeasure = (per: Record<string, number>, cue = 6) => {
+    const calls: string[] = [];
+    const fn = async ({ html }: { html: string }): Promise<Record<string, number>> => {
+      const reg = html.match(/data-reg="([^"]+)"/)?.[1] ?? "BIG";
+      calls.push(reg);
+      const keys = [...html.matchAll(/data-mk="([^"]+)"/g)].map((m) => m[1]!);
+      return Object.fromEntries(keys.map((k) => [k, k === "__cue__" ? cue : (per[reg] ?? 0)]));
+    };
+    return { fn, calls };
+  };
+
+  const landscapeInput = (
+    specs: Array<[string, number]>,
+    measure: (req: { html: string }) => Promise<Record<string, number>>,
+  ) => {
+    const sections = flowSecs(specs);
+    return {
+      ...base,
+      vocab: flowVocab(),
+      canvas: { width: 1920, height: 1080 },
+      sections,
+      photoCandidates: [],
+      measure,
+      composition: {
+        title: "T",
+        blocks: sections.map((s) => ({
+          kind: "section" as const,
+          section: s.title,
+          sections: [],
+          itemIds: [],
+        })),
+      },
+    };
+  };
+
+  it("demotes the register when the MEASURED tallest column overflows the body (estimate passed)", async () => {
+    // fit picks BIG on estimate; at BIG each unit measures 110px → each of two 6-unit columns is 660px >
+    // avail 600 → overflow. The guard re-measures at SMALL (40px/unit → 240px columns) and ships that.
+    const { fn, calls } = regMeasure({ BIG: 110, SMALL: 40 });
+    const res = await renderComposed(
+      landscapeInput(
+        [
+          ["Aaa", 6],
+          ["Bbb", 6],
+        ],
+        fn,
+      ),
+    );
+    expect(calls).toEqual(["BIG", "SMALL"]); // measured BIG first, demoted to SMALL
+    expect(res.columnPlan?.register).toBe("SMALL");
+    expect(res.columnPlan?.overflow).toBe(false); // the shipped board clears the body
+    expect(res.html).toContain('data-reg="SMALL"'); // rows rendered at the demoted register
+    expect(res.html).not.toContain('data-reg="BIG"');
+  });
+
+  it("demotes on the BOTTOM-SAFETY margin — measured tallest is UNDER the body but within the safety", async () => {
+    // At BIG each 3-unit column measures 597px — BELOW avail 600, so a bare `tallest > avail` guard would
+    // NOT fire, yet its last row would kiss the bottom frame. The COLUMNS_BOTTOM_SAFETY (8px) margin
+    // treats 597 > (600 − 8 = 592) as overflow and demotes to SMALL (300px columns). Removing the safety
+    // margin regresses this test (BIG would ship), pinning the margin as load-bearing.
+    const { fn, calls } = regMeasure({ BIG: 199, SMALL: 100 });
+    const res = await renderComposed(
+      landscapeInput(
+        [
+          ["Aaa", 3],
+          ["Bbb", 3],
+        ],
+        fn,
+      ),
+    );
+    expect(calls).toEqual(["BIG", "SMALL"]);
+    expect(res.columnPlan?.register).toBe("SMALL");
+    expect(res.html).toContain('data-reg="SMALL"');
+  });
+
+  it("inlines the theme @font-face into the MEASURE document (offline wrapping matches the poster)", async () => {
+    // The primary fix: the measure doc carries the theme's real faces (offline data: URIs), so the
+    // offline measure wraps headers/rows exactly as the poster — the measured partition matches the
+    // render instead of mis-measuring a system-font fallback.
+    let doc = "";
+    const measure = async ({ html }: { html: string }): Promise<Record<string, number>> => {
+      doc = html;
+      const keys = [...html.matchAll(/data-mk="([^"]+)"/g)].map((m) => m[1]!);
+      return Object.fromEntries(keys.map((k) => [k, k === "__cue__" ? 6 : 20]));
+    };
+    await renderComposed({
+      ...landscapeInput(
+        [
+          ["Aaa", 3],
+          ["Bbb", 3],
+        ],
+        measure,
+      ),
+      // A real body stack already carries quotes + fallbacks (as theme tokens do).
+      fontFamilies: {
+        display: "'Shrikhand', Georgia, serif",
+        body: "'Archivo', system-ui, sans-serif",
+      },
+      fontFaces: [{ family: "Shrikhand", dataUri: "data:font/woff2;base64,AAAA" }],
+    });
+    expect(doc).toContain("@font-face");
+    expect(doc).toContain("font-family:'Shrikhand'");
+    expect(doc).toContain("data:font/woff2;base64,AAAA");
+    // The rows' font-family = the theme body stack VERBATIM (rows inherit it). Re-quoting the whole
+    // stack (the offline-measure clip bug) yields malformed `''Archivo', …'` and drops rows to a system
+    // fallback → every row mis-measured. Pin the well-formed stack and the absence of the double-quote.
+    expect(doc).toContain("font-family:'Archivo', system-ui, sans-serif");
+    expect(doc).not.toContain("''Archivo'");
+    // The continuation-cue sample is measured inside a BFC (flow-root) so its own bottom margin is
+    // included — otherwise a continuation column is under-measured by the cue margin and can clip.
+    expect(doc).toContain('data-mk="__cue__" style="display:flow-root"');
+    // The measure renders at the packaged base line-height (Tailwind preflight's 1.5), which every row
+    // inherits — without it rows measure at the UA `normal` and a full column is under-measured ~100px.
+    expect(doc).toContain("line-height:1.5");
+  });
+
+  it("does NOT demote (single measure) when the board fits with headroom — no over-shrink", async () => {
+    // A comfortable board: 4 small units at BIG measure 30px → 60px columns + drift well under 600. The
+    // guard measures ONCE and keeps BIG — the common passing-board path is untouched (no extra measures,
+    // no needless type reduction that would under-fill a board that already fit).
+    const { fn, calls } = regMeasure({ BIG: 30, SMALL: 12 });
+    const res = await renderComposed(
+      landscapeInput(
+        [
+          ["Aaa", 2],
+          ["Bbb", 2],
+        ],
+        fn,
+      ),
+    );
+    expect(calls).toEqual(["BIG"]); // exactly one measure — no re-fit
+    expect(res.columnPlan?.register).toBe("BIG");
+    expect(res.columnPlan?.overflow).toBe(false);
+    expect(res.html).toContain('data-reg="BIG"');
+  });
+});
