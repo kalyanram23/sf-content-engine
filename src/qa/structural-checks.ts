@@ -44,14 +44,23 @@ const BAKED_PLAYER = [
 ];
 
 /**
- * True when the parsed markup's ROOT element carries the `data-composed` marker — i.e. it is
- * deterministic vocabulary/renderer output (Tasks 4/5), not LLM-authored free-paint. The renderer
- * stamps the marker on the OUTERMOST wrapper it builds (src/composition/renderer.ts); a shell may
- * carry a nested one too, so the test is deliberately ROOT-only. Skipping leading text nodes matters:
- * node-html-parser keeps whitespace between the string start and the first tag as TextNodes.
+ * True when the composed board's OUTERMOST author element carries the `data-composed` marker — i.e.
+ * it is deterministic vocabulary/renderer output (Tasks 4/5), not LLM-authored free-paint. The
+ * renderer stamps the marker on the OUTERMOST wrapper it builds (src/composition/renderer.ts); a
+ * shell may carry a nested one too, so the test is deliberately ROOT-only.
+ *
+ * "Root" spans BOTH shapes the pipeline feeds this predicate: the raw painter/renderer FRAGMENT
+ * (`state.html` — the wrapper is the parsed root's first element child) AND the PACKAGED DOCUMENT
+ * the packager wraps in `<!doctype html><html>…<body>{fragment}</body>` (`state.packagedHtml`, which
+ * deterministicQA runs the structural checks against). In the document shape the wrapper sits as
+ * `<body>`'s first element child, not the parsed root's (that's `<html>`), so descend into `<body>`
+ * when present. Either way the target is the first element child of the outermost author container —
+ * a `data-composed` nested deeper than that must NOT trigger trust. Skipping leading text nodes
+ * matters: node-html-parser keeps whitespace between the string start and the first tag as TextNodes.
  */
 function isComposedRoot(root: HTMLElement): boolean {
-  const firstEl = root.childNodes.find(
+  const container = root.querySelector("body") ?? root;
+  const firstEl = container.childNodes.find(
     (n): n is HTMLElement => n.nodeType === NodeType.ELEMENT_NODE,
   );
   return firstEl?.getAttribute("data-composed") !== undefined;
@@ -59,9 +68,10 @@ function isComposedRoot(root: HTMLElement): boolean {
 
 /**
  * Shared marker test for composed boards (D73): the ONE definition the visionQA node, token-lint, and
- * the matrix-structure check agree on. `html` is the raw painter/renderer markup — the QA's
- * `state.html`. Composed output is trusted by the free-paint-only checks and briefed to the critic
- * without the free-paint size directive.
+ * the matrix-structure check agree on. `html` may be the raw painter/renderer FRAGMENT (the QA's
+ * `state.html`) OR the packaged full document — `isComposedRoot` detects the marker in either shape.
+ * Composed output is trusted by the free-paint-only checks and briefed to the critic without the
+ * free-paint size directive.
  */
 export function isComposedHtml(html: string): boolean {
   return isComposedRoot(parse(html));

@@ -220,6 +220,18 @@ describe("isComposedHtml (composed-root marker, D73)", () => {
   it("is false when data-composed appears only on a NON-root descendant", () => {
     expect(isComposedHtml(`<main><div data-composed="dhaba@1">x</div></main>`)).toBe(false);
   });
+
+  // deterministicQA feeds the checks the PACKAGED document (packager wraps the fragment in
+  // <!doctype html><html>…<body>{fragment}</body>) — the marker must be found inside <body>.
+  it("is true for a PACKAGED document whose <body> first child carries data-composed", () => {
+    const doc = `<!doctype html><html lang="en"><head></head><body><div data-composed="dhaba@1"><p>x</p></div></body></html>`;
+    expect(isComposedHtml(doc)).toBe(true);
+  });
+
+  it("is false for a PACKAGED free-paint document with no marker", () => {
+    const doc = `<!doctype html><html lang="en"><head></head><body><main><section>x</section></main></body></html>`;
+    expect(isComposedHtml(doc)).toBe(false);
+  });
 });
 
 describe("motion-vocab (§5.2/D14)", () => {

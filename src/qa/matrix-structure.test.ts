@@ -126,6 +126,27 @@ describe("checkMatrixStructure — composed-board trust (D73)", () => {
     expect(findings[0]).toMatchObject({ kind: "matrix-structure", severity: "major" });
     expect(findings[0]?.message).toMatch(/no data-matrix table/i);
   });
+
+  // deterministicQA runs the structural checks against the PACKAGED document (state.packagedHtml),
+  // not the raw fragment — the packager wraps the composed fragment in <!doctype html><html>…<body>.
+  // The skip must survive that wrapper: the composed marker now sits as <body>'s first element child,
+  // not the parsed root's (that's <html>). Without the document-shape detection this major fires
+  // every iteration on the real pipeline path → routing rule 92 → re-paint loop → budget burn.
+  const packagedDoc = (fragment: string): string =>
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><style>.x{}</style></head>` +
+    `<body>${fragment}</body></html>`;
+
+  it("SKIPS a PACKAGED composed document (marker inside the packager's <body> wrapper)", () => {
+    const doc = packagedDoc(`<div data-composed="dhaba@1">${listBody}</div>`);
+    expect(checkMatrixStructure(parse(doc), planScreen)).toHaveLength(0);
+  });
+
+  it("still fires on a PACKAGED free-paint document with no marker (non-regression pin)", () => {
+    const findings = checkMatrixStructure(parse(packagedDoc(`<div>${listBody}</div>`)), planScreen);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({ kind: "matrix-structure", severity: "major" });
+    expect(findings[0]?.message).toMatch(/no data-matrix table/i);
+  });
 });
 
 /**
