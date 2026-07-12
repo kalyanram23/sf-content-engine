@@ -10,7 +10,7 @@ import { FindingKind, makeFinding } from "../../qa/finding";
 import { decideGate } from "../../qa/gate";
 import { describeDesignIntent } from "../../theme/design-intent";
 import { runRenderedChecks, checkViewport } from "../../qa/rendered-checks";
-import { runStructuralChecks } from "../../qa/structural-checks";
+import { isComposedHtml, runStructuralChecks } from "../../qa/structural-checks";
 import { scoreScreen } from "../../qa/scoring";
 import { resolveTheme } from "../../theme/resolve";
 import { isInlineImageRef } from "../../util/placeholder-image";
@@ -291,7 +291,14 @@ function buildCritiqueRequest(
       ? renderBlueprintStrategy(blueprintFor(screen, items, state.theme, ctx.config.layouts))
       : describeLayoutStrategy(screen);
   const matrixSummary = renderMatrixSummary(screen, items);
-  const sizeDirective = sizeDirectiveFor(screen, viewport, ctx.config.planning);
+  // A composed board was sized by the fitter's register search, not the free-painter's rem-target
+  // directive — briefing the critic with that directive grades it against sizes it never received
+  // (false "type too small" findings). Omit the size directive for composed candidates; densityTier
+  // below is kept (it describes content, not painter instructions). D73.
+  const sizeDirective =
+    state.html !== undefined && isComposedHtml(state.html)
+      ? undefined
+      : sizeDirectiveFor(screen, viewport, ctx.config.planning);
   const layoutStrategy = [baseStrategy, matrixSummary, sizeDirective]
     .filter((s): s is string => s !== undefined)
     .join("\n\n");

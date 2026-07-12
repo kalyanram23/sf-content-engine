@@ -103,6 +103,31 @@ describe("checkMatrixStructure (§ Phase 4)", () => {
   });
 });
 
+describe("checkMatrixStructure — composed-board trust (D73)", () => {
+  // A v1 vocabulary renders a `representation: "matrix"` section as a plain price LIST — it has no
+  // data-matrix DOM. The composed-root marker tells the check to trust it: coverage + binding
+  // integrity still guarantee every priced item is present, and the fixed-table contract is a
+  // free-paint contract. Without the skip this fires an UNFIXABLE major every iteration → routing
+  // rule 92 → re-paint loop → budget burn → freeze flagged. (Vocabulary v2's combo/matrix component
+  // re-enables it.) The SAME list DOM without the marker still fires — the non-regression pin.
+  const listBody =
+    `<article data-item-id="b-chicken"><span data-bind="price">$12.00</span></article>` +
+    `<article data-item-id="p-chicken"><span data-bind="price">$11.00</span></article>` +
+    `<article data-item-id="b-egg"><span data-bind="price">$10.00</span></article>`;
+
+  it("SKIPS a composed root that renders a matrix section as a price list", () => {
+    const composed = `<div data-composed="dhaba@1">${listBody}</div>`;
+    expect(checkMatrixStructure(parse(composed), planScreen)).toHaveLength(0);
+  });
+
+  it("still fires on the SAME list DOM without the composed marker (non-regression pin)", () => {
+    const findings = checkMatrixStructure(parse(`<div>${listBody}</div>`), planScreen);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({ kind: "matrix-structure", severity: "major" });
+    expect(findings[0]?.message).toMatch(/no data-matrix table/i);
+  });
+});
+
 /**
  * The run-4 misfire, captured as a fixture (not the eval-output files). A combined "Desserts &
  * Beverages" board that shares no base dish must NOT carry matrix data after expansion, so the

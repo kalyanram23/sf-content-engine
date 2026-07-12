@@ -5,7 +5,7 @@ import { UnsupportedConstraintError } from "../domain/errors";
 import type { CanonicalItem } from "../domain/types";
 import { expandLayoutToPlan } from "../planning/coverage";
 import type { Painter, PaintRequest } from "../ports/painter";
-import type { VisionCritic } from "../ports/vision-critic";
+import type { CritiqueRequest, VisionCritic } from "../ports/vision-critic";
 import {
   createFakeEngine,
   FakeImageFetcher,
@@ -50,6 +50,29 @@ class CorruptMatrixPainter implements Painter {
     const html = await this.inner.paint(request);
     // `String.replace(string, string)` swaps only the FIRST occurrence — one cell loses its marker.
     return html.replace('data-matrix-cell="', 'data-broken-cell="');
+  }
+}
+
+/** Records every CritiqueRequest the pipeline builds so a test can inspect the critic brief. */
+class CapturingVisionCritic implements VisionCritic {
+  readonly requests: CritiqueRequest[] = [];
+
+  critique(request: CritiqueRequest): Promise<CritiqueResponse> {
+    this.requests.push(request);
+    return Promise.resolve({ findings: [] });
+  }
+}
+
+/**
+ * Wraps the FakePainter's valid output in a `data-composed` ROOT — this simulates a composed board
+ * WITHOUT the (Task 9) composer/vocabulary wiring, so the QA + critic path sees genuine
+ * deterministic-renderer markup (`state.html` carries the marker, exactly as the renderer emits it).
+ */
+class ComposedRootPainter implements Painter {
+  private readonly inner = new FakePainter();
+
+  async paint(request: PaintRequest): Promise<string> {
+    return `<div data-composed="dhaba@1">${await this.inner.paint(request)}</div>`;
   }
 }
 
@@ -902,5 +925,38 @@ describe("createEngine — end-to-end pipeline (fakes)", () => {
     const report = out.qaReport.screens[0]!;
     expect(report.error?.code).toBe("RENDER");
     expect(report.error?.message).toContain("1080x1920");
+  });
+});
+
+describe("composition — QA trusts composed markup (D73)", () => {
+  // The size directive ("TYPE SCALE …") is the free-painter's computed rem targets — the ONLY source
+  // of "TYPE SCALE" text in the critic brief. A composed board was sized by the fitter's register
+  // search, never by that directive, so briefing the critic with it would grade the board against
+  // numbers it never received (false "type too small" findings). visionQA drops it for composed
+  // candidates and keeps densityTier (which describes content, not painter instructions).
+  it("visionQA brief omits the free-paint size directive for composed boards", async () => {
+    const critic = new CapturingVisionCritic();
+    const engine = createFakeEngine({
+      observations: [cleanObservation()],
+      ports: { visionCritic: critic, painter: new ComposedRootPainter() },
+    });
+    await engine.generate(fixtures.input);
+
+    expect(critic.requests.length).toBeGreaterThan(0);
+    for (const req of critic.requests) {
+      expect(req.layoutStrategy ?? "").not.toContain("TYPE SCALE");
+    }
+  });
+
+  it("still briefs the critic with the size directive on a free-paint board (non-regression pin)", async () => {
+    const critic = new CapturingVisionCritic();
+    const engine = createFakeEngine({
+      observations: [cleanObservation()],
+      ports: { visionCritic: critic },
+    });
+    await engine.generate(fixtures.input);
+
+    expect(critic.requests.length).toBeGreaterThan(0);
+    expect(critic.requests.some((r) => (r.layoutStrategy ?? "").includes("TYPE SCALE"))).toBe(true);
   });
 });

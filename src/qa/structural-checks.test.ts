@@ -10,6 +10,7 @@ import {
   checkMotion,
   checkPricePresent,
   checkSelfContained,
+  isComposedHtml,
   runStructuralChecks,
   type StructuralContext,
 } from "./structural-checks";
@@ -187,6 +188,37 @@ describe("token-lint (§5.2) — every surface", () => {
   it("still flags a raw hex in inline style inside decorative SVG (px is exempt, colour is not)", () => {
     const svg = '<svg aria-hidden="true"><text style="color:#abc">FEAST</text></svg>';
     expect(kinds(VALID_HTML.replace("<main>", `<main>${svg}`))).toContain("token-lint");
+  });
+
+  // Composed-board trust (D73): deterministic vocabulary output owns its px/hex by construction —
+  // the lint's target is LLM-authored markup, so a root carrying data-composed is skipped even with
+  // raw hex + raw px present. Free-paint (no marker) still fires — the non-regression pin.
+  it("SKIPS markup whose root carries data-composed (deterministic renderer output, D73)", () => {
+    const html = `<div data-composed="dhaba@1"><div style="color:#c22415;font-size:19px">x</div></div>`;
+    expect(kinds(html)).not.toContain("token-lint");
+  });
+
+  it("still fires on the SAME markup without the composed marker (non-regression pin)", () => {
+    const html = `<div><div style="color:#c22415;font-size:19px">x</div></div>`;
+    expect(kinds(html)).toContain("token-lint");
+  });
+});
+
+describe("isComposedHtml (composed-root marker, D73)", () => {
+  it("is true when the ROOT element carries data-composed", () => {
+    expect(isComposedHtml(`<div data-composed="dhaba@1"><p>x</p></div>`)).toBe(true);
+  });
+
+  it("tolerates leading whitespace before the root element", () => {
+    expect(isComposedHtml(`\n  <div data-composed="dhaba@1">a</div>`)).toBe(true);
+  });
+
+  it("is false for free-paint markup with no marker", () => {
+    expect(isComposedHtml(`<main><section>x</section></main>`)).toBe(false);
+  });
+
+  it("is false when data-composed appears only on a NON-root descendant", () => {
+    expect(isComposedHtml(`<main><div data-composed="dhaba@1">x</div></main>`)).toBe(false);
   });
 });
 

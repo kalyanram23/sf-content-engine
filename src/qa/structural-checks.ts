@@ -1,4 +1,4 @@
-import { type HTMLElement, parse } from "node-html-parser";
+import { type HTMLElement, NodeType, parse } from "node-html-parser";
 
 import type { QaConfig } from "../config/qa";
 import type { TokenLintRules } from "../config/token-lint";
@@ -42,6 +42,30 @@ const BAKED_PLAYER = [
   { re: /\bhistory\.(push|replace)State\b/, what: "history navigation" },
   { re: /\bwindow\.open\s*\(/, what: "window.open" },
 ];
+
+/**
+ * True when the parsed markup's ROOT element carries the `data-composed` marker — i.e. it is
+ * deterministic vocabulary/renderer output (Tasks 4/5), not LLM-authored free-paint. The renderer
+ * stamps the marker on the OUTERMOST wrapper it builds (src/composition/renderer.ts); a shell may
+ * carry a nested one too, so the test is deliberately ROOT-only. Skipping leading text nodes matters:
+ * node-html-parser keeps whitespace between the string start and the first tag as TextNodes.
+ */
+function isComposedRoot(root: HTMLElement): boolean {
+  const firstEl = root.childNodes.find(
+    (n): n is HTMLElement => n.nodeType === NodeType.ELEMENT_NODE,
+  );
+  return firstEl?.getAttribute("data-composed") !== undefined;
+}
+
+/**
+ * Shared marker test for composed boards (D73): the ONE definition the visionQA node, token-lint, and
+ * the matrix-structure check agree on. `html` is the raw painter/renderer markup — the QA's
+ * `state.html`. Composed output is trusted by the free-paint-only checks and briefed to the critic
+ * without the free-paint size directive.
+ */
+export function isComposedHtml(html: string): boolean {
+  return isComposedRoot(parse(html));
+}
 
 function plannedSectionItemIds(plan: PlanScreen): string[] {
   const ids = new Set<string>();
@@ -252,6 +276,11 @@ function isDecorativeSvg(el: HTMLElement): boolean {
 
 /** §5.2 token-lint rail: reject raw hex/px in class arbitrary-values, inline style, and <style>. */
 export function checkTokenLint(root: HTMLElement, ctx: StructuralContext): QaFinding[] {
+  // D73: deterministic vocabulary output is trusted — its px sizes and alpha-composite inks are
+  // correct by construction and the LLM never touched them. The lint's target is LLM-authored
+  // markup (raw hex/px in painter classes/styles), so a composed root is exempt entirely.
+  if (isComposedRoot(root)) return [];
+
   const findings: QaFinding[] = [];
 
   // Arbitrary-value Tailwind utilities: text-[#fff], p-[7px], etc.
@@ -437,6 +466,14 @@ function findMatrixContainer(root: HTMLElement, itemIds: Set<string>): HTMLEleme
  * failure where the painter rendered stacked name+price cards instead of a real comparison table.
  */
 export function checkMatrixStructure(root: HTMLElement, plan: PlanScreen): QaFinding[] {
+  // D73: v1 vocabularies render `representation: "matrix"` sections as price LISTS — they emit no
+  // data-matrix DOM. The fixed-table contract is a free-paint contract, so a composed root is exempt:
+  // enforcing it would fire a deterministically-UNFIXABLE major every iteration → routing rule 92 →
+  // re-paint loop → budget burn → freeze flagged. Coverage + binding integrity (which still run)
+  // already guarantee every item is present with its price. (Vocabulary v2's combo/matrix component
+  // re-enables this table contract.)
+  if (isComposedRoot(root)) return [];
+
   const findings: QaFinding[] = [];
   for (const section of plan.sections) {
     const matrix = section.matrix;
