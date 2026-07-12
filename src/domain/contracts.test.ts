@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import {
+  compositionResponseSchema,
   critiqueResponseSchema,
   planBlockSchema,
   planResponseSchema,
@@ -65,5 +67,38 @@ describe("planBlockSchema representation enum (E1)", () => {
     expect(planBlockSchema.safeParse({ ...base, representation: "variant-rows" }).success).toBe(
       false,
     );
+  });
+});
+
+describe("compositionResponseSchema", () => {
+  it("accepts a minimal composition and applies sentinels", () => {
+    const parsed = compositionResponseSchema.parse({
+      title: "Street & Sweets",
+      blocks: [
+        { kind: "section", section: "Dosa", sections: [], itemIds: [] },
+        { kind: "photoBand", section: "", sections: [], itemIds: ["t1", "w1", "x1"] },
+        { kind: "group", section: "", sections: ["Chaat", "Hot Drinks"], itemIds: [] },
+      ],
+    });
+    expect(parsed.blocks).toHaveLength(3);
+    expect(parsed.blocks[1]?.itemIds).toEqual(["t1", "w1", "x1"]);
+  });
+
+  it("converts to a strict-compatible JSON Schema (object root, no top-level union)", () => {
+    const js = z.toJSONSchema(compositionResponseSchema) as {
+      type?: string;
+      properties?: Record<string, unknown>;
+    };
+    expect(js.type).toBe("object");
+    expect(Object.keys(js.properties ?? {})).toEqual(["title", "blocks"]);
+  });
+
+  it("rejects an unknown kind", () => {
+    expect(() =>
+      compositionResponseSchema.parse({
+        title: "X",
+        blocks: [{ kind: "hero", section: "", sections: [], itemIds: [] }],
+      }),
+    ).toThrow();
   });
 });

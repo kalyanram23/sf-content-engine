@@ -68,3 +68,32 @@ export const repairResponseSchema = z.object({
   note: z.string(),
 });
 export type RepairResponse = z.infer<typeof repairResponseSchema>;
+
+/**
+ * The composition contract (D71) — the ENGINE-OWNED abstract "order form" a composer LLM fills
+ * against a closed component vocabulary. Deliberately theme-agnostic: the three block kinds are
+ * the only structures ANY vocabulary must render; a theme decides how a block LOOKS, never what
+ * blocks EXIST. Strict-mode shape (D11): flat object, `kind` enum, every field required — unused
+ * fields carry ""/[] sentinels (the planBlockSchema precedent). The LLM decides JUDGMENT only
+ * (order, grouping, photo picks, title); all arithmetic (sizes, columns, type scale) is the
+ * deterministic layout engine's.
+ */
+export const compositionBlockSchema = z.object({
+  /** Which abstract component this block renders. */
+  kind: z.enum(["section", "group", "photoBand"]),
+  /** kind "section": the exact section title to render full-width; "" otherwise. */
+  section: z.string(),
+  /** kind "group": 2–3 exact section titles side by side in one band; [] otherwise. */
+  sections: z.array(z.string()),
+  /** kind "photoBand": 3–12 item ids from the photo library; [] otherwise. */
+  itemIds: z.array(z.string()),
+});
+export type CompositionBlock = z.infer<typeof compositionBlockSchema>;
+
+/** What the composer LLM returns — board title + ordered body blocks (top to bottom). */
+export const compositionResponseSchema = z.object({
+  /** Short human masthead title (e.g. "Street & Sweets"). The one sanctioned invented-copy field. */
+  title: z.string().min(1),
+  blocks: z.array(compositionBlockSchema),
+});
+export type CompositionResponse = z.infer<typeof compositionResponseSchema>;
