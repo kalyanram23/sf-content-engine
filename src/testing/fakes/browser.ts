@@ -1,6 +1,7 @@
 import type {
   BrowserPort,
   ItemRect,
+  MeasureRequest,
   RenderObservation,
   RenderRequest,
   RenderResult,
@@ -251,5 +252,16 @@ export class ScriptedBrowser implements BrowserPort {
     this.index += 1;
     this.renderCount.value += 1;
     return Promise.resolve({ observation, screenshotBase64: this.screenshotBase64 });
+  }
+
+  /**
+   * Deterministic MEASURE fake. The renderer can't know a fake's internals, so this returns a
+   * configurable CONSTANT height per `data-mk` key parsed from the document: `24` for the sample
+   * continuation cue (`__cue__`), `28` for every flow unit. Constant heights still exercise
+   * partitioning, continuation cues, and the balance logic deterministically.
+   */
+  measure(request: MeasureRequest): Promise<Record<string, number>> {
+    const keys = [...request.html.matchAll(/data-mk="([^"]+)"/g)].map((m) => m[1]!);
+    return Promise.resolve(Object.fromEntries(keys.map((k) => [k, k === "__cue__" ? 24 : 28])));
   }
 }

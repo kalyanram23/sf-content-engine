@@ -121,6 +121,22 @@ export interface RenderResult {
   screenshotBase64: string;
 }
 
+/**
+ * A MEASURE request for the landscape column flow (D72). The renderer builds a self-contained
+ * off-screen document — every atomic flow unit stacked in ONE column of the exact newspaper-column
+ * width, tagged `data-mk="<key>"` — and the browser reports each element's TRUE rendered height so the
+ * partitioner balances explicit columns off real metrics (fonts settled) instead of leaving the break
+ * points to CSS `column-fill:balance`.
+ */
+export interface MeasureRequest {
+  /** A self-contained HTML document containing data-mk-tagged elements. */
+  html: string;
+  /** Layout width the measure column is rendered at. */
+  width: number;
+}
+
 export interface BrowserPort {
   render(request: RenderRequest): Promise<RenderResult>;
+  /** Measure each `[data-mk]` element's rendered height (px), keyed by its data-mk value (D72). */
+  measure(request: MeasureRequest): Promise<Record<string, number>>;
 }

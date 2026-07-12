@@ -3,6 +3,7 @@ import { chromium } from "playwright-core";
 import { RenderError } from "../../domain/errors";
 import type {
   BrowserPort,
+  MeasureRequest,
   RenderObservation,
   RenderRequest,
   RenderResult,
@@ -95,6 +96,47 @@ export class PlaywrightBrowser implements BrowserPort {
       return { observation, screenshotBase64: screenshot.toString("base64") };
     } catch (error) {
       throw new RenderError("Playwright render failed.", { cause: error });
+    } finally {
+      await browser.close();
+    }
+  }
+
+  /**
+   * MEASURE (D72): render the renderer's off-screen measure document at the given column width and
+   * report every `[data-mk]` element's true `getBoundingClientRect().height`, keyed by its data-mk.
+   * Same launch/offline plumbing as {@link render}. The measure document declares font-family
+   * FALLBACKS only (no packaged @font-face is loaded here), so heights are computed against system
+   * faces — the same font-size/line-height as the board, with a ±2px face-metric error the balance
+   * slack absorbs (the accepted offline trade — D72).
+   */
+  async measure(request: MeasureRequest): Promise<Record<string, number>> {
+    const browser = await chromium.launch({ args: this.options.launchArgs ?? [] });
+    try {
+      const context = await browser.newContext({
+        viewport: { width: request.width, height: 1080 },
+      });
+      const page = await context.newPage();
+      // Offline-safety (§5.1): only inline (data:) content may load.
+      await page.route("**/*", (route) => {
+        const url = route.request().url();
+        if (url.startsWith("data:") || url.startsWith("about:")) return route.continue();
+        return route.abort();
+      });
+      await page.setContent(request.html, { waitUntil: "load" });
+      // Settle fonts (fall back to system faces offline) before measuring — same font-size/line-height
+      // as the board so heights transfer 1:1 modulo the accepted ±2px face-metric slack.
+      await page.evaluate(() => document.fonts.ready.then(() => undefined));
+      const heights = (await page.evaluate(() =>
+        Object.fromEntries(
+          (Array.from(document.querySelectorAll("[data-mk]")) as any[]).map((el) => [
+            el.getAttribute("data-mk"),
+            el.getBoundingClientRect().height,
+          ]),
+        ),
+      )) as Record<string, number>;
+      return heights;
+    } catch (error) {
+      throw new RenderError("Playwright measure failed.", { cause: error });
     } finally {
       await browser.close();
     }
