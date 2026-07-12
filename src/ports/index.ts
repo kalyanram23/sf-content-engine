@@ -1,4 +1,5 @@
 import type { BrowserPort } from "./browser";
+import type { Composer } from "./composer";
 import type { ImageFetcher } from "./image-fetcher";
 import type { Packager } from "./packager";
 import type { Painter } from "./painter";
@@ -7,6 +8,7 @@ import type { LlmRepairer } from "./repairer";
 import type { Clock, DebugSink, IdGenerator, Logger, UsageSink } from "./services";
 import type { ThemeRepository } from "./theme-repository";
 import type { VisionCritic } from "./vision-critic";
+import type { VocabularyRegistry } from "./vocabulary-registry";
 
 export type { Planner } from "./planner";
 export type { ThemeRepository } from "./theme-repository";
@@ -35,6 +37,17 @@ export type {
   UsageEvent,
 } from "./services";
 export type { RequestCorrelation } from "./correlation";
+export type { Composer, ComposeRequest } from "./composer";
+export type {
+  ComponentVocabulary,
+  VocabularyRegistry,
+  VocabularyMetrics,
+  VocabSection,
+  VocabItem,
+  VocabCanvas,
+  PhotoBandMode,
+  ShellArgs,
+} from "./vocabulary-registry";
 
 /**
  * Everything the engine depends on, injected at the composition root (build brief). The
@@ -61,4 +74,8 @@ export interface EnginePorts {
    */
   usage?: UsageSink;
   llmRepairer?: LlmRepairer;
+  /** The composition LLM for vocabulary themes (D71). Optional: free-paint-only deployments omit it. */
+  composer?: Composer;
+  /** Pluggable theme component packages, keyed by the theme JSON's `vocabulary` field (D71). */
+  vocabularies?: VocabularyRegistry;
 }
