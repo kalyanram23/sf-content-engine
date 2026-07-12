@@ -494,14 +494,21 @@ export const dhabaVocabulary: ComponentVocabulary = {
   renderShell(args: ShellArgs): string {
     // The OUTERMOST element carries data-composed="dhaba@1" and NO CSS-variable declarations, DOCTYPE,
     // <head> or font <link>s — the packager owns the document + fonts and declares the theme tokens.
+    // The body INSET (PAD_TOP/PAD_SIDE/PAD_BOTTOM — the same numbers `contentBox` subtracts) is applied
+    // HERE around `bodyHtml`, so the theme's insets live only in this vocabulary. The composition layer
+    // stays theme-agnostic and passes padding-free body markup; the padded flex column keeps the fitter's
+    // reserved content box and the rendered interior consistent.
     return (
       `<div data-composed="dhaba@1" style="width:${args.canvas.width}px;height:${args.canvas.height}px;` +
       `background:repeating-linear-gradient(45deg,var(--color-accent) 0 16px,var(--color-stripe) 16px 32px);` +
-      `padding:16px;box-sizing:border-box;overflow:hidden">` +
+      `padding:${FRAME}px;box-sizing:border-box;overflow:hidden">` +
       `<div style="width:100%;height:100%;background:var(--color-bg);color:var(--color-text);` +
       `font-family:'Archivo',sans-serif;display:flex;flex-direction:column;overflow:hidden">` +
       masthead(args.title, args.tagline, args.brand) +
+      `<div style="flex:1;display:flex;flex-direction:column;` +
+      `padding:${PAD_TOP}px ${PAD_SIDE}px ${PAD_BOTTOM}px;min-height:0">` +
       args.bodyHtml +
+      `</div>` +
       `</div></div>`
     );
   },

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { CompositionResponse } from "../domain/contracts";
+import type { ComponentVocabulary } from "../ports/vocabulary-registry";
 import { dhabaVocabulary } from "../vocabularies/dhaba/index";
 import { renderComposed } from "./renderer";
 
@@ -84,6 +85,41 @@ describe("renderComposed", () => {
     // 28 flow rows at 30px across ≥2 columns must split at least one section → ≥1 cue
     expect(res.columnPlan?.cues.length).toBeGreaterThanOrEqual(1);
     expect(res.html).toContain("(cont.)");
+  });
+
+  it("stays theme-agnostic: renderer emits no theme inset literal — the shell owns the body padding", async () => {
+    // Spy the vocabulary shell to capture exactly the body markup the RENDERER hands it: that markup
+    // is composition-layer-owned and must carry no theme inset (dhaba's 24/36/30 padding is applied
+    // inside renderShell, one layer deeper). Cover all three body paths: portrait stack, landscape
+    // CSS-balance columns (no measurer), and landscape measured columns (measurer supplied).
+    const measure = async ({ html }: { html: string }): Promise<Record<string, number>> => {
+      const keys = [...html.matchAll(/data-mk="([^"]+)"/g)].map((m) => m[1]!);
+      return Object.fromEntries(keys.map((k) => [k, k === "__cue__" ? 24 : 30]));
+    };
+    const paths = [
+      { canvas: { width: 1080, height: 1920 } }, // portrait stack
+      { canvas: { width: 1920, height: 1080 } }, // landscape CSS-balance columns
+      { canvas: { width: 1920, height: 1080 }, measure }, // landscape measured columns
+    ];
+    for (const path of paths) {
+      let capturedBody = "";
+      const spyVocab: ComponentVocabulary = {
+        ...dhabaVocabulary,
+        renderShell: (args) => {
+          capturedBody = args.bodyHtml;
+          return dhabaVocabulary.renderShell(args);
+        },
+      };
+      const res = await renderComposed({ ...base, ...path, vocab: spyVocab, composition: comp });
+      expect(capturedBody).not.toContain("24px 36px 30px");
+
+      // The data-composed root the renderer builds around the shell declares ONLY colour tokens.
+      const wrapperTag = res.html.match(/^<div[^>]*>/)![0];
+      expect(wrapperTag).not.toContain("padding");
+      const style = wrapperTag.match(/style="([^"]*)"/)![1]!;
+      for (const decl of style.split(";").filter(Boolean))
+        expect(decl.startsWith("--color-")).toBe(true);
+    }
   });
 
   it("drops a group with <2 known sections to plain sections with a warning", async () => {

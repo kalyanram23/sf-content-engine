@@ -279,9 +279,11 @@ function renderStack(
     f.layout.columnWidth,
     f.layout.maxInternalCols,
   );
+  // Body inset (padding) is owned by the vocabulary shell — this stays theme-agnostic and only sets the
+  // stack's own layout: fill the shell's padded body box and distribute the stripes top-to-bottom.
   const inner =
     `<div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;` +
-    `padding:24px 36px 30px;min-height:0">${body}</div>`;
+    `min-height:0">${body}</div>`;
   return { html: buildShell(comp, input, f.register, inner), f, finalBlocks: blocks };
 }
 
@@ -495,12 +497,8 @@ async function renderColumns(
     const body =
       `<div style="flex:1;min-height:0;column-count:${columns};column-gap:${gap}px;` +
       `column-rule:2px solid ${RULE};column-fill:balance;overflow:hidden">${flowHtml}</div>`;
-    const inner =
-      `<div style="flex:1;display:flex;flex-direction:column;padding:24px 36px 30px;min-height:0">` +
-      bannerHtml +
-      body +
-      `</div>`;
-    return { html: buildShell(comp, input, register, inner), f, finalBlocks };
+    // The shell owns the body inset + the padded flex column; hand it the banner + column body directly.
+    return { html: buildShell(comp, input, register, bannerHtml + body), f, finalBlocks };
   }
 
   // ── measured explicit columns ──
@@ -549,11 +547,8 @@ async function renderColumns(
     `<div style="flex:1;min-height:0;display:flex;align-items:stretch;overflow:hidden">` +
     columnHtml.join(divider) +
     `</div>`;
-  const inner =
-    `<div style="flex:1;display:flex;flex-direction:column;padding:24px 36px 30px;min-height:0">` +
-    bannerHtml +
-    body +
-    `</div>`;
+  // The shell owns the body inset + the padded flex column; hand it the banner + column body directly.
+  const inner = bannerHtml + body;
 
   const tallest = Math.max(...columnHeights);
   const overflow = tallest > avail + 1;
