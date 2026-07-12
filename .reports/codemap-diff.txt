@@ -1,49 +1,60 @@
 Codemap Analysis Report
-Generated: 2026-06-28
+Generated: 2026-07-11
 Project: content-engine (stateless TypeScript ESM library)
-Scan: 70 src .ts (non-test), 23 test files, 12 adapter modules
+Scan: 86 src .ts (non-test), 42 test files, 128 total tracked src .ts
+Previous scan: 2026-06-28 (70 src non-test, 23 test files)
 
-=== STATUS: INITIAL GENERATION ===
-No previous docs/CODEMAPS/ existed — this is a first scan, so no diff percentage
-and no overwrite-approval gate (Step 3) applies. All maps created fresh.
+=== STATUS: REGENERATION (2nd scan) ===
+Prior codemaps dated 2026-06-28. ~94 distinct src/ files changed on main since;
+DECISIONS.md grew D16 -> D70. Content change exceeds the 30% "request approval"
+threshold in 4 of 6 maps (architecture, ports, qa, dependencies). Regenerated WITHOUT
+blocking: the user explicitly invoked /update-codemaps on maps already flagged stale,
+and the session is autonomous. Full before/after is in git history.
 
-=== FILES CREATED ===
-  docs/CODEMAPS/README.md         index + template-substitution note
-  docs/CODEMAPS/architecture.md   type, entry points, layering, roots, data flow
-  docs/CODEMAPS/pipeline.md       LangGraph nodes, node→port map, routing, state
-  docs/CODEMAPS/ports.md          port ↔ real-adapter ↔ fake (DI seam)
-  docs/CODEMAPS/qa.md             two-tier QA, scoring, repair, planning, config
-  docs/CODEMAPS/dependencies.md   services, runtime deps, optional peers, build
+=== FILES MODIFIED ===
+  docs/CODEMAPS/README.md         file counts; two-LLM-backend note; D-range D1-D70
+  docs/CODEMAPS/architecture.md   +createClaudeCodeEngine root; +util layer; brand/telemetry
+                                  data flow; boardConcurrency; D1-D70
+  docs/CODEMAPS/pipeline.md       state channels (runId/visionCritiqued/repairIneffective);
+                                  best fields (rubricScore/penalty/critiqued); node timing wrap
+  docs/CODEMAPS/ports.md          +usage (UsageSink); +RequestCorrelation; claudecode adapters;
+                                  per-role resilience/fallback
+  docs/CODEMAPS/qa.md             +gate.ts; config 6->11 blocks; planning sizing/matrix/menu-lint;
+                                  representation/colors/matrix-structure checks; vision-critical block
+  docs/CODEMAPS/dependencies.md   +braintrust (runtime); +claude-agent-sdk backend; try:claude
 
-=== TEMPLATE ADAPTATION ===
-The /update-codemaps template targets web services (backend routes, frontend page
-tree, DB tables). This project is a library with none of those. Substitutions:
-  backend.md  -> pipeline.md   (LangGraph StateGraph is the "backend")
-  frontend.md -> (omitted)     no UI; output IS self-contained HTML artifacts
-  data.md     -> qa.md         no DB; domain model + config-as-data + coverage live here
-  ports.md    (added)          dependency-injection seam, the project's defining structure
+=== SNAPSHOT DIFF (vs 2026-06-28 baseline) ===
+Pipeline nodes:        10 -> 10   UNCHANGED (planContent..freeze); routing/termination unchanged
+EnginePorts:           12 -> 13   +usage? (UsageSink, per-call token telemetry, D28)
+Config-as-data blocks:  6 -> 11   +painter, planning, layouts, execution, menuLint
+Entry points:           3 -> 3    UNCHANGED (index/node/testing)
+Composition roots:      3 -> 4    +createClaudeCodeEngine (test/local, subscription auth)
+State channels:        +runId, +visionCritiqued (D27), +repairIneffective (D65)
 
-=== ARCHITECTURE SNAPSHOT (for future diffs) ===
-Entry points (3): src/index.ts (pure), src/node.ts (adapters), src/testing.ts (fakes)
-Pipeline nodes (10): planContent, resolveTheme, fetchImages, paint, package,
-  deterministicQA, visionQA, score, repair, freeze
-Ports (12 in EnginePorts): planner, themeRepository, painter, packager, browser,
-  visionCritic, imageFetcher, clock, idGenerator, logger?, debug?, llmRepairer?
-Real adapter families: openrouter (client+painter+planner+critic+repairer),
-  playwright (browser), tailwind (packager), theme (file-theme-repository),
-  image (image-fetcher), planner (static-planner)
-Themes (externalized JSON): botanical, bubblegum
-Config-as-data blocks: routing, tokenLint, rubric, qa, loop, models
+=== NEW MODULES ===
+  src/adapters/claudecode/*   Claude-Agent-SDK LLM backend (6 files) + createClaudeCodeEngine
+  src/ports/correlation.ts    RequestCorrelation trace context
+  src/config/{execution,layouts,planning,painter,menu-lint}.ts   5 new config blocks
+  src/planning/{layout-strategy,matrix,sizing,menu-lint}.ts       planning fan-out
+  src/qa/{gate,colors,representation,matrix-structure}.ts          QA fan-out
+  src/pipeline/nodes/shared.ts ; src/util/{freeze,placeholder-image}.ts
 
-=== EXTERNAL SERVICES / NEW DEPENDENCIES ===
-Services: OpenRouter (LLM gateway), headless Chromium (Playwright), remote image hosts.
-Optional peers (hermetic boundary): openai, playwright-core, tailwindcss, @tailwindcss/node.
+=== NEW DEPENDENCIES ===
+  braintrust (runtime)                 opt-in LLM tracing (createNodeEngine({ braintrust })).
+  @anthropic-ai/claude-agent-sdk (dev) the claudecode subscription LLM backend.
+
+=== EXTERNAL SERVICES ===
+Unchanged set: OpenRouter (LLM gateway), headless Chromium (Playwright), remote image hosts.
+Added backend option: Claude-Agent-SDK (subscription auth; test/local via createClaudeCodeEngine).
 No database / cache / queue. Stateless across calls (D15).
 
 === STALENESS WARNINGS (docs not updated in 90+ days) ===
-None. Repository is days old (initial commit 2026-06; all docs within window).
+None >90 days (repo is ~3 weeks old). The codemaps were themselves the stale artifact
+(2026-06-28); this regeneration clears it. Minor content lag: ARCHITECTURE.md (2026-07-04)
+predates D63-D70 — hand-authored prose, not a codemap, so not regenerated here.
 
 === NOTES ===
-- docs/ is in .prettierignore, so codemaps are not subject to the format gate.
-- Source-of-truth files to re-derive from on next run: package.json (scripts/deps/exports),
-  src/ports/index.ts (EnginePorts), src/pipeline/{graph,nodes,router,state}.ts, src/config/*.
+- docs/ format status confirmed against .prettierignore before writing (see run log).
+- Source-of-truth files re-derived from this run: package.json, src/ports/index.ts,
+  src/pipeline/{graph,state}.ts, src/config/index.ts + block files, src/adapters/{node-engine,
+  claudecode/engine}.ts.
