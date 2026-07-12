@@ -1476,3 +1476,181 @@ matrix fixture raised to 50 rows so it remains genuinely dense. `src/pipeline/en
 plan-forced-dense e2e pin's fixture raised 34→50 items so it stays a true over-budget board.
 `src/adapters/openrouter/painter.test.ts` — the computed size directive lands verbatim in the user
 prompt. Untouched: themes/, the exemplar, gate/rubric, routing, repairs, models config.
+
+## D71 — A second paint path: a closed component vocabulary, painted by judgment + arithmetic
+
+**Open (2026-07-11).** Free-paint gives the painter total DOF and pays for it every board: minutes of
+generation, a multi-iteration critic loop, and run-to-run variance even on a theme whose look is
+settled. The `prototypes/component-vocab/` work proved a cheaper path for a theme whose visual
+language is KNOWN — compose a tiny structured order, then render it deterministically. The question
+was how to fold that in without a second engine.
+
+**Decision.** Add a **composition paint path** behind the existing `Painter` port, in three cleanly
+separated layers:
+
+- **Engine-owned, theme-agnostic.** A **closed** composition contract of exactly THREE block kinds —
+  `section`, `group`, `photoBand` (`compositionResponseSchema`, `src/domain/contracts.ts`; strict,
+  `additionalProperties:false`, no top-level unions per D11). A `Composer` LLM port
+  (`src/ports/composer.ts`) that fills that order form and NOTHING else — it is **judgment only**
+  (what groups with what, what leads, which photos). A generic **layout engine**
+  (`src/composition/layout.ts`: aspect planning, register search, measured-column partition) that
+  owns **all arithmetic**, and a generic **renderer** (`src/composition/renderer.ts`) that expands the
+  order into engine-legal markup. The renderer **guarantees coverage** the same way plan expansion
+  does — every planned section/item is placed or the render throws (mirrors `coverage.ts`'s
+  100%-coverage assertion; the composer is trusted for taste, never for bookkeeping). The
+  `CompositionPainter` (`src/composition/painter.ts`) orchestrates compose → measure → render behind
+  `Painter`.
+- **Theme-owned, pluggable.** A `ComponentVocabulary` package (CODE, not JSON) renders each abstract
+  block in the theme's own visual language and declares its size registers/metrics; it is resolved
+  through a `VocabularyRegistry` port (`src/ports/vocabulary-registry.ts`) keyed by a new
+  `vocabulary` field in the theme JSON. The first package is `dhaba` (`src/vocabularies/dhaba/`); the
+  default registry is `builtinVocabularies()` (`src/vocabularies/index.ts`). The OpenRouter side is
+  `OpenRouterComposer` (`src/adapters/openrouter/composer.ts`) on a new **`compose`** model role
+  (`src/config/models.ts`, allowlist-checked at load per D11).
+- **Existing engine, minimally touched.** ZERO graph changes and no new state channels: the renderer
+  emits engine-legal HTML (`data-item-id` bindings, `data-img-item` photo placeholders, a single root
+  element), so `fetchImages`/`package`/QA/`score`/`freeze` run unchanged. QA learns exactly one class
+  of thing (composed markup is trusted — D73/D76).
+
+**Path selection (`AutoPainter`, `src/composition/auto-painter.ts`).** One painter chooses per board
+from `config.painter.mode` (`auto` | `free` | `composition`, `src/config/painter.ts`): a theme that
+declares a `vocabulary` composes; a theme without one free-paints. The **rescue asymmetry is
+deliberate**: in `auto` mode a composition failure RESCUES to free paint (the board still ships); in
+forced `composition` mode it does NOT (it fails loud, so a broken vocabulary can't hide behind the
+free painter in CI/debug).
+
+**Why.** Keeps ONE engine and ONE `Painter` seam. The theme-agnostic contract means the engine never
+learns a theme's look; the pluggable package means a new vocabulary theme is added without touching
+the engine; judgment/arithmetic separation puts the LLM only where taste is needed and makes
+everything else deterministic and testable.
+
+## D72 — `BrowserPort.measure` + measured-column landscape flow with continuation cues
+
+**Open (2026-07-11).** A landscape board flows its sections into columns, and column height is a
+function of the theme's real typography — estimating it in code is fragile. The composition renderer
+needs true rendered heights to partition columns and to decide where a section continues into the
+next column.
+
+**Decision.** Add `measure(request)` to `BrowserPort` (`src/ports/browser.ts`): render a column of
+content off-screen and return per-key rendered heights (`Record<string, number>`). The layout engine
+uses those heights to partition a landscape board into balanced measured columns, and the renderer
+emits a **continuation cue** (`"<Section> (cont.)"`) when a section spills across a column boundary,
+so a reader isn't left thinking the section ended. The real adapter implements it in
+`src/adapters/playwright/browser.ts`; the fake `ScriptedBrowser.measure` returns scripted per-register
+heights so the partition/continuation behaviour is exercised hermetically. (The measure document must
+faithfully reproduce the packaged ship environment — refined in D77.)
+
+## D73 — Composed markup is trusted against token-lint + matrix-structure, keyed on the `data-composed` root marker
+
+**Decision (2026-07-11).** token-lint and the matrix-structure check both `return []` (no findings)
+for a board whose root carries `data-composed` (`isComposedRoot`/`isComposedHtml`,
+`src/qa/structural-checks.ts`). **Rationale:** those checks target LLM-authored markup — token-lint
+forbids raw hex/px a free-painter might type, and matrix-structure enforces a table shape the
+free-painter must build by hand. The renderer's output is **deterministic** (the vocabulary emits its
+own CSS, and v1 renders `representation:"matrix"` sections as flat dotted-leader price lists — a known
+limitation, not a defect), so linting it just burns the iteration budget on rule-92 re-paint loops.
+
+**Marker descends into `<body>`.** `isComposedRoot` skips leading text nodes and reads the FIRST
+element — so the predicate fires on the PACKAGED full document (`<html><body><div
+data-composed>…`), not only the raw painter fragment. Both shapes are trusted; a `data-composed`
+nested deeper than the outermost author element is NOT.
+
+**Tradeoff owned.** Trust is **marker-keyed**, so a free-painter that emitted `data-composed` on its
+root would self-exempt from token-lint. Accepted: only the deterministic renderer stamps
+`data-composed` (with a vocabulary id, e.g. `dhaba@1`), and a free-paint theme has no path to it.
+Deterministic QA (contrast/overflow/density/bindings/image-slots) remains the real gate for composed
+boards — the exemption is scoped to the two checks that assume hand-authored markup.
+
+## D74 — A composition's board title is sanctioned invented copy; item-level copy stays data-bound
+
+**Open (2026-07-11).** Photo-truth (D-line: item names/prices/descriptions are data-bound, never
+invented) is load-bearing — a menu that renames a dish is worse than useless. But a composed board
+carries a human **board name** ("Street & Sweets", "South Indian Delights") the way a real menu has a
+masthead; that title is design, not a data claim.
+
+**Decision.** The composition `title` is **sanctioned model-authored copy** — the composer may write
+a board name. Everything else stays strictly data-bound: item names, prices, and descriptions come
+from the menu, unchanged (photo-truth is untouched). Because the vision critic otherwise majors an
+"invented" masthead, `buildCritiqueRequest` (`src/pipeline/nodes/index.ts`) adds a composed-only
+TITLE NOTE telling the critic the masthead title is sanctioned while item copy remains data-bound;
+the note is `undefined` for free-paint (filtered out → the free-paint brief is byte-identical).
+
+## D75 — Per-section image slots union into the one shared photo band (2026-07-12)
+
+**Problem (integration-discovered).** `coverage.ts` assigns image slots by board class: a
+matrix/packed board gets ONE board-level shared slot, but a **comfortable, non-matrix** board gets a
+slot on EVERY section (`src/planning/coverage.ts`). The composition digest read only the board-level
+slot, so a comfortable board yielded no photo candidates → no `photoBand` → `checkImageSlots` reported
+every per-section slot missing AND the empty band left the canvas under-filled. The plan (line 662)
+assumed board-level slots are what dhaba plans produce — true for matrix/packed, **false for
+comfortable**.
+
+**Decision.** Union the slots into the ONE shared band rather than touch the planner or
+`checkImageSlots`. The digest (`src/composition/digest.ts`) now builds photo candidates from the UNION
+of the board-level slot's items AND every section's slot items (each ∩ items-that-have-photos, de-duped
+by id: board-level wins, then first section in plan order). Each per-section candidate is tagged with
+its slot name via a new optional `VocabItem.slot` (`src/ports/vocabulary-registry.ts`); the dhaba
+vocabulary stamps `data-image-slot="<slot>"` on that card (board-level items stay untagged — the band
+root's `data-image-slot="shared"` satisfies them). The renderer (`src/composition/renderer.ts`)
+enforces a deterministic **slot-coverage guarantee**: every distinct per-section slot gets ≥1 card
+within the band's width capacity (and it APPENDS an empty-picks band when the composer emitted none but
+the plan carries per-section slots — coverage is a guarantee, not contingent on the composer). A
+matrix/packed board (board-level slot only) produces a byte-identical digest and render. This makes
+per-section slots verifiable inside one filmstrip with the planner and QA's `checkImageSlots`
+untouched.
+
+## D76 — Composed-board QA trust extensions beyond D73 (2026-07-12)
+
+**Problem (integration-discovered).** Even with the slot band rendering, a sparse/comfortable composed
+board still failed on three fronts that are correct-by-construction under the vocabulary: photo-less
+`icon` slots the vocabulary has no v1 component for, an under-fill floor calibrated for free-paint, and
+a vision critic majoring idiom-faithful rendering. All three are scoped to `data-composed` roots and
+leave free-paint **byte-identical**.
+
+**Decision.** Extend the composed trust class (D73) by three surgical, marker-keyed rules:
+
+1. **Icon-slot skip.** `checkImageSlots` (`src/qa/structural-checks.ts`) skips a section slot whose
+   `kind === "icon"` for a composed root only. A photo band cannot represent a photo-LESS category (an
+   icon panel is a v2 component); PHOTO slots — per-section and the board-level shared slot — still
+   fire. Free-paint enforcement is unchanged.
+2. **Under-fill floor trusted.** The density UNDER-fill finding is dropped for composed boards. The
+   fitter's register search already maximizes type size to fill the canvas, so a "too empty" verdict
+   on a correct-by-construction board is a false negative. This is a post-hoc `.filter` in the
+   `deterministicQA` node (`src/pipeline/nodes/index.ts`) — the density check is pure over a
+   `RenderObservation` and can't see the HTML, so composed-awareness lives at the node that holds
+   `state.html`, keeping `rendered-checks.ts` pure. **Overflow, over-fill, and dead-band checks STILL
+   run** so real voids are caught.
+3. **Critic idiom facts.** `buildCritiqueRequest` gives the critic, for composed boards, the theme's
+   idiom facts next to the D74 title note: the empty bordered masthead box is a RESERVED logo
+   placeholder (present in the golds), a uniform repeated polaroid filmstrip IS the idiom (not lazy
+   repetition), and matrix/multi-column sections render as flat dotted-leader price lists in v1 —
+   sanctioned, not a representation-clarity/theme-adherence defect. `undefined` for free-paint.
+
+Deterministic QA remains the real gate for composed boards; these rules remove only the checks that
+assume free-paint economics.
+
+## D77 — The offline measure document must reproduce the packaged ship environment (D72 refinement, 2026-07-12)
+
+**Problem (integration-discovered).** A landscape column overfilled and slipped its last price row
+under the bottom frame, yet `fit()` thought the board fit. Root cause: the off-screen MEASURE document
+(D72) did not render in the SAME environment the board ships in, so it UNDER-measured every column and
+a genuinely overflowing board looked safe. D72's assumed "±2px balance slack" was wrong by whole rows.
+
+**Decision.** Couple the measure document to the packager's output (the packager is the only ship
+path), and add a guard for the residual. Four mismatches in `buildMeasureDoc`
+(`src/composition/renderer.ts`) were corrected: (a) the theme `@font-face` faces are inlined (a display
+face wraps a header the fallback keeps on one line); (b) the wrapper `font-family` uses the body token
+stack VERBATIM (the old re-quoting produced invalid CSS that silently fell back to a system font); (c)
+the continuation cue is measured in a `flow-root` BFC so its bottom margin counts (`getBoundingClientRect`
+excludes margins); and **most importantly** (d) the doc renders at `line-height:1.5` —
+`PACKAGED_BASE_LINE_HEIGHT`, mirroring the Tailwind preflight base every packaged row inherits — where
+the measure had used the UA default (~1.2), running ~100px short per column. Plus a **measured-overflow
+guard** in `renderColumns`: if the tallest MEASURED column comes within `COLUMNS_BOTTOM_SAFETY`
+(`src/composition/layout.ts`) of the body bottom, the renderer escalates the layout (add a legible
+column if the plan allows, else demote the register one step) and re-measures until it clears — shipping
+the densest honest board. The common no-overflow case measures exactly once (byte-identical output).
+
+**Why.** The bug was in the measurement, not in `fit()` — so `fit()`, the planner, and the QA checks
+are untouched. Adding headroom to `fit` was rejected: it would blunt-force shrink boards that
+legitimately fill, without fixing the cause. Coupling the measure doc to the packaged base is correct
+BECAUSE the packager is the single ship path.

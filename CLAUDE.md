@@ -16,7 +16,7 @@ inlined as `data:` URIs before paint so the whole pipeline is offline-safe. Opti
 
 The behaviour spec is the source of truth:
 `docs/superpowers/specs/2026-06-22-display-content-generation-engine-design.md`.
-`ARCHITECTURE.md` documents structure; `DECISIONS.md` logs every interpretation as **D1–D62**
+`ARCHITECTURE.md` documents structure; `DECISIONS.md` logs every interpretation as **D1–D77**
 (cite these when changing a load-bearing decision). Read those before non-trivial changes.
 
 ## Commands
@@ -80,6 +80,18 @@ bypass the LLM (wires `StaticPlanner` instead).
   `design.identity` (+ its `do`/`dont` lists) + shared engine design goals + the engine's fixed
   contract. The structured `design` block supersedes the legacy single `prompt` blob (still an
   optional field for back-compat, ignored when `design` is present — no two-source drift).
+
+**The paint role has two paths behind one `Painter` port (D71).** `AutoPainter`
+(`src/composition/auto-painter.ts`) picks per board from `config.painter.mode` (`auto` | `free` |
+`composition`): a theme that declares a `vocabulary` **composes** (an LLM `Composer` fills a tiny
+3-kind structured order — `section`/`group`/`photoBand` — and deterministic code in
+`src/composition/` renders it: cheap, low-variance, correct-by-construction), while a plain theme
+**free-paints** (the §2.3 path above). In `auto` mode a composition failure rescues to free paint;
+forced `composition` fails loud. The renderer emits engine-legal markup with a `data-composed` marker,
+so the graph/packager/QA are unchanged — QA just **trusts** composed HTML against the checks that
+assume hand-authored markup (token-lint + matrix-structure, plus the composed-board trust extensions —
+D73/D76). The theme's render package is a `ComponentVocabulary` under `src/vocabularies/` (code, not
+JSON), resolved via the `VocabularyRegistry` port.
 
 **The router owns termination; `best` is preserved.** `route()` (`src/pipeline/router.ts`) is pure
 and the **sole** authority: it returns `"freeze"` the instant `iteration >= loop.maxIterations`.

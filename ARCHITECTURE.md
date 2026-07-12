@@ -227,6 +227,52 @@ flowchart TD
     class EXTRACT pure;
 ```
 
+### 2.4 Composition paint path (vocabulary themes) — D71
+
+`paint` has **two paths behind the one `Painter` port**, chosen per board by `AutoPainter` from
+`config.painter.mode` (`auto` | `free` | `composition`). §2.3 is the **free** path (the painter writes
+arbitrary HTML). A theme that declares a `vocabulary` takes the **composition** path instead: an LLM
+_composer_ fills a tiny structured order over a **closed** component vocabulary, and deterministic code
+renders it — cheap, low-variance, and correct-by-construction. Three cleanly separated layers:
+
+1. **Engine-owned, theme-agnostic.** The composition contract (what blocks _exist_: `section`,
+   `group`, `photoBand` — `compositionResponseSchema`, strict); the `Composer` LLM port (**judgment
+   only** — grouping, what leads, which photos); the layout engine (aspect planning, register search,
+   measured-column partition — **all arithmetic**); and the `CompositionPainter` that orchestrates
+   compose → measure → render behind `Painter`. The renderer **guarantees coverage** exactly as plan
+   expansion does (every planned section/item is placed or it throws — mirrors `coverage.ts`).
+2. **Theme-owned, pluggable.** A `ComponentVocabulary` package (code, not JSON) renders each abstract
+   block in the theme's visual language and declares its size registers/metrics; resolved via a
+   `VocabularyRegistry` port keyed by the theme JSON's `vocabulary` field. `dhaba` is the first
+   package.
+3. **Existing engine, minimally touched.** **Zero graph changes, no new state channels.** The renderer
+   emits engine-legal markup (`data-item-id` bindings, `data-img-item` photo placeholders, single
+   root, `data-composed` marker), so `fetchImages`/`package`/`score`/`freeze` run unchanged. QA learns
+   exactly one thing: composed markup is **trusted** against the checks that assume hand-authored HTML
+   (token-lint + matrix-structure, keyed on `data-composed` — D73; plus the composed-board trust
+   extensions — D76). Deterministic QA (contrast/overflow/density/bindings/image-slots) stays the real
+   gate.
+
+Landscape boards flow into **measured columns** via `BrowserPort.measure` (real rendered heights), with
+a `"(cont.)"` continuation cue where a section spills across a column boundary (D72); the measure
+document reproduces the packaged ship environment so columns don't clip (D77).
+
+```
+src/composition/
+  layout.ts        # generic layout engine: aspect planning, register search, measured-column partition
+  renderer.ts      # generic renderer: normalize → coverage guarantee → stack/columns → continuation cues → measure doc
+  digest.ts        # PlanScreen + items → composer digest + photo-candidate library (board-level ∪ per-section slots, D75)
+  painter.ts       # CompositionPainter implements Painter (compose → measure → render)
+  auto-painter.ts  # AutoPainter: per-board composition|free selection (+ free-paint rescue in auto mode, D71)
+src/vocabularies/
+  index.ts         # builtinVocabularies() registry
+  dhaba/index.ts   # dhaba ComponentVocabulary: registers, components (section/group/photoBand), theme shell
+src/ports/
+  composer.ts              # Composer port (LLM, judgment only)
+  vocabulary-registry.ts   # ComponentVocabulary + VocabularyRegistry interfaces
+src/adapters/openrouter/composer.ts   # OpenRouterComposer (compose model role)
+```
+
 ## 3. Module map
 
 ```
@@ -244,9 +290,11 @@ src/
     errors.ts               # ContentEngineError hierarchy (structured, typed)
 
   ports/
-    index.ts                # barrel + EnginePorts
+    index.ts                # barrel + EnginePorts (composer? / vocabularies? for the composition path, D71)
     planner.ts theme-repository.ts painter.ts packager.ts image-fetcher.ts
-    browser.ts              # BrowserPort + RenderObservation (sampled text fg/bg, fillRatio, scroll, images, actualViewport)
+    browser.ts              # BrowserPort + RenderObservation (sampled text fg/bg, fillRatio, …) + measure() for composed columns (D72)
+    composer.ts             # Composer port (LLM, judgment only — fills the composition order, D71)
+    vocabulary-registry.ts  # ComponentVocabulary + VocabularyRegistry interfaces (theme-owned render packages, D71)
     vision-critic.ts repairer.ts services.ts   # services = Clock, IdGenerator, Logger, DebugSink (D15), UsageSink (D28)
     correlation.ts          # RequestCorrelation (run/board/iteration/restaurant) threaded to the LLM ports (§9)
 
@@ -259,7 +307,8 @@ src/
                             #   image geometry, legibility, overflow, capacities, requiredBindings)
     planning.ts             # PlanningConfig (legibilityBudget + minItemsPerBoard + screensMode, D22/D26)
     loop.ts                 # LoopConfig (maxIterations)
-    models.ts               # ModelRouting (role→model id) + structured-output allowlist
+    models.ts               # ModelRouting (plan/paint/critique/repair/compose role→model id) + structured-output allowlist
+    painter.ts              # PainterConfig: paint mode (auto|free|composition) for AutoPainter (D71)
 
   theme/
     resolve.ts              # resolveTheme(preset, brief) → ResolvedTheme (pure; applies brief perturbations)
@@ -274,6 +323,17 @@ src/
     matrix.ts               # buildMatrix: cross-category base-dish comparison matrices, item-per-cell invariant (D20)
     sizing.ts               # computeTypeScale / maxRowsForCanvas: plan-time type-scale + "fits" signal (D22)
     layout-strategy.ts      # blueprint selection + strategy/matrix-summary text (shared by painter + critic, D17/D21)
+
+  composition/              # the composition paint path (engine-owned, theme-agnostic; §2.4, D71)
+    layout.ts               # generic layout engine: aspect planning, register search, measured-column partition (D72/D77)
+    renderer.ts             # generic renderer: coverage guarantee + stack/columns + continuation cues + measure doc
+    digest.ts               # PlanScreen + items → composer digest + photo-candidate library (board-level ∪ per-section slots, D75)
+    painter.ts              # CompositionPainter implements Painter (compose → measure → render)
+    auto-painter.ts         # AutoPainter: per-board composition|free selection + free-paint rescue (D71)
+
+  vocabularies/             # theme-owned ComponentVocabulary packages (code, not JSON; §2.4, D71)
+    index.ts                # builtinVocabularies() registry
+    dhaba/index.ts          # dhaba vocabulary: registers, components (section/group/photoBand), theme shell
 
   qa/
     contrast.ts             # WCAG relative luminance + ratio (pure math over rgba)
@@ -300,7 +360,7 @@ src/
     engine.ts               # createEngine(ports, config) → { generate }
 
   adapters/                 # Node-only concrete implementations
-    openrouter/             # client.ts (strict structured-output + validate + re-ask); planner/painter/vision-critic/repairer
+    openrouter/             # client.ts (strict structured-output + validate + re-ask); planner/painter/vision-critic/repairer/composer
                             #   + correlation.ts (RequestCorrelation → Broadcast session_id/trace)
     playwright/browser.ts   # render at exact viewport+dpr, network-disabled; computed-style colour pre-filter + fillRatio + screenshot
     tailwind/packager.ts    # @tailwindcss/node compile (hermetic paths) + inline assets + inline Motion-runtime marker
