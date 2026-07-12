@@ -61,7 +61,7 @@ export interface DebugSink {
  * by the pure core. `attempt`/`fallback` attribute a call's retry/re-ask/fallback re-spend (D28).
  */
 export interface UsageEvent {
-  /** The engine role that made the call: `"plan" | "paint" | "critique" | "repair"`. */
+  /** The engine role that made the call: `"plan" | "paint" | "critique" | "repair" | "compose"`. */
   role: string;
   /** The model id that actually served the call (the fallback id when `fallback` is true). */
   model: string;

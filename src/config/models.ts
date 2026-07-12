@@ -2,8 +2,8 @@ import { z } from "zod";
 
 import { deepFreeze } from "../util/freeze";
 
-/** The LLM roles the engine routes (spec §9). */
-export const modelRoleSchema = z.enum(["plan", "paint", "critique", "repair"]);
+/** The LLM roles the engine routes (spec §9; `compose` fills the composition order form, D71). */
+export const modelRoleSchema = z.enum(["plan", "paint", "critique", "repair", "compose"]);
 export type ModelRole = z.infer<typeof modelRoleSchema>;
 
 /**
@@ -63,6 +63,10 @@ export const modelRoutingSchema = z.object({
   paint: z.string().min(1).default("z-ai/glm-5.2"),
   critique: z.string().min(1).default("openai/gpt-5.4-mini"),
   repair: z.string().min(1).default("openai/gpt-5.4-nano"),
+  // The composer fills the strict composition order form (D71). Defaults to Sonnet: the prototype
+  // measured clean, low-latency (4–9s) structured compositions on it, and it is allowlist-checked
+  // below (a composer that can't do strict JSON would silently ship malformed compositions).
+  compose: z.string().min(1).default("anthropic/claude-sonnet-5"),
   structuredOutputAllowlist: z
     .array(z.string().min(1))
     .default([
@@ -97,6 +101,9 @@ export const modelRoutingSchema = z.object({
       paint: reasoningSettingSchema.prefault({ effort: "low" }),
       critique: reasoningSettingSchema.optional(),
       repair: reasoningSettingSchema.optional(),
+      // Composition is a small judgment call, not a reasoning-heavy one: the prototype measured 4–9s
+      // clean structured outputs with reasoning OFF, so default it off (override per run if quality dips).
+      compose: reasoningSettingSchema.prefault({ enabled: false }),
     })
     .prefault({}),
   /**
@@ -149,6 +156,8 @@ export const modelRoutingSchema = z.object({
       paint: z.string().min(1).prefault("anthropic/claude-sonnet-4.6"),
       critique: z.string().min(1).optional(),
       repair: z.string().min(1).optional(),
+      // A composer fallback is also allowlist-checked (D11): if set, it must honour strict JSON.
+      compose: z.string().min(1).optional(),
     })
     .prefault({}),
   /**

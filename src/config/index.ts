@@ -33,7 +33,7 @@ export const engineConfigSchema = z.object({
 export type EngineConfig = z.infer<typeof engineConfigSchema>;
 
 /** Roles whose outputs are strict JSON and therefore require structured-output support (D11). */
-const STRUCTURED_OUTPUT_ROLES = ["plan", "critique", "repair"] as const;
+const STRUCTURED_OUTPUT_ROLES = ["plan", "critique", "repair", "compose"] as const;
 
 function assertStructuredOutputModels(models: ModelRouting): void {
   const allow = new Set(models.structuredOutputAllowlist);

@@ -75,9 +75,10 @@ describe("loadEngineConfig", () => {
         critique: "some/new-model",
         structuredOutputAllowlist: [
           "some/new-model",
-          // the other structured-output roles (plan, repair) must remain covered
+          // the other structured-output roles (plan, repair, compose) must remain covered
           "z-ai/glm-5.2",
           "openai/gpt-5.4-nano",
+          "anthropic/claude-sonnet-5",
         ],
       },
     });
@@ -145,7 +146,22 @@ describe("loadEngineConfig", () => {
     expect(config.models.reasoning).not.toHaveProperty("adjudicate");
     // The role enum no longer accepts it.
     expect(modelRoleSchema.safeParse("adjudicate").success).toBe(false);
-    expect(modelRoleSchema.options).toEqual(["plan", "paint", "critique", "repair"]);
+    expect(modelRoleSchema.options).toEqual(["plan", "paint", "critique", "repair", "compose"]);
+  });
+
+  it("routes a compose role: Sonnet default, reasoning off, allowlist-checked (D71)", () => {
+    const config = defaultEngineConfig();
+    expect(config.models.compose).toBe("anthropic/claude-sonnet-5");
+    expect(config.models.reasoning.compose).toEqual({ enabled: false });
+    // compose is NOT exempt from the allowlist (unlike free-text paint) — a non-allowlisted composer
+    // model that can't do strict JSON fails loudly at config load.
+    try {
+      loadEngineConfig({ models: { compose: "some/unknown-tiny-model" } });
+      expect.unreachable("should have thrown");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConfigError);
+      expect((error as ConfigError).message).toContain("compose=some/unknown-tiny-model");
+    }
   });
 
   it("defaults the per-role resilience attempt budget (paint gets the extra retry)", () => {
