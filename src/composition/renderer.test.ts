@@ -178,7 +178,7 @@ describe("renderComposed — per-section slot coverage guarantee", () => {
       expect(res.html).toContain(`data-image-slot="${slot}"`);
   });
 
-  it("warns when the distinct slots exceed the band capacity (static ≤5)", async () => {
+  it("warns when the distinct slots exceed the band capacity", async () => {
     const many = Array.from({ length: 6 }, (_, i) => ({
       id: `p${i}`,
       name: `Dish ${i}`,
@@ -190,12 +190,109 @@ describe("renderComposed — per-section slot coverage guarantee", () => {
       ...base,
       sections: secs(Array.from({ length: 6 }, (_, i) => [`Slot${i}`, 2, true])),
       photoCandidates: many,
-      photoMode: "static", // max 5 cards
+      photoMode: "static",
       composition: {
         title: "T",
         blocks: [{ kind: "photoBand", section: "", sections: [], itemIds: [] }],
       },
     });
     expect(res.warnings.join(" ")).toMatch(/image slots exceed/i);
+  });
+});
+
+describe("renderComposed — photo band width capacity", () => {
+  // Distinct photo-card ids in the band (filmstrip duplicates its cards for the seamless wrap, so a
+  // Set collapses each card to one entry — the card COUNT).
+  const imgIds = (html: string) =>
+    new Set([...html.matchAll(/data-img-item="([^"]+)"/g)].map((m) => m[1]));
+  const eightPhotos = Array.from({ length: 8 }, (_, i) => ({
+    id: `ph${i}`,
+    name: `Photo ${i}`,
+    price: 9.99,
+    hasImage: true,
+  }));
+  const bandComp: CompositionResponse = {
+    title: "T",
+    blocks: [
+      { kind: "photoBand", section: "", sections: [], itemIds: eightPhotos.map((p) => p.id) },
+    ],
+  };
+
+  it("caps a board-level band to what the PORTRAIT width accommodates (~3), not the mode's 12", async () => {
+    // Portrait body ≈ 976px; dhaba caps at floor(976/262) = 3 curated cards (like gold-3b), though the
+    // composer offered 8 — the fix for the frame-crop the live run showed.
+    const res = await renderComposed({
+      ...base,
+      photoCandidates: eightPhotos,
+      composition: bandComp,
+    });
+    expect(imgIds(res.html).size).toBe(3);
+  });
+
+  it("caps a LANDSCAPE banner to its wider width (~6)", async () => {
+    // Landscape body ≈ 1816px; dhaba caps at floor(1816/262) = 6.
+    const res = await renderComposed({
+      ...base,
+      canvas: { width: 1920, height: 1080 },
+      photoCandidates: eightPhotos,
+      composition: bandComp,
+    });
+    expect(imgIds(res.html).size).toBe(6);
+  });
+
+  it("never drops a photo slot for width: covers ALL distinct slots even past the cap, and warns", async () => {
+    const sixSlots = Array.from({ length: 6 }, (_, i) => ({
+      id: `s${i}`,
+      name: `Dish ${i}`,
+      price: 9.99,
+      hasImage: true,
+      slot: `Slot${i}`,
+    }));
+    const res = await renderComposed({
+      ...base,
+      sections: secs(Array.from({ length: 6 }, (_, i) => [`Slot${i}`, 2, true])),
+      photoCandidates: sixSlots,
+      composition: {
+        title: "T",
+        blocks: [{ kind: "photoBand", section: "", sections: [], itemIds: [] }],
+      },
+    });
+    // Portrait width cap = 3, but slot coverage is a HARD guarantee (checkImageSlots needs a marker per
+    // planned photo slot) → all 6 slots represented rather than a re-introduced image-slot-missing, plus a
+    // warning surfacing the over-packing. Only FILLER is bound by the width cap.
+    const slots = new Set([...res.html.matchAll(/data-image-slot="(Slot\d)"/g)].map((m) => m[1]));
+    expect(slots.size).toBe(6);
+    expect(res.warnings.join(" ")).toMatch(/image slots exceed the 3-card width capacity/);
+  });
+
+  it("bounds FILLER by the width cap: a per-section board adds no filler past its slot cards", async () => {
+    // Two photo slots on a portrait board (width cap 3): the band shows the two guaranteed slot cards plus
+    // at most one filler to reach the ≥3 floor — never the runaway pile the live run produced.
+    const twoSlots = [
+      { id: "s0", name: "A", price: 1, hasImage: true, slot: "Alpha" },
+      { id: "s1", name: "B", price: 1, hasImage: true, slot: "Beta" },
+      ...Array.from({ length: 6 }, (_, i) => ({
+        id: `f${i}`,
+        name: `Filler ${i}`,
+        price: 1,
+        hasImage: true,
+        slot: "Alpha",
+      })),
+    ];
+    const res = await renderComposed({
+      ...base,
+      sections: secs([
+        ["Alpha", 4, true],
+        ["Beta", 2, true],
+      ]),
+      photoCandidates: twoSlots,
+      composition: {
+        title: "T",
+        blocks: [
+          { kind: "photoBand", section: "", sections: [], itemIds: twoSlots.map((p) => p.id) },
+        ],
+      },
+    });
+    expect(imgIds(res.html).size).toBe(3); // 2 distinct slots + 1 filler to the ≥3 floor, capped at 3
   });
 });

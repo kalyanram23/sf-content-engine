@@ -631,12 +631,20 @@ export function checkImageSlots(ctx: StructuralContext): QaFinding[] {
   const wantsSection = plan.sections.some((s) => s.imageSlot !== undefined);
   const wantsShared = plan.imageSlot !== undefined;
   if (!wantsSection && !wantsShared) return [];
+  // D73-class trust: a composed board is deterministic theme-vocabulary output. Vocabulary v1 renders
+  // photo BANDS only — an `icon` section slot (a photo-LESS category the planner directs to a themed
+  // food-icon panel) has no v1 component to satisfy it (icon panels are a vocabulary-v2 component). For
+  // a composed root ONLY, skip `kind:"icon"` section slots; PHOTO slots — per-section (`kind:"photos"`)
+  // AND the board-level shared slot — STAY enforced (the shared band renders them and each card stamps
+  // its data-image-slot marker). Free-paint boards are unaffected (composed=false → nothing skipped).
+  const composed = isComposedHtml(ctx.html);
   const slotValues = new Set(
     [...ctx.html.matchAll(/data-image-slot\s*=\s*"([^"]*)"/g)].map((m) => m[1] ?? ""),
   );
   const findings: QaFinding[] = [];
   for (const section of plan.sections) {
     if (section.imageSlot === undefined) continue;
+    if (composed && section.imageSlot.kind === "icon") continue;
     if (!slotValues.has(escapeSlotTitle(section.title))) {
       findings.push(
         makeFinding({

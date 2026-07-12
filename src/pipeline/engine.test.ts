@@ -1002,7 +1002,7 @@ describe("composition — QA trusts composed markup (D73)", () => {
   // D74: a composed board's masthead title is intentionally model-authored (the sole sanctioned
   // invented-copy field). The critic must be told so it never majors the title as invented copy;
   // item-level names/prices stay strictly data-bound. Composed candidates only — free-paint unchanged.
-  it("tells the critic a composed board's masthead title is sanctioned (D74)", async () => {
+  it("tells the critic a composed board's masthead title + theme idiom are sanctioned (D74/D73)", async () => {
     const critic = new CapturingVisionCritic();
     const engine = createFakeEngine({
       observations: [cleanObservation()],
@@ -1011,10 +1011,18 @@ describe("composition — QA trusts composed markup (D73)", () => {
     await engine.generate(fixtures.input);
 
     expect(critic.requests.length).toBeGreaterThan(0);
-    for (const req of critic.requests) expect(req.layoutStrategy ?? "").toContain("D74");
+    for (const req of critic.requests) {
+      const brief = req.layoutStrategy ?? "";
+      expect(brief).toContain("D74"); // masthead title sanctioned
+      // The three idiom facts that stop the critic majoring idiom-faithful rendering.
+      expect(brief).toContain("IDIOM NOTES");
+      expect(brief).toMatch(/reserved logo placeholder/i); // (a) masthead logo box
+      expect(brief).toMatch(/filmstrip idiom/i); // (b) uniform repeated polaroid strip
+      expect(brief).toMatch(/dotted-leader price lists/i); // (c) matrix/multi-column → flat lists
+    }
   });
 
-  it("free-paint brief carries NO D74 title note (byte-identical pin)", async () => {
+  it("free-paint brief carries NO D74 title note NOR idiom notes (byte-identical pin)", async () => {
     const critic = new CapturingVisionCritic();
     const engine = createFakeEngine({
       observations: [cleanObservation()],
@@ -1023,7 +1031,34 @@ describe("composition — QA trusts composed markup (D73)", () => {
     await engine.generate(fixtures.input);
 
     expect(critic.requests.length).toBeGreaterThan(0);
-    for (const req of critic.requests) expect(req.layoutStrategy ?? "").not.toContain("D74");
+    for (const req of critic.requests) {
+      expect(req.layoutStrategy ?? "").not.toContain("D74");
+      expect(req.layoutStrategy ?? "").not.toContain("IDIOM NOTES");
+    }
+  });
+
+  // Fill-floor trust (D73-class): the fitter already maximized type size, so an honest sparse composed
+  // board sits legitimately below the global under-fill floor — the free painter only ever cleared it
+  // by inventing filler. The deterministicQA node drops the too-empty density finding for composed
+  // candidates; overflow/dead-band still run, and free-paint boards are unaffected.
+  it("fill-floor trust: drops the under-fill density finding on a composed board", async () => {
+    // 15% fill is below every floor (minFill/sparse/type-led). No dead-band (rowContentFill full).
+    const engine = createFakeEngine({
+      observations: [cleanObservation({ fillRatio: 0.15 })],
+      ports: { painter: new ComposedRootPainter() },
+    });
+    const out = await engine.generate(fixtures.input);
+    const findings = out.qaReport.screens[0]!.findings;
+    expect(findings.some((f) => f.kind === "density")).toBe(false);
+  });
+
+  it("still fires the under-fill density finding on a free-paint board (non-regression pin)", async () => {
+    const engine = createFakeEngine({
+      observations: [cleanObservation({ fillRatio: 0.15 })],
+    });
+    const out = await engine.generate(fixtures.input);
+    const findings = out.qaReport.screens[0]!.findings;
+    expect(findings.some((f) => f.kind === "density")).toBe(true);
   });
 });
 

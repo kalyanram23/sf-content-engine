@@ -85,6 +85,14 @@ export interface ComponentVocabulary {
   minStreamWidth: number;
   sectionGap: number;
   landscapeBannerHeight: number;
+  /**
+   * Max photo cards a band of `bandWidth` px can hold before its cards would fall below the theme's
+   * narrowest legible size — a THEME-DERIVED capacity (card geometry is the vocabulary's), so the
+   * renderer caps the collage to what the band's width actually accommodates instead of cramming cards
+   * the fixed frame then crops. The renderer takes the min of this and the mode's carousel cap; the
+   * slot-coverage guarantee is honoured WITHIN the result.
+   */
+  photoBandCapacity(bandWidth: number): number;
   metrics(register: string): VocabularyMetrics;
   renderShell(args: ShellArgs): string;
   renderSection(args: {

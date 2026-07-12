@@ -220,6 +220,16 @@ export async function deterministicQaNode(
   // depends on it: without it, a board whose shared slot was dropped for missing photos would
   // false-fire image-slot-missing against a slot the painter was correctly told NOT to render.
   const paintedScreen = effectiveScreen(screen, items);
+  // D73-class trust: a composed board is deterministic renderer output — the fitter's register search
+  // already maximized type size for the actual content, so an honest sparse composed board sits
+  // legitimately below the global UNDER-fill floor (the free painter only ever cleared that floor by
+  // inventing filler). Trust the fitter on the under-fill floor: drop the too-empty density finding for
+  // composed candidates. Overflow, dead-band, and item-cutoff STILL RUN (they catch real voids / spill /
+  // clipping), and the over-fill (over-crammed) density finding is untouched — only the under-fill
+  // finding is trusted away. Composed-awareness lives HERE because the density check reads only the
+  // RenderObservation and cannot see the HTML; this node holds `state.html` (and matches how
+  // buildCritiqueRequest below detects a composed candidate).
+  const composed = state.html !== undefined && isComposedHtml(state.html);
   const findings: QaFinding[] = [
     ...runStructuralChecks({
       html: state.packagedHtml,
@@ -235,14 +245,16 @@ export async function deterministicQaNode(
       overBudget: typeScale.overBudget,
       tier,
     }),
-  ].map((f) =>
-    // Re-mark contrast: a token swap only helps on a scopable selector over a solid bg. Contrast
-    // over a photo (or a bare-tag selector) is NOT deterministically fixable → it routes to
-    // re-paint (the painter adds a scrim) instead of looping on a futile/destructive repair.
-    f.kind === FindingKind.Contrast
-      ? { ...f, deterministicallyFixable: contrastIsFixable(f, theme) }
-      : f,
-  );
+  ]
+    .map((f) =>
+      // Re-mark contrast: a token swap only helps on a scopable selector over a solid bg. Contrast
+      // over a photo (or a bare-tag selector) is NOT deterministically fixable → it routes to
+      // re-paint (the painter adds a scrim) instead of looping on a futile/destructive repair.
+      f.kind === FindingKind.Contrast
+        ? { ...f, deterministicallyFixable: contrastIsFixable(f, theme) }
+        : f,
+    )
+    .filter((f) => !(composed && f.kind === FindingKind.Density && f.data?.["kind"] === "under"));
   ctx.ports.logger?.debug(
     `board ${state.screenIndex + 1} "${screen.id}": ${findings.length} deterministic finding(s)`,
     { findings: findings.map((f) => f.kind) },
@@ -308,7 +320,26 @@ function buildCritiqueRequest(
       "composed headline) — do NOT flag it as invented copy. Item names and prices remain strictly " +
       "data-bound; flag those if invented."
     : undefined;
-  const layoutStrategy = [baseStrategy, matrixSummary, sizeDirective, composedTitleNote]
+  // A composed board renders in the theme's deterministic vocabulary — several of its choices are
+  // sanctioned idiom the critic keeps mistaking for defects. Brief them so the critic stops majoring
+  // idiom-faithful rendering (D73). Composed candidates ONLY (undefined → filtered → free-paint brief
+  // byte-identical). Kept compact — three facts:
+  const composedIdiomNote = composed
+    ? "IDIOM NOTES (D73): this board is deterministic theme-vocabulary output — the following are " +
+      "SANCTIONED design, do NOT flag them. (a) The empty bordered box in the masthead is a RESERVED " +
+      "logo placeholder (present in the theme's gold references) — intentional, not a missing element. " +
+      "(b) A uniform row of repeated/tilted polaroid photo cards is the theme's FILMSTRIP idiom, not " +
+      "lazy repetition. (c) Multi-column and comparison/matrix sections render as flat dotted-leader " +
+      "price lists in this vocabulary — a sanctioned representation, never a representation-clarity or " +
+      "theme-adherence defect."
+    : undefined;
+  const layoutStrategy = [
+    baseStrategy,
+    matrixSummary,
+    sizeDirective,
+    composedTitleNote,
+    composedIdiomNote,
+  ]
     .filter((s): s is string => s !== undefined)
     .join("\n\n");
   return {

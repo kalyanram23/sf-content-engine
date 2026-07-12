@@ -13,6 +13,7 @@ describe("VocabularyRegistry contract", () => {
       minStreamWidth: 400,
       sectionGap: 12,
       landscapeBannerHeight: 200,
+      photoBandCapacity: (bandWidth) => Math.max(1, Math.floor(bandWidth / 100)),
       metrics: () => ({
         sectionHeight: (n) => n * 20,
         groupHeight: (ns) => Math.max(...ns) * 20,

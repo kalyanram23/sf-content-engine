@@ -488,6 +488,15 @@ export const dhabaVocabulary: ComponentVocabulary = {
   sectionGap: 14,
   landscapeBannerHeight: 224,
 
+  photoBandCapacity(bandWidth: number): number {
+    // How many polaroid cards fit across `bandWidth` before a card would be narrower than the theme's
+    // NARROWEST register card (S = 262px) — the smallest the fitter can pick. Register-independent by
+    // design: bigger registers overlap/scale cards within the same count (the gold-3b pile), so the cap
+    // does not shrink as type grows. A portrait body (≈976px) caps at 3 curated cards like gold-3b
+    // instead of the ~8 that the fixed frame would crop; a landscape banner (≈1816px) at 6.
+    return Math.max(1, Math.floor(bandWidth / REGISTERS.S.cardW));
+  },
+
   contentBox(canvas: VocabCanvas): { width: number; height: number } {
     return {
       width: canvas.width - 2 * FRAME - 2 * PAD_SIDE,

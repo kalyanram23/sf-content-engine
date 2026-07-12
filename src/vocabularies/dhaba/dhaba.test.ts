@@ -123,4 +123,15 @@ describe("dhabaVocabulary", () => {
       dhabaVocabulary.metrics("L").flowRowHeight(),
     );
   });
+
+  it("photoBandCapacity is a theme-derived width cap: ~3 at portrait body, ~6 at landscape banner", () => {
+    // Cards no narrower than the S-register card (262px): floor(width / 262). Portrait body ≈ 976,
+    // landscape banner ≈ 1816. Monotone in width, and always ≥ 1.
+    expect(dhabaVocabulary.photoBandCapacity(976)).toBe(3);
+    expect(dhabaVocabulary.photoBandCapacity(1816)).toBe(6);
+    expect(dhabaVocabulary.photoBandCapacity(10)).toBe(1); // floored at 1, never 0
+    expect(dhabaVocabulary.photoBandCapacity(1816)).toBeGreaterThan(
+      dhabaVocabulary.photoBandCapacity(976),
+    );
+  });
 });

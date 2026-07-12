@@ -496,6 +496,29 @@ describe("checkImageSlots (Fix 4 — category image slots enforced engine-side)"
     expect(checkImageSlots(ctx(VALID_HTML))).toHaveLength(0);
   });
 
+  // D73-class trust: a composed board (data-composed root) renders photo BANDS only; a photo-LESS
+  // `icon` slot has no vocabulary-v1 component, so it is skipped for composed roots. Photo slots stay
+  // enforced; free-paint boards are unaffected.
+  it("composed board: skips a photo-LESS `icon` section slot but still enforces the photo slot", () => {
+    // MANDI (photos) is satisfied by the shared band's marker; DESSERTS (icon) is trusted away → clean.
+    const html = `<div data-composed="dhaba@1"><div data-image-slot="MANDI"></div></div>`;
+    expect(checkImageSlots(ctx(html, { planScreen: sectionSlotPlan }))).toHaveLength(0);
+  });
+
+  it("composed board: a MISSING photo section slot still fires (icon skip never weakens photo slots)", () => {
+    const html = `<div data-composed="dhaba@1"></div>`;
+    const found = checkImageSlots(ctx(html, { planScreen: sectionSlotPlan }));
+    expect(found).toHaveLength(1);
+    expect(found[0]!.region).toBe("MANDI"); // DESSERTS (icon) skipped; MANDI (photos) enforced
+  });
+
+  it("free-paint board: an `icon` slot is STILL enforced (composed-only trust — non-regression pin)", () => {
+    // Same plan + same missing markup, but a NON-composed root → BOTH slots fire, exactly as before.
+    const html = `<main><article data-item-id="a"></article><article data-item-id="b"></article></main>`;
+    const found = checkImageSlots(ctx(html, { planScreen: sectionSlotPlan }));
+    expect(found.map((f) => f.region)).toEqual(["MANDI", "DESSERTS"]);
+  });
+
   it("passes the FakePainter's rendered output (it renders a container per planned slot, D38)", async () => {
     const plan: PlanScreen = {
       id: "s",

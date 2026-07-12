@@ -14,6 +14,7 @@ const testVocab = {
   minStreamWidth: 300,
   sectionGap: 10,
   landscapeBannerHeight: 150,
+  photoBandCapacity: (bandWidth: number) => Math.max(1, Math.floor(bandWidth / 100)),
   metrics: (register: string) => {
     const row = register === "L" ? 30 : 20;
     return {

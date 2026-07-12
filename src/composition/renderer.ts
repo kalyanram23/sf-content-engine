@@ -170,20 +170,31 @@ function expandGroups(blocks: CompositionBlock[]): CompositionBlock[] {
 }
 
 /**
- * Resolve a photoBand block's ids into real photo items (photo-truth), clamped to 3–`max` (D72: keys on
- * `hasImage`, not an imageUrl presence).
+ * Resolve a photoBand block's ids into real photo items (photo-truth, D72: keys on `hasImage`). The band
+ * width can only hold so many cards before the fixed frame crops them, so `capacity` — theme-derived
+ * (`vocab.photoBandCapacity` ∧ the mode's carousel cap) — bounds the FILLER the band adds. Ordering
+ * (mirrors this file's section coverage guarantee + coverage.ts: the LLM judges, code guarantees the
+ * bookkeeping):
  *
- * SLOT-COVERAGE GUARANTEE (mirrors this file's section coverage guarantee + coverage.ts: the LLM judges,
- * code guarantees the bookkeeping). After the composer's explicit picks and BEFORE generic padding, every
- * DISTINCT per-section slot among the candidates gets ≥1 card in the band, so each card's
- * `data-image-slot="<slot>"` satisfies `checkImageSlots`. Board-level items carry no slot (the band root's
- * `data-image-slot="shared"` satisfies them). If the distinct slots exceed the band's `max` capacity, keep
- * as many as fit and push a warning — an honest partial, never a silent drop.
+ *   1. SLOT-COVERAGE GUARANTEE first — ≥1 card per DISTINCT per-section slot. This is a HARD guarantee,
+ *      NOT bounded by `capacity`: `checkImageSlots` requires a marker per planned photo slot, so a slot is
+ *      never dropped for width (that would just trade a crop for an `image-slot-missing` major). When the
+ *      distinct slots exceed the width capacity the band simply packs tighter — a comfortable board is a
+ *      handful of slots — and we warn so the over-packing is visible (mirrors the pre-cap over-capacity
+ *      warning). Doing this before the composer's picks keeps filler from starving a slot.
+ *   2. the composer's explicit picks — judgment (known id + hasImage, de-duplicated, in order), filling
+ *      the REMAINING width capacity only (filler never pushes the band past the width fit; the guaranteed
+ *      slot cards above may already meet or exceed it).
+ *   3. generic padding to ≥3 (clamped to capacity) from any remaining candidates.
+ *
+ * Board-level items carry no slot (step 1 is a no-op; the band root's `data-image-slot="shared"` satisfies
+ * them) — so for a board-level-only band the order collapses to composer-picks-then-pad bounded by the
+ * width capacity: exactly the crop fix (the live run's runaway 7–8 filler cards → the width's ~3).
  */
 function resolveCollage(
   ids: string[],
   photoCandidates: VocabItem[],
-  max: number,
+  capacity: number,
   warnings: string[],
 ): VocabItem[] {
   const byId = new Map(photoCandidates.map((c) => [c.id, c]));
@@ -193,36 +204,42 @@ function resolveCollage(
     picked.push(c);
     seen.add(c.id);
   };
-  // 1. The composer's explicit picks — judgment (known id + hasImage, de-duplicated, in order).
-  for (const id of ids) {
-    const it = byId.get(id);
-    if (it && it.hasImage && !seen.has(id)) take(it);
-  }
-  // 2. Slot-coverage guarantee: ≥1 card per distinct per-section slot, within the `max` clamp.
-  const covered = new Set(picked.map((c) => c.slot).filter((s): s is string => s !== undefined));
+  // 1. Slot-coverage guarantee FIRST — ≥1 card per distinct per-section slot; a HARD guarantee, never
+  //    dropped for width (dropping one would reintroduce an image-slot-missing major). Warn when the
+  //    slots exceed the width capacity so the tighter packing is surfaced.
   const distinctSlots = [
     ...new Set(photoCandidates.map((c) => c.slot).filter((s): s is string => s !== undefined)),
   ];
-  for (const slot of distinctSlots) {
-    if (covered.has(slot)) continue;
-    const card = photoCandidates.find((c) => c.slot === slot && c.hasImage && !seen.has(c.id));
-    if (card === undefined) continue; // the slot's photos are all already picked under the composer's ids
-    if (picked.length >= max) {
-      warnings.push(
-        `photo band: ${distinctSlots.length} image slots exceed the ${max}-card band — ` +
-          `slot "${slot}" is not represented in the collage.`,
-      );
-      break;
-    }
-    take(card);
-    covered.add(slot);
+  if (distinctSlots.length > capacity) {
+    warnings.push(
+      `photo band: ${distinctSlots.length} image slots exceed the ${capacity}-card width capacity — ` +
+        `packing the band tighter to keep every slot represented.`,
+    );
   }
-  // 3. Pad to at least 3 from any remaining candidates (generic padding).
+  for (const slot of distinctSlots) {
+    const card = photoCandidates.find((c) => c.slot === slot && c.hasImage && !seen.has(c.id));
+    if (card !== undefined) take(card); // the slot's photos may all already be picked → skip
+  }
+  // 2. The composer's explicit picks — judgment (known id + hasImage, de-duplicated, in order), filling
+  //    the remaining width capacity (never past it).
+  for (const id of ids) {
+    if (picked.length >= capacity) break;
+    const it = byId.get(id);
+    if (it && it.hasImage && !seen.has(id)) take(it);
+  }
+  // 3. Pad to at least 3 (never past capacity) from any remaining candidates (generic padding).
+  const padTo = Math.min(3, capacity);
   for (const c of photoCandidates) {
-    if (picked.length >= 3) break;
+    if (picked.length >= padTo) break;
     if (!seen.has(c.id) && c.hasImage) take(c);
   }
-  return picked.slice(0, max);
+  return picked;
+}
+
+/** The band's card capacity: the mode's carousel cap ∧ the width the band actually accommodates
+ * (theme-derived — {@link ComponentVocabulary.photoBandCapacity}). */
+function bandCapacity(mode: PhotoBandMode, bandWidth: number, vocab: ComponentVocabulary): number {
+  return Math.min(collageMax(mode), vocab.photoBandCapacity(bandWidth));
 }
 
 /**
@@ -244,7 +261,8 @@ function renderBlockList(
   let n = startNumber;
   const parts = list.map((b, i) => {
     if (b.kind === "photoBand") {
-      const cards = resolveCollage(b.itemIds, photoCandidates, collageMax(photoMode), warnings);
+      const capacity = bandCapacity(photoMode, bandWidth, vocab);
+      const cards = resolveCollage(b.itemIds, photoCandidates, capacity, warnings);
       if (cards.length === 0) return "";
       return vocab.renderPhotoBand({
         items: cards,
@@ -468,7 +486,8 @@ function columnsShared(
 
   let bannerHtml = "";
   if (banner) {
-    const cards = resolveCollage(banner.itemIds, photoCandidates, collageMax(photoMode), warnings);
+    const capacity = bandCapacity(photoMode, bodyWidth, vocab);
+    const cards = resolveCollage(banner.itemIds, photoCandidates, capacity, warnings);
     if (cards.length) {
       bannerHtml =
         `<div style="flex:none;margin-bottom:${BANNER_GAP}px">` +
