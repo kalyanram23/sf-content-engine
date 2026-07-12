@@ -1546,9 +1546,10 @@ faithfully reproduce the packaged ship environment — refined in D77.)
 for a board whose root carries `data-composed` (`isComposedRoot`/`isComposedHtml`,
 `src/qa/structural-checks.ts`). **Rationale:** those checks target LLM-authored markup — token-lint
 forbids raw hex/px a free-painter might type, and matrix-structure enforces a table shape the
-free-painter must build by hand. The renderer's output is **deterministic** (the vocabulary emits its
-own CSS, and v1 renders `representation:"matrix"` sections as flat dotted-leader price lists — a known
-limitation, not a defect), so linting it just burns the iteration budget on rule-92 re-paint loops.
+free-painter must build by hand. The renderer's output is **deterministic and unit-tested** (the
+vocabulary emits its own CSS, and v1 renders `representation:"matrix"` sections as flat dotted-leader
+price lists — a known limitation, not a defect), so linting it just burns the iteration budget on
+rule-92 re-paint loops. (A per-component pixel-test snapshot matrix is still backlog — not a claim here.)
 
 **Marker descends into `<body>`.** `isComposedRoot` skips leading text nodes and reads the FIRST
 element — so the predicate fires on the PACKAGED full document (`<html><body><div

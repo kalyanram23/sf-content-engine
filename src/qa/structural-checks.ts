@@ -610,11 +610,20 @@ export function checkMatrixStructure(root: HTMLElement, plan: PlanScreen): QaFin
 }
 
 /**
- * HTML-attribute-escape a section title the way it appears in shipped markup — the SAME escaping the
- * eval grader's `escapeAttr` uses, so this engine check and `gradeCategoryImages` agree on membership.
+ * HTML-attribute-escape a section title the way it appears in shipped markup. Escapes `"` as well as
+ * `& < >`: the `data-image-slot` marker regex below stops at the first `"`, so a title carrying a
+ * literal `"` must be escaped or matching breaks (a false `image-slot-missing`). MUST stay
+ * byte-identical in its escape set to the vocabulary EMITTER (`esc` in src/vocabularies/dhaba/index.ts)
+ * that stamps the marker — this matcher recomputes the expected value, so any divergence breaks the
+ * round-trip. (The eval grader's `escapeAttr` mirrors the same base `& < >` set for its own membership
+ * check; a `"`-bearing title is out of that offline grader's scope.)
  */
 function escapeSlotTitle(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 /**

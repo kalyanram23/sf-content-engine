@@ -90,6 +90,28 @@ describe("dhabaVocabulary", () => {
     }
   });
 
+  it("escapes a literal double-quote in a slot title so the data-image-slot attribute stays well-formed", () => {
+    // A `"` in a slot title would otherwise close the attribute early (data-image-slot="The "Big"…),
+    // breaking the marker AND making checkImageSlots' regex (which stops at the first `"`) read a
+    // truncated value. The emitter's esc must escape `"` → &quot; exactly like escapeSlotTitle does.
+    const slotted = [
+      { id: "q0", name: 'The "Big" Combo', price: 9.99, hasImage: true, slot: 'The "Big" Board' },
+    ];
+    for (const mode of ["filmstrip", "crossfade", "static"] as const) {
+      const html = dhabaVocabulary.renderPhotoBand({
+        items: slotted,
+        register: "M",
+        bandHeight: 300,
+        bandWidth: 976,
+        mode,
+        uid: "b1",
+      });
+      expect(html).toContain('data-image-slot="The &quot;Big&quot; Board"');
+      // The caption/alt carrying the same quote is escaped too (no stray attribute break).
+      expect(html).toContain('alt="The &quot;Big&quot; Combo"');
+    }
+  });
+
   it("stamps NO per-card slot marker when items carry none (only the band root's shared marker)", () => {
     const html = dhabaVocabulary.renderPhotoBand({
       items: items(3, true),

@@ -128,8 +128,14 @@ const RULE = "color-mix(in srgb,var(--color-text) 20%,transparent)";
  * Tailwind, whose preflight sets a unitless `line-height:1.5` on the root; price rows declare a
  * font-size but no line-height, so they inherit it. The off-screen MEASURE document replicates this so
  * measured row heights equal the shipped render (engine-generic: a property of the packaged output).
+ *
+ * Exported so a hermetic regression pin (`src/adapters/tailwind/packager.test.ts`) can assert the REAL
+ * packaged Preflight base line-height still equals this value — the measured-overflow guard only catches
+ * OVER-measurement, so if this constant ever drifts BELOW the packaged base (e.g. a Tailwind upgrade
+ * changing Preflight) the measure would silently UNDER-measure and landscape columns would clip (the
+ * D77 bug) with no other test to catch it.
  */
-const PACKAGED_BASE_LINE_HEIGHT = 1.5;
+export const PACKAGED_BASE_LINE_HEIGHT = 1.5;
 
 /** Validate the kind/field pairing and normalize; collect human-readable warnings. */
 function normalizeBlocks(

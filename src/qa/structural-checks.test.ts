@@ -16,6 +16,7 @@ import {
 } from "./structural-checks";
 import { FakePainter } from "../testing/fakes/painter";
 import type { PaintRequest } from "../ports/painter";
+import { dhabaVocabulary } from "../vocabularies/dhaba";
 
 const theme: ResolvedTheme = {
   id: "t",
@@ -517,6 +518,35 @@ describe("checkImageSlots (Fix 4 — category image slots enforced engine-side)"
     const html = `<main><article data-item-id="a"></article><article data-item-id="b"></article></main>`;
     const found = checkImageSlots(ctx(html, { planScreen: sectionSlotPlan }));
     expect(found.map((f) => f.region)).toEqual(["MANDI", "DESSERTS"]);
+  });
+
+  it("composed board: a slot title with a literal quote round-trips (emitter escape ↔ matcher, no false image-slot-missing)", () => {
+    // End-to-end sync check: the dhaba EMITTER stamps data-image-slot with esc(); checkImageSlots
+    // recomputes the expected value with escapeSlotTitle(). Both must escape `"` → &quot; identically,
+    // or the slot-marker regex (which stops at the first `"`) reads a truncated value and false-fires
+    // image-slot-missing on a perfectly-rendered composed board.
+    const title = 'The "Big" Board';
+    const band = dhabaVocabulary.renderPhotoBand({
+      items: [{ id: "q0", name: "Combo", price: 9, hasImage: true, slot: title }],
+      register: "M",
+      bandHeight: 300,
+      bandWidth: 976,
+      mode: "filmstrip",
+      uid: "q1",
+    });
+    const composed = `<div data-composed="dhaba@1">${band}</div>`;
+    const plan: PlanScreen = {
+      id: "s",
+      sections: [
+        {
+          title,
+          representation: "grid",
+          items: ["q0"],
+          imageSlot: { kind: "photos", items: ["q0"] },
+        },
+      ],
+    };
+    expect(checkImageSlots(ctx(composed, { planScreen: plan }))).toHaveLength(0);
   });
 
   it("passes the FakePainter's rendered output (it renders a container per planned slot, D38)", async () => {

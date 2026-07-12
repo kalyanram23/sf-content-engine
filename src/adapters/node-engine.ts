@@ -129,7 +129,8 @@ export function createNodeEngine(options: NodeEngineOptions): ContentEngine {
       : createDefaultThemeRepository());
 
   // The QA browser, constructed ONCE. The composition painter's `measure` reuses this SAME instance
-  // (below), so a composition run never launches a second Chromium.
+  // (below) rather than constructing a second PlaywrightBrowser — though, like render(), each
+  // measure() call still spins up its own short-lived chromium.launch() process.
   const browser = new PlaywrightBrowser(options.browser ?? {});
 
   // The composition path (D71). The composer LLM fills the strict order form; the CompositionPainter

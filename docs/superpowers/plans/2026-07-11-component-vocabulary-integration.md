@@ -1437,7 +1437,7 @@ git add -A && git commit -m "fix(composition): live-run corrections from dhaba p
 - [ ] **Step 1: Append to `DECISIONS.md`** (follow the file's D-entry format exactly; read the tail first):
   - **D71** — Composition paint path: closed component vocabulary; engine-owned 3-kind composition contract; theme-owned pluggable `ComponentVocabulary` packages behind `VocabularyRegistry`; `AutoPainter` per-theme selection with free-paint fallback; composer = judgment only, layout engine = all arithmetic; coverage guaranteed in the renderer (mirrors `coverage.ts`).
   - **D72** — `BrowserPort.measure` + measured-column landscape flow with continuation cues; measure doc uses fallback faces offline (±2px absorbed by balance slack).
-  - **D73** — token-lint exemption for `data-composed` roots; rationale (lint targets LLM-authored markup; renderer output is deterministic and pixel-tested).
+  - **D73** — token-lint exemption for `data-composed` roots; rationale (lint targets LLM-authored markup; renderer output is deterministic and unit-tested — a pixel-test snapshot matrix is still backlog).
   - **D74** — Board titles: the composition `title` is sanctioned invented copy (human board names like "Street & Sweets"); item-level copy remains data-bound only (photo-truth unchanged).
 - [ ] **Step 2: Add an ARCHITECTURE.md section** ("Composition paint path") with the three-layer diagram from this plan's header and the file map.
 - [ ] **Step 3: Update CLAUDE.md** briefly: the paint role now has two paths; vocabulary themes compose (cheap, deterministic), plain themes free-paint; mention `config.painter.mode`.

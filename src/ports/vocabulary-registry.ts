@@ -94,6 +94,11 @@ export interface ComponentVocabulary {
    */
   photoBandCapacity(bandWidth: number): number;
   metrics(register: string): VocabularyMetrics;
+  /**
+   * Render the theme's frame + masthead around `bodyHtml`, applying the SAME body insets its
+   * `contentBox` subtracts (composition passes padding-free markup) so the fitter's reserved content
+   * box and the rendered interior stay consistent — the body-inset ownership commit ad33e62 established.
+   */
   renderShell(args: ShellArgs): string;
   renderSection(args: {
     number: number;

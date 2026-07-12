@@ -141,8 +141,13 @@ function registerByName(name: string): Register {
 
 // ── helpers ──────────────────────────────────────────────────────────────────────────────────────
 const money = (p: number | null): string => (p === null ? "" : `$${p.toFixed(2)}`);
+// Escapes the attribute-significant `"` as well as `& < >` so a name/title/slot carrying a literal
+// `"` can't break the `alt`/caption/`data-image-slot` attributes it lands in. MUST stay byte-identical
+// in its escape set to `escapeSlotTitle` in src/qa/structural-checks.ts: this emitter stamps the
+// `data-image-slot` marker and that QA matcher recomputes the expected value — if they diverge, a
+// composed board with a `"` in a slot title false-fires `image-slot-missing`.
 const esc = (s: string): string =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /**
  * A `data-image-slot="<slot>"` attribute for a card whose photo satisfies a PER-SECTION image slot,

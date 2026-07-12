@@ -5,6 +5,7 @@ import { resolveTheme } from "../../theme/resolve";
 import { botanicalPreset } from "../../theme/presets/botanical";
 import { ICON_GLYPHS } from "../../theme/icon-glyphs";
 import { checkSelfContained } from "../../qa/structural-checks";
+import { PACKAGED_BASE_LINE_HEIGHT } from "../../composition/renderer";
 import { PLACEHOLDER_IMAGE_DATA_URI } from "../../util/placeholder-image";
 import { parse } from "node-html-parser";
 import { TailwindPackager } from "./packager";
@@ -147,6 +148,28 @@ describe("TailwindPackager (real compile, hermetic)", () => {
     expect(packaged).toContain("M2 16");
     expect(packaged).toContain(`viewBox="${ICON_GLYPHS["platter-generic"]!.viewBox}"`);
     expect(checkSelfContained(parse(packaged))).toEqual([]);
+  }, 60_000);
+
+  it("packaged Preflight base line-height equals the offline MEASURE constant (D77 clip-guard pin)", async () => {
+    // D77 landscape-clip fix: the off-screen MEASURE document (src/composition/renderer.ts,
+    // buildMeasureDoc) sets the measured root's line-height to PACKAGED_BASE_LINE_HEIGHT so measured
+    // price-row heights equal the SHIPPED render — a packaged row declares a font-size but no
+    // line-height and inherits Tailwind Preflight's unitless base `line-height:1.5` on the root. The
+    // measured-overflow guard only catches OVER-measurement, so if this constant ever drifts BELOW the
+    // real packaged base (e.g. a Tailwind upgrade changing Preflight) the measure silently
+    // UNDER-measures and landscape columns clip again — the exact D77 bug, with no other test to catch
+    // it. This pin compiles a minimal doc through the REAL packager and fails the moment the compiled
+    // Preflight base diverges from the constant the measure mirrors.
+    const packaged = await new TailwindPackager().package({
+      html: '<main class="text-text">Hi</main>',
+      theme,
+      items: [],
+    });
+    const css = packaged.match(/<style>([\s\S]*?)<\/style>/)?.[1] ?? "";
+    // Tailwind v4 Preflight sets the base line-height on the root selector (`html, :host { … }`).
+    const baseLineHeight = css.match(/html[^{]*\{[^}]*line-height:\s*([0-9.]+)/)?.[1];
+    expect(baseLineHeight, "Tailwind Preflight must set a base root line-height").toBeDefined();
+    expect(Number(baseLineHeight)).toBe(PACKAGED_BASE_LINE_HEIGHT);
   }, 60_000);
 
   it("defers the motion runtime until the DOM is parsed (the runtime <script> lives in <head>)", async () => {
