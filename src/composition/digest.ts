@@ -60,11 +60,26 @@ export function buildComposerContent(args: {
       .map(toVocabItem),
   }));
 
-  // Photo candidates: the board's imageSlot ids ∩ items that actually carry a photo.
-  const photoCandidates: VocabItem[] = (planScreen.imageSlot?.items ?? [])
-    .map((id) => byId.get(id))
-    .filter((it): it is CanonicalItem => it !== undefined && hasImage(it))
-    .map(toVocabItem);
+  // Photo candidates: the UNION of the board-level imageSlot ids AND every per-section imageSlot's
+  // ids, each ∩ items that actually carry a photo. Board-level items stay UNTAGGED (`slot` undefined —
+  // the band root's data-image-slot="shared" satisfies them); a per-section slot's items are TAGGED
+  // with the section title (the marker `checkImageSlots` keys on), so the shared band can stamp
+  // data-image-slot="<title>" per card and each per-section slot is verifiable inside one band.
+  // De-duped by id: the board-level slot wins, then the first section in plan order (keep first).
+  const photoCandidates: VocabItem[] = [];
+  const seenPhoto = new Set<string>();
+  const addCandidate = (id: string, slot: string | undefined): void => {
+    if (seenPhoto.has(id)) return;
+    const it = byId.get(id);
+    if (it === undefined || !hasImage(it)) return;
+    seenPhoto.add(id);
+    photoCandidates.push({ ...toVocabItem(it), ...(slot !== undefined ? { slot } : {}) });
+  };
+  for (const id of planScreen.imageSlot?.items ?? []) addCandidate(id, undefined);
+  for (const section of planScreen.sections) {
+    if (section.imageSlot === undefined) continue;
+    for (const id of section.imageSlot.items) addCandidate(id, section.title);
+  }
 
   const secLines = sections
     .map(

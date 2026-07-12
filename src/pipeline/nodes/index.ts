@@ -295,11 +295,20 @@ function buildCritiqueRequest(
   // directive — briefing the critic with that directive grades it against sizes it never received
   // (false "type too small" findings). Omit the size directive for composed candidates; densityTier
   // below is kept (it describes content, not painter instructions). D73.
-  const sizeDirective =
-    state.html !== undefined && isComposedHtml(state.html)
-      ? undefined
-      : sizeDirectiveFor(screen, viewport, ctx.config.planning);
-  const layoutStrategy = [baseStrategy, matrixSummary, sizeDirective]
+  const composed = state.html !== undefined && isComposedHtml(state.html);
+  const sizeDirective = composed
+    ? undefined
+    : sizeDirectiveFor(screen, viewport, ctx.config.planning);
+  // A composed board's masthead title is intentionally model-authored (the sole sanctioned invented-copy
+  // field — D74): tell the critic so it never majors the title as invented copy. Item-level names/prices
+  // stay strictly data-bound. Composed candidates ONLY — the free-paint brief is byte-identical (this
+  // note is undefined there and filtered out, leaving the join unchanged).
+  const composedTitleNote = composed
+    ? "TITLE NOTE (D74): the board's masthead title is intentionally model-authored (a sanctioned, " +
+      "composed headline) — do NOT flag it as invented copy. Item names and prices remain strictly " +
+      "data-bound; flag those if invented."
+    : undefined;
+  const layoutStrategy = [baseStrategy, matrixSummary, sizeDirective, composedTitleNote]
     .filter((s): s is string => s !== undefined)
     .join("\n\n");
   return {

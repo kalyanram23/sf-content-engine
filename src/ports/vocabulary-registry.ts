@@ -12,6 +12,14 @@ export interface VocabItem {
   price: number | null;
   /** True when the item has a photo (renderer emits a data-img-item placeholder for it). */
   hasImage: boolean;
+  /**
+   * The planned per-section image-slot name this item's photo satisfies (the section title
+   * `checkImageSlots` keys on). Vocabularies stamp `data-image-slot="<slot>"` on the photo
+   * element/card so a per-section slot is verifiable inside a shared band. Undefined for a
+   * board-level (shared) slot item — the band root's `data-image-slot="shared"` already
+   * satisfies it. Additive, non-breaking.
+   */
+  slot?: string;
 }
 
 export interface VocabCanvas {

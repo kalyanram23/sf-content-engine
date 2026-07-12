@@ -133,3 +133,69 @@ describe("renderComposed", () => {
     expect(res.warnings.join(" ")).toContain("group");
   });
 });
+
+describe("renderComposed — per-section slot coverage guarantee", () => {
+  const slottedCandidates = [
+    { id: "p-a", name: "Alpha dish", price: 9.99, hasImage: true, slot: "Alpha" },
+    { id: "p-b", name: "Beta dish", price: 9.99, hasImage: true, slot: "Beta" },
+    { id: "p-c", name: "Gamma dish", price: 9.99, hasImage: true, slot: "Gamma" },
+  ];
+  const slotBase = {
+    ...base,
+    sections: secs([
+      ["Alpha", 3, true],
+      ["Beta", 3, true],
+      ["Gamma", 3, true],
+    ]),
+    photoCandidates: slottedCandidates,
+  };
+
+  it("represents a slot the composer's photoBand picks IGNORED with ≥1 card", async () => {
+    // The composer picks only Alpha's photo; the coverage guarantee still yields a card for Beta + Gamma.
+    const res = await renderComposed({
+      ...slotBase,
+      composition: {
+        title: "T",
+        blocks: [
+          { kind: "photoBand", section: "", sections: [], itemIds: ["p-a"] },
+          { kind: "section", section: "Alpha", sections: [], itemIds: [] },
+          { kind: "section", section: "Beta", sections: [], itemIds: [] },
+          { kind: "section", section: "Gamma", sections: [], itemIds: [] },
+        ],
+      },
+    });
+    expect(res.html).toContain('data-image-slot="Alpha"');
+    expect(res.html).toContain('data-image-slot="Beta"');
+    expect(res.html).toContain('data-image-slot="Gamma"');
+  });
+
+  it("appends a photoBand when the composer emitted none but per-section slots exist", async () => {
+    const res = await renderComposed({
+      ...slotBase,
+      composition: { title: "T", blocks: [] }, // composer forgot the band entirely
+    });
+    for (const slot of ["Alpha", "Beta", "Gamma"])
+      expect(res.html).toContain(`data-image-slot="${slot}"`);
+  });
+
+  it("warns when the distinct slots exceed the band capacity (static ≤5)", async () => {
+    const many = Array.from({ length: 6 }, (_, i) => ({
+      id: `p${i}`,
+      name: `Dish ${i}`,
+      price: 9.99,
+      hasImage: true,
+      slot: `Slot${i}`,
+    }));
+    const res = await renderComposed({
+      ...base,
+      sections: secs(Array.from({ length: 6 }, (_, i) => [`Slot${i}`, 2, true])),
+      photoCandidates: many,
+      photoMode: "static", // max 5 cards
+      composition: {
+        title: "T",
+        blocks: [{ kind: "photoBand", section: "", sections: [], itemIds: [] }],
+      },
+    });
+    expect(res.warnings.join(" ")).toMatch(/image slots exceed/i);
+  });
+});

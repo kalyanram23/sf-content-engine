@@ -144,6 +144,14 @@ const money = (p: number | null): string => (p === null ? "" : `$${p.toFixed(2)}
 const esc = (s: string): string =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+/**
+ * A `data-image-slot="<slot>"` attribute for a card whose photo satisfies a PER-SECTION image slot,
+ * escaped exactly like `checkImageSlots`' `escapeSlotTitle` so engine QA finds the marker. Empty for a
+ * board-level (shared) slot item — the band root's own `data-image-slot="shared"` already marks that.
+ */
+const cardSlotAttr = (c: VocabItem): string =>
+  c.slot !== undefined ? ` data-image-slot="${esc(c.slot)}"` : "";
+
 // ── metric helpers (px height estimates the layout engine fits on) ───────────────────────────────────
 function rowH(r: Register, small: boolean): number {
   const name = small ? r.smRowName : r.rowName;
@@ -275,7 +283,7 @@ function polaroidCard(
   tilt: number,
 ): string {
   return (
-    `<div style="width:${w}px;background:var(--color-surface);padding:${CARD_PAD_TOP}px 10px 0;` +
+    `<div${cardSlotAttr(c)} style="width:${w}px;background:var(--color-surface);padding:${CARD_PAD_TOP}px 10px 0;` +
     `box-shadow:0 10px 24px rgba(42,26,14,0.28);transform:rotate(${tilt}deg);position:relative">` +
     `<div style="position:absolute;top:-9px;left:50%;transform:translateX(-50%) rotate(${-tilt}deg);` +
     `width:64px;height:20px;background:rgba(242,181,58,0.55);box-shadow:0 1px 2px rgba(42,26,14,0.2)"></div>` +
@@ -411,7 +419,7 @@ function staticCollage(
       const z = isAnchor ? 3 : 2 - (i % 2);
       const cap = Math.round(r.captionFont * (isAnchor ? 1 : 0.92));
       return (
-        `<div style="width:${w}px;background:var(--color-surface);padding:10px 10px 0;` +
+        `<div${cardSlotAttr(c)} style="width:${w}px;background:var(--color-surface);padding:10px 10px 0;` +
         `box-shadow:0 10px 24px rgba(42,26,14,0.28);transform:rotate(${tilt}deg);` +
         `margin-left:${overlap}px;margin-top:${vshift}px;z-index:${z};position:relative">` +
         // tape accent

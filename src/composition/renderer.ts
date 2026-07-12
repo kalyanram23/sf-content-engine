@@ -169,26 +169,58 @@ function expandGroups(blocks: CompositionBlock[]): CompositionBlock[] {
   return out;
 }
 
-/** Resolve a photoBand block's ids into real photo items (photo-truth), clamped to 3–`max` (D72:
- * keys on `hasImage`, not an imageUrl presence). */
-function resolveCollage(ids: string[], photoCandidates: VocabItem[], max = 5): VocabItem[] {
+/**
+ * Resolve a photoBand block's ids into real photo items (photo-truth), clamped to 3–`max` (D72: keys on
+ * `hasImage`, not an imageUrl presence).
+ *
+ * SLOT-COVERAGE GUARANTEE (mirrors this file's section coverage guarantee + coverage.ts: the LLM judges,
+ * code guarantees the bookkeeping). After the composer's explicit picks and BEFORE generic padding, every
+ * DISTINCT per-section slot among the candidates gets ≥1 card in the band, so each card's
+ * `data-image-slot="<slot>"` satisfies `checkImageSlots`. Board-level items carry no slot (the band root's
+ * `data-image-slot="shared"` satisfies them). If the distinct slots exceed the band's `max` capacity, keep
+ * as many as fit and push a warning — an honest partial, never a silent drop.
+ */
+function resolveCollage(
+  ids: string[],
+  photoCandidates: VocabItem[],
+  max: number,
+  warnings: string[],
+): VocabItem[] {
   const byId = new Map(photoCandidates.map((c) => [c.id, c]));
   const picked: VocabItem[] = [];
   const seen = new Set<string>();
+  const take = (c: VocabItem): void => {
+    picked.push(c);
+    seen.add(c.id);
+  };
+  // 1. The composer's explicit picks — judgment (known id + hasImage, de-duplicated, in order).
   for (const id of ids) {
     const it = byId.get(id);
-    if (it && it.hasImage && !seen.has(id)) {
-      picked.push(it);
-      seen.add(id);
-    }
+    if (it && it.hasImage && !seen.has(id)) take(it);
   }
-  // pad to at least 3 from remaining candidates
+  // 2. Slot-coverage guarantee: ≥1 card per distinct per-section slot, within the `max` clamp.
+  const covered = new Set(picked.map((c) => c.slot).filter((s): s is string => s !== undefined));
+  const distinctSlots = [
+    ...new Set(photoCandidates.map((c) => c.slot).filter((s): s is string => s !== undefined)),
+  ];
+  for (const slot of distinctSlots) {
+    if (covered.has(slot)) continue;
+    const card = photoCandidates.find((c) => c.slot === slot && c.hasImage && !seen.has(c.id));
+    if (card === undefined) continue; // the slot's photos are all already picked under the composer's ids
+    if (picked.length >= max) {
+      warnings.push(
+        `photo band: ${distinctSlots.length} image slots exceed the ${max}-card band — ` +
+          `slot "${slot}" is not represented in the collage.`,
+      );
+      break;
+    }
+    take(card);
+    covered.add(slot);
+  }
+  // 3. Pad to at least 3 from any remaining candidates (generic padding).
   for (const c of photoCandidates) {
     if (picked.length >= 3) break;
-    if (!seen.has(c.id) && c.hasImage) {
-      picked.push(c);
-      seen.add(c.id);
-    }
+    if (!seen.has(c.id) && c.hasImage) take(c);
   }
   return picked.slice(0, max);
 }
@@ -205,13 +237,14 @@ function renderBlockList(
   sectionsByTitle: Map<string, VocabSection>,
   bandWidth: number,
   maxInternalCols: number,
+  warnings: string[],
 ): { html: string; endNumber: number } {
   const { vocab, photoMode, photoCandidates } = input;
   const m = vocab.metrics(register);
   let n = startNumber;
   const parts = list.map((b, i) => {
     if (b.kind === "photoBand") {
-      const cards = resolveCollage(b.itemIds, photoCandidates, collageMax(photoMode));
+      const cards = resolveCollage(b.itemIds, photoCandidates, collageMax(photoMode), warnings);
       if (cards.length === 0) return "";
       return vocab.renderPhotoBand({
         items: cards,
@@ -268,6 +301,7 @@ function renderStack(
   input: RenderComposedInput,
   sectionsByTitle: Map<string, VocabSection>,
   plan: LayoutPlan,
+  warnings: string[],
 ): { html: string; f: FitResult; finalBlocks: CompositionBlock[] } {
   const f = fit({ blocks, sectionsByTitle, plan, vocab: input.vocab });
   const { html: body } = renderBlockList(
@@ -278,6 +312,7 @@ function renderStack(
     sectionsByTitle,
     f.layout.columnWidth,
     f.layout.maxInternalCols,
+    warnings,
   );
   // Body inset (padding) is owned by the vocabulary shell — this stays theme-agnostic and only sets the
   // stack's own layout: fill the shell's padded body box and distribute the stripes top-to-bottom.
@@ -412,6 +447,7 @@ function columnsShared(
   input: RenderComposedInput,
   sectionsByTitle: Map<string, VocabSection>,
   plan: LayoutPlan,
+  warnings: string[],
 ): {
   f: FitResult;
   register: string;
@@ -432,7 +468,7 @@ function columnsShared(
 
   let bannerHtml = "";
   if (banner) {
-    const cards = resolveCollage(banner.itemIds, photoCandidates, collageMax(photoMode));
+    const cards = resolveCollage(banner.itemIds, photoCandidates, collageMax(photoMode), warnings);
     if (cards.length) {
       bannerHtml =
         `<div style="flex:none;margin-bottom:${BANNER_GAP}px">` +
@@ -485,6 +521,7 @@ async function renderColumns(
     input,
     sectionsByTitle,
     plan,
+    warnings,
   );
   const { columns, gap, columnWidth } = f.layout;
   const m = vocab.metrics(register);
@@ -586,6 +623,21 @@ export async function renderComposed(input: RenderComposedInput): Promise<Render
     for (const s of missing) blocks.push(sectionBlock(s.title));
   }
 
+  // SLOT-COVERAGE GUARANTEE (band): a comfortable board's per-section image slots live in the shared
+  // photo band (each card stamps data-image-slot="<slot>"). If the composer emitted NO photoBand at all,
+  // those planned slots would render no marker → checkImageSlots majors. Append ONE empty-picks photoBand
+  // (resolveCollage then supplies ≥1 card per distinct slot) so every per-section slot is representable.
+  // Fires only when the plan carries per-section slots (defined-slot candidates) and the composer forgot
+  // the band — mirrors the section coverage guarantee above; board-level-only boards are untouched.
+  const hasPhotoBand = blocks.some((b) => b.kind === "photoBand");
+  const hasSlottedPhotos = input.photoCandidates.some((c) => c.slot !== undefined);
+  if (!hasPhotoBand && hasSlottedPhotos) {
+    warnings.push(
+      "slot-coverage: composer emitted no photoBand; appended one for the board's per-section image slots.",
+    );
+    blocks.unshift(photoBandBlock([]));
+  }
+
   const plan = planLayout(input.canvas, vocab);
   if (plan.mode === "columns") {
     const rendered = await renderColumns(
@@ -605,7 +657,7 @@ export async function renderComposed(input: RenderComposedInput): Promise<Render
       ...(rendered.columnPlan ? { columnPlan: rendered.columnPlan } : {}),
     };
   }
-  const rendered = renderStack(comp, blocks, input, sectionsByTitle, plan);
+  const rendered = renderStack(comp, blocks, input, sectionsByTitle, plan, warnings);
   return {
     html: rendered.html,
     finalBlocks: rendered.finalBlocks,

@@ -998,6 +998,33 @@ describe("composition — QA trusts composed markup (D73)", () => {
     expect(critic.requests.length).toBeGreaterThan(0);
     expect(critic.requests.some((r) => (r.layoutStrategy ?? "").includes("TYPE SCALE"))).toBe(true);
   });
+
+  // D74: a composed board's masthead title is intentionally model-authored (the sole sanctioned
+  // invented-copy field). The critic must be told so it never majors the title as invented copy;
+  // item-level names/prices stay strictly data-bound. Composed candidates only — free-paint unchanged.
+  it("tells the critic a composed board's masthead title is sanctioned (D74)", async () => {
+    const critic = new CapturingVisionCritic();
+    const engine = createFakeEngine({
+      observations: [cleanObservation()],
+      ports: { visionCritic: critic, painter: new ComposedRootPainter() },
+    });
+    await engine.generate(fixtures.input);
+
+    expect(critic.requests.length).toBeGreaterThan(0);
+    for (const req of critic.requests) expect(req.layoutStrategy ?? "").toContain("D74");
+  });
+
+  it("free-paint brief carries NO D74 title note (byte-identical pin)", async () => {
+    const critic = new CapturingVisionCritic();
+    const engine = createFakeEngine({
+      observations: [cleanObservation()],
+      ports: { visionCritic: critic },
+    });
+    await engine.generate(fixtures.input);
+
+    expect(critic.requests.length).toBeGreaterThan(0);
+    for (const req of critic.requests) expect(req.layoutStrategy ?? "").not.toContain("D74");
+  });
 });
 
 describe("composition paint path (D71)", () => {

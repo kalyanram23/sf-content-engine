@@ -74,6 +74,35 @@ describe("dhabaVocabulary", () => {
     }
   });
 
+  it("stamps a per-card data-image-slot when an item carries a slot (all three band modes)", () => {
+    const slotted = [{ id: "s0", name: "Dosa", price: 9.99, hasImage: true, slot: "Dosa & Chaat" }];
+    for (const mode of ["filmstrip", "crossfade", "static"] as const) {
+      const html = dhabaVocabulary.renderPhotoBand({
+        items: slotted,
+        register: "M",
+        bandHeight: 300,
+        bandWidth: 976,
+        mode,
+        uid: "b1",
+      });
+      // The per-section marker escapes exactly like checkImageSlots' escapeSlotTitle (&amp;).
+      expect(html).toContain('data-image-slot="Dosa &amp; Chaat"');
+    }
+  });
+
+  it("stamps NO per-card slot marker when items carry none (only the band root's shared marker)", () => {
+    const html = dhabaVocabulary.renderPhotoBand({
+      items: items(3, true),
+      register: "M",
+      bandHeight: 300,
+      bandWidth: 976,
+      mode: "filmstrip",
+      uid: "b1",
+    });
+    const slots = [...html.matchAll(/data-image-slot="([^"]*)"/g)].map((m) => m[1]);
+    expect(slots).toEqual(["shared"]);
+  });
+
   it('price rows carry data-bind="price" (binding-integrity contract)', () => {
     const html = dhabaVocabulary.renderSection({
       number: 1,
