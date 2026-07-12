@@ -1022,10 +1022,20 @@ export class CompositionPainter implements Painter {
 5. `renderComposed(...)` with `photoMode` = `deps.photoMode ?? vocab.defaultPhotoMode`, `colorTokens` = `request.theme.tokens.colors`, `fontFamilies` = `request.theme.tokens.fontFamilies`, `brand` = `request.brand`, `measure` bound from `deps.browser`, `tagline` = `request.brand?.tagline ?? null`.
 6. Log render warnings via `logger.warn` (board-tagged like paintNode's existing message style); return `result.html`.
 
+(`Logger` comes from `../ports/index` — `import type { Logger, Painter, VocabularyRegistry } from "../ports/index";`.)
+
 ```ts
 // src/composition/auto-painter.ts
-/** Routes each paint to the composition path when the theme names a registered vocabulary
- *  (and mode !== "free"), else to the free painter. Pure; both painters are injected. */
+/**
+ * Routes each paint to the composition path when the theme names a registered vocabulary
+ * (and mode !== "free"), else to the free painter. Pure; both painters are injected.
+ *
+ * RESCUE (production resilience): in "auto" mode a composition-path failure (composer API error
+ * after its retry, vocabulary render throw) falls back to the free painter for THAT board — the
+ * board still ships, it just costs free-paint prices that once. The failure is logged as a warning
+ * with the board correlation. Forced "composition" mode does NOT rescue (surfacing the error is
+ * the point of forcing the mode — CI/debug use).
+ */
 export class AutoPainter implements Painter {
   constructor(
     private readonly deps: {
@@ -1033,13 +1043,24 @@ export class AutoPainter implements Painter {
       composition: Painter;
       vocabularies: VocabularyRegistry;
       mode: "auto" | "free" | "composition";
+      logger?: Logger;
     },
   ) {}
   async paint(request: PaintRequest): Promise<string> {
-    const { mode, vocabularies, free, composition } = this.deps;
+    const { mode, vocabularies, free, composition, logger } = this.deps;
     const vocabId = request.theme.vocabulary;
     const hasVocab = vocabId !== undefined && vocabularies.get(vocabId) !== undefined;
-    if (mode === "composition" || (mode === "auto" && hasVocab)) return composition.paint(request);
+    if (mode === "composition") return composition.paint(request);
+    if (mode === "auto" && hasVocab) {
+      try {
+        return await composition.paint(request);
+      } catch (error) {
+        logger?.warn(
+          `composition paint failed — rescuing with free paint: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        return free.paint(request);
+      }
+    }
     return free.paint(request);
   }
 }
@@ -1156,6 +1177,31 @@ describe("AutoPainter", () => {
     expect(free.hits).toBe(1);
     expect(composition.hits).toBe(0);
   });
+
+  it("auto mode RESCUES a composition failure with free paint (board still ships)", async () => {
+    const free = probe();
+    const failing: Painter = {
+      paint: async () => {
+        throw new Error("composer unavailable");
+      },
+    };
+    const auto = new AutoPainter({ free, composition: failing, vocabularies: builtinVocabularies(), mode: "auto" });
+    const html = await auto.paint(makeRequest({ vocabulary: "dhaba" }));
+    expect(html).toBe("<div></div>");
+    expect(free.hits).toBe(1);
+  });
+
+  it("forced composition mode does NOT rescue — the error surfaces", async () => {
+    const free = probe();
+    const failing: Painter = {
+      paint: async () => {
+        throw new Error("composer unavailable");
+      },
+    };
+    const auto = new AutoPainter({ free, composition: failing, vocabularies: builtinVocabularies(), mode: "composition" });
+    await expect(auto.paint(makeRequest({ vocabulary: "dhaba" }))).rejects.toThrow("composer unavailable");
+    expect(free.hits).toBe(0);
+  });
 });
 ```
 
@@ -1195,6 +1241,8 @@ git commit -m "feat(composition): CompositionPainter + AutoPainter behind the Pa
 4. Reasoning defaults: `compose: reasoningSettingSchema.prefault({ enabled: false })` (composition is a small judgment call; measured prototype latency 4–9s without reasoning).
 
 **Adapter behavior:** system prompt = the prototype `SYSTEM` constant reworked to read canvas dimensions + orientation from the request (`You are the composer for a menu POSTER (${w}×${h} ${orientation})…`), the JUDGMENT-ONLY contract sentences, and `request.vocabularyPrompt`; user message = `request.digest` (+ `\n\nQA found these problems with your previous composition:\n${findingsNote}\nReturn a corrected composition.` when present); `response_format` = strict JSON schema from `z.toJSONSchema(compositionResponseSchema)` named `"composition"`; one Zod-validation retry with the error appended (the planner adapter has this pattern — reuse its helper if one exists, else copy the loop).
+
+**Telemetry (paint-path cost split):** the shared OpenRouter client already emits a `UsageEvent` per call with its `role` string (`src/ports/services.ts` ~line 63); calling through it with role `"compose"` gives the composed-vs-free cost split for free — a composed board's generation shows `compose` events where a free board shows `paint` events. Two small additions: (a) update the `UsageEvent.role` doc comment to include `"compose"`; (b) assert in the adapter test that a compose call records a usage event with `role: "compose"` (mirror how the planner test asserts its usage emission, if it does — read it).
 
 - [ ] **Step 1: Write the failing test** — mirror `src/adapters/openrouter/planner.test.ts`'s mocked-client structure: assert (a) the request carries `response_format.json_schema.strict === true` and the schema root is an object with `title`+`blocks`; (b) a valid response parses to a `CompositionResponse`; (c) an invalid-then-valid response sequence triggers exactly one retry with the validation error in the second request's messages; (d) correlation headers/metadata flow through like the planner's. Copy the planner test's mock scaffolding verbatim and adapt names — read that file first.
 
@@ -1402,13 +1450,17 @@ git commit -m "docs: D71–D74 composition paint path — vocabulary packages, m
 
 ---
 
-## Deliberately out of scope (backlog, do NOT build now)
+## Deliberately out of scope (backlog, in priority order — do NOT build now)
 
-- **featureCard / combo / multi-price components** — vocabulary v2; the interface accommodates new block kinds only via a contract version bump (engine-owned enum), which is intentional friction.
-- **Pixel-test matrix** (component × register × content shape via `measure`/screenshot snapshots) — after the path ships.
-- **Shared token names across themes; second theme vocabulary; fork-and-extract onboarding** — Phase 3 (per the roadmap discussion).
-- **Retiring the free painter** — it stays as the fallback for the five vocabulary-less themes indefinitely.
-- **Matrix representation**: plan sections with `representation: "matrix"` render as price lists in v1 (known limitation; combo/matrix component is the v2 flagship).
+Reviewed with the user 2026-07-11; B (free-paint rescue) and F (per-path usage telemetry) were promoted INTO the plan (Tasks 6 and 7). The rest, in the agreed order:
+
+1. **Deterministic re-fit repair for composed boards** (next after integration ships): when the only blocking findings are fit-class (overflow / dead-space), re-render at an adjacent register WITHOUT a composer call — a zero-LLM repair. Needs a `refit(request, direction)` hook on `CompositionPainter` and a routing rule mapping fit findings on composed boards to it.
+2. **Skip visionQA iteration 1 for composed boards** (once the path has earned trust): deterministic QA can't structurally fail a correct-by-construction board, so run the paid critic once pre-freeze instead of every iteration. Config knob next to `skipVisionWhenBlocking`.
+3. **Slim the planner for vocabulary themes**: the composer re-decides grouping anyway, so the planner LLM call can shrink to deterministic item-partitioning for vocabulary themes. Touches planning — do after live mileage.
+4. **Pixel-test matrix** (component × register × content shape via `measure`/screenshot snapshots) — locks the vocabulary against silent CSS regressions.
+5. **featureCard / combo / multi-price components** — vocabulary v2; also re-enables the matrix-structure QA contract for composed boards (v1 renders `representation: "matrix"` sections as price lists — known limitation).
+6. **Shared token names across themes; second theme vocabulary; fork-and-extract onboarding** — Phase 3 (per the roadmap discussion).
+7. **Retiring the free painter** — it stays as the fallback for the five vocabulary-less themes indefinitely.
 
 ## Pipeline-compatibility review (verified against source, already folded into tasks)
 
