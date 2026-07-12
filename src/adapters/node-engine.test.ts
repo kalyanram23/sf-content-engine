@@ -19,3 +19,44 @@ describe("createNodeEngine — brand logo resolution", () => {
     ).rejects.toBeInstanceOf(BrandAssetError);
   });
 });
+
+/**
+ * Hermetic: construction only. Playwright/OpenRouter are lazy (no browser launched, no network at
+ * construction), so wiring the composition path — OpenRouterComposer + builtin vocabularies +
+ * CompositionPainter wrapped by an AutoPainter — is exercised without a key or a browser. Every
+ * paint mode must assemble; an unknown mode must fail loud at config load (the enum is the contract).
+ */
+describe("createNodeEngine — composition painter wiring", () => {
+  it("constructs with the default (auto) paint mode", () => {
+    const engine = createNodeEngine({ openRouterApiKey: "test-key" });
+    expect(typeof engine.generate).toBe("function");
+    expect(typeof engine.plan).toBe("function");
+  });
+
+  it("constructs with paint mode 'free'", () => {
+    expect(() =>
+      createNodeEngine({
+        openRouterApiKey: "test-key",
+        config: { painter: { mode: "free" } },
+      }),
+    ).not.toThrow();
+  });
+
+  it("constructs with paint mode 'composition'", () => {
+    expect(() =>
+      createNodeEngine({
+        openRouterApiKey: "test-key",
+        config: { painter: { mode: "composition" } },
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects an unknown paint mode at config load", () => {
+    expect(() =>
+      createNodeEngine({
+        openRouterApiKey: "test-key",
+        config: { painter: { mode: "nope" } },
+      }),
+    ).toThrow();
+  });
+});

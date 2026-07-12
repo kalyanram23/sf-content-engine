@@ -242,6 +242,10 @@ async function main(): Promise<void> {
           // runs once per iteration on one image; frontier vision here costs ~$0.03/critique.
           critique: "anthropic/claude-sonnet-5",
           repair: "openai/gpt-5.4-nano",
+          // The composer fills the strict composition order form for vocabulary themes (D71).
+          // Sonnet emits clean, low-latency structured compositions (prototype: 4–9s); it's the
+          // models.ts default too, pinned here so a `try` run of a composition theme is explicit.
+          compose: "anthropic/claude-sonnet-5",
         },
         // 4 iterations: with vision findings landing from iter 1 (skipVisionWhenBlocking off,
         // below), a board typically needs repair → re-paint → confirm; 3 left no slack for a

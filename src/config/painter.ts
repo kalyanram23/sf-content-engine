@@ -10,6 +10,14 @@ import { deepFreeze } from "../util/freeze";
  * list is a config change, never an engine change.
  */
 export const painterConfigSchema = z.object({
+  /**
+   * How a board is painted (D71). `auto` (default) routes per-theme: a theme that names a
+   * registered `vocabulary` paints via the deterministic composition path, everything else
+   * free-paints. `free` always free-paints (ignores vocabularies). `composition` forces the
+   * composition path for every board — which requires `ports.composer` plus a registered
+   * vocabulary for the theme (a plain theme in this mode fails loud), so it's a CI/debug lever.
+   */
+  mode: z.enum(["auto", "free", "composition"]).default("auto"),
   antiPatterns: z
     .array(z.string().min(1))
     .default([

@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import { initLogger } from "braintrust";
 
+import { AutoPainter } from "../composition/auto-painter";
+import { CompositionPainter } from "../composition/painter";
 import { loadEngineConfig } from "../config/index";
 import type { GenerateOutput, ThinPlan } from "../domain/types";
 import { createEngine, type ContentEngine } from "../pipeline/engine";
@@ -11,9 +13,15 @@ import type { Planner } from "../ports/planner";
 import type { Clock, DebugSink, IdGenerator, Logger, UsageSink } from "../ports/services";
 import type { ThemeRepository } from "../ports/theme-repository";
 import { createDefaultThemeRepository } from "../theme/presets/index";
+import { builtinVocabularies } from "../vocabularies/index";
 import { NodeImageFetcher } from "./image/image-fetcher";
 import { createFileThemeRepository } from "./theme/file-theme-repository";
-import { createOpenRouterClient, type OpenRouterClientOptions } from "./openrouter/client";
+import {
+  createOpenRouterClient,
+  type OpenRouterClientOptions,
+  type RoleResilience,
+} from "./openrouter/client";
+import { OpenRouterComposer } from "./openrouter/composer";
 import { OpenRouterPainter } from "./openrouter/painter";
 import { OpenRouterPlanner } from "./openrouter/planner";
 import { OpenRouterRepairer } from "./openrouter/repairer";
@@ -120,6 +128,59 @@ export function createNodeEngine(options: NodeEngineOptions): ContentEngine {
       ? createFileThemeRepository(options.themesDir, createDefaultThemeRepository())
       : createDefaultThemeRepository());
 
+  // The QA browser, constructed ONCE. The composition painter's `measure` reuses this SAME instance
+  // (below), so a composition run never launches a second Chromium.
+  const browser = new PlaywrightBrowser(options.browser ?? {});
+
+  // The composition path (D71). The composer LLM fills the strict order form; the CompositionPainter
+  // renders it deterministically (coverage + photo-truth guaranteed by the renderer). The composer is
+  // wired exactly like the planner — client + model + reasoning + maxTokens + resilience + usage — so
+  // correlation stamping and usage telemetry flow identically. Task 7 deliberately left
+  // `maxTokens.compose` / `resilience.compose` unset: the composer emits a tiny JSON, so maxTokens
+  // defaults to the model's own and `maxAttempts` to the structured-call default (2); only the optional
+  // `fallback.compose` (allowlist-checked at load, D11) is honoured.
+  const composeResilience: RoleResilience = {
+    ...(config.models.fallback.compose !== undefined
+      ? { fallback: config.models.fallback.compose }
+      : {}),
+  };
+  const composer = new OpenRouterComposer(
+    client,
+    config.models.compose,
+    options.logger,
+    config.models.reasoning.compose,
+    undefined,
+    composeResilience,
+    options.usage,
+  );
+  const vocabularies = builtinVocabularies();
+
+  // The free painter (LLM paints raw HTML on-rails) and the composition painter, wrapped by an
+  // AutoPainter: `config.painter.mode` decides routing — `auto` (default) sends a theme that names a
+  // registered vocabulary to the composition path and everything else to free paint.
+  const freePainter = new OpenRouterPainter(
+    client,
+    config.models.paint,
+    options.logger,
+    config.models.reasoning.paint,
+    config.models.maxTokens.paint,
+    resilienceFor("paint"),
+    options.usage,
+  );
+  const compositionPainter = new CompositionPainter({
+    composer,
+    vocabularies,
+    browser,
+    ...(options.logger ? { logger: options.logger } : {}),
+  });
+  const painter = new AutoPainter({
+    free: freePainter,
+    composition: compositionPainter,
+    vocabularies,
+    mode: config.painter.mode,
+    ...(options.logger ? { logger: options.logger } : {}),
+  });
+
   const ports: EnginePorts = {
     // No explicit planner: use the hand-authored plan if one was supplied, else the LLM coverage
     // planner auto-distributes the whole menu across the requested screen count.
@@ -138,17 +199,9 @@ export function createNodeEngine(options: NodeEngineOptions): ContentEngine {
             options.usage,
           )),
     themeRepository,
-    painter: new OpenRouterPainter(
-      client,
-      config.models.paint,
-      options.logger,
-      config.models.reasoning.paint,
-      config.models.maxTokens.paint,
-      resilienceFor("paint"),
-      options.usage,
-    ),
+    painter,
     packager: new TailwindPackager(),
-    browser: new PlaywrightBrowser(options.browser ?? {}),
+    browser,
     visionCritic: new OpenRouterVisionCritic(
       client,
       config.models.critique,

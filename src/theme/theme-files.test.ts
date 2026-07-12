@@ -66,4 +66,13 @@ describe("dhaba theme exemplar", () => {
     expect(parsed.design?.exemplar?.aspect).toBe("9:16");
     expect(parsed.design?.exemplar?.html ?? "").toContain("data-item-id");
   });
+
+  // D71: dhaba opts into the composition path by naming its registered ComponentVocabulary. The
+  // AutoPainter routes a board to the CompositionPainter only when the theme declares this field,
+  // so its presence (and exact id) is the theme's opt-in switch — pin it.
+  it("opts into the composition path via its vocabulary field", () => {
+    const raw = readFileSync(`${themesDir}/dhaba.theme.json`, "utf8");
+    const parsed = JSON.parse(raw) as { vocabulary?: string };
+    expect(parsed.vocabulary).toBe("dhaba");
+  });
 });
