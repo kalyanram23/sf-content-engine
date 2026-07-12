@@ -322,6 +322,11 @@ export const themePresetObjectSchema = z.object({
    */
   prompt: z.string().optional(),
   design: themeDesignSchema.optional(),
+  /**
+   * Names the registered ComponentVocabulary that renders this theme via the composition path
+   * (D71). Absent → the theme paints via the free painter. Resolution/fallback is AutoPainter's.
+   */
+  vocabulary: z.string().min(1).optional(),
   tokens: themeTokensSchema,
   /** The motion vocabulary — single source of truth for the motion-vocab lint (D14). */
   motion: z.array(motionPresetSchema).min(1),
