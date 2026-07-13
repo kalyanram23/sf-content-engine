@@ -53,3 +53,9 @@ design-explorations/
 
 # Quality-loop iteration archives (posters/reports per iteration; large PNGs, session-local)
 eval-loop/
+
+# vocabulary density-sample renders (vocab:samples output)
+vocab-samples
+
+# superpowers visual-companion scratch (mockups/state served to the browser)
+.superpowers/

@@ -47,7 +47,8 @@
     "try:debug": "tsx --inspect-brk scripts/try.ts",
     "try:claude": "tsx scripts/try-claude.ts",
     "eval": "tsx scripts/evals/run.ts",
-    "verify": "prettier --check . && eslint . && tsc --noEmit && vitest run"
+    "verify": "prettier --check . && eslint . && tsc --noEmit && vitest run",
+    "vocab:samples": "tsx scripts/vocab-samples.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.2.1",
