@@ -130,18 +130,20 @@ function buildFixture(count: number): Fixture {
       ? [...sections].sort((a, b) => a.items.length - b.items.length).slice(0, 2)
       : [];
   const groupedTitles = new Set(grouped.map((s) => s.title));
-  sections.forEach((s, i) => {
-    if (groupedTitles.has(s.title)) return;
+  let bandPlaced = false;
+  for (const s of sections) {
+    if (groupedTitles.has(s.title)) continue;
     blocks.push({ kind: "section", section: s.title, sections: [], itemIds: [] });
-    if (i === 0 && photoCandidates.length > 0) {
+    if (!bandPlaced && photoCandidates.length > 0) {
       blocks.push({
         kind: "photoBand",
         section: "",
         sections: [],
         itemIds: photoCandidates.slice(0, 3).map((c) => c.id),
       });
+      bandPlaced = true;
     }
-  });
+  }
   if (grouped.length === 2) {
     blocks.push({
       kind: "group",
