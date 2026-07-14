@@ -109,6 +109,23 @@ function collageMax(mode: PhotoBandMode): number {
   return mode === "static" ? 5 : 12;
 }
 
+/**
+ * SPARSE-BOARD PHOTO GROWTH (user-approved 2026-07-13): when the fitted board leaves slack, the
+ * photo band absorbs a capped share of it — "few dishes, big appetizing photos" instead of a small
+ * strip floating in air. Growth is a COMPUTED pixel bonus (never CSS flex): themes derive card
+ * width from the band height at a fixed per-register ratio and photos are `object-fit:cover`, so
+ * scaled cards keep their aspect. The share (not all) of the slack keeps a margin for the fit's
+ * estimate error, and the multiple cap keeps photos from dominating a near-empty board; the QA
+ * overflow check remains the backstop.
+ */
+const BAND_GROWTH_SHARE = 0.65;
+const BAND_GROWTH_MAX = 0.8; // bonus ≤ 0.8 × base height (band ≤ 1.8× base)
+
+function bandGrowthBonus(slack: number, baseHeight: number, bands: number): number {
+  if (bands <= 0 || slack <= 0) return 0;
+  return Math.floor(Math.min((slack * BAND_GROWTH_SHARE) / bands, baseHeight * BAND_GROWTH_MAX));
+}
+
 /** `--color-<name>:<value>;…` for every color token — declared on the composed-root wrapper. */
 function cssVars(colorTokens: Readonly<Record<string, string>>): string {
   return Object.entries(colorTokens)
@@ -279,6 +296,7 @@ function renderBlockList(
   bandWidth: number,
   maxInternalCols: number,
   warnings: string[],
+  bandBonus = 0,
 ): { html: string; endNumber: number } {
   const { vocab, photoMode, photoCandidates } = input;
   const m = vocab.metrics(register);
@@ -291,7 +309,7 @@ function renderBlockList(
       return vocab.renderPhotoBand({
         items: cards,
         register,
-        bandHeight: m.photoBandHeight(),
+        bandHeight: m.photoBandHeight() + bandBonus,
         bandWidth,
         mode: photoMode,
         uid: `b${startNumber}_${i}`,
@@ -346,6 +364,12 @@ function renderStack(
   warnings: string[],
 ): { html: string; f: FitResult; finalBlocks: CompositionBlock[] } {
   const f = fit({ blocks, sectionsByTitle, plan, vocab: input.vocab });
+  // Sparse-board growth: the band(s) absorb a capped share of the estimated leftover height.
+  const bandBonus = bandGrowthBonus(
+    plan.bodyHeight - f.usedHeight,
+    input.vocab.metrics(f.register).photoBandHeight(),
+    blocks.filter((b) => b.kind === "photoBand").length,
+  );
   const { html: body } = renderBlockList(
     blocks,
     0,
@@ -355,6 +379,7 @@ function renderStack(
     f.layout.columnWidth,
     f.layout.maxInternalCols,
     warnings,
+    bandBonus,
   );
   // Body inset (padding) is owned by the vocabulary shell — this stays theme-agnostic and only sets the
   // stack's own layout: fill the shell's padded body box and distribute the stripes top-to-bottom.
@@ -542,6 +567,8 @@ function columnsShared(
   renderBanner: (register: string) => string;
   flowSecs: VocabSection[];
   finalBlocks: CompositionBlock[];
+  /** Sparse-board growth added to the banner height (px) — callers must subtract it from `avail`. */
+  bannerBonus: number;
 } {
   const { vocab, photoMode, photoCandidates } = input;
   const flat = expandGroups(blocks);
@@ -552,6 +579,13 @@ function columnsShared(
 
   const f = fit({ blocks: flow, sectionsByTitle, plan, vocab, banner });
   const { bodyWidth } = f.layout;
+
+  // Sparse-board growth: the banner absorbs a capped share of the estimated leftover height. The
+  // bonus is decided ONCE, from the initial fit's estimate, BEFORE the measured pass — the guard
+  // then balances columns against the reduced space, so growth can never introduce clipping.
+  const bannerBonus = banner
+    ? bandGrowthBonus(plan.bodyHeight - f.usedHeight, vocab.landscapeBannerHeight, 1)
+    : 0;
 
   // Resolve the band's cards ONCE (resolveCollage pushes warnings; a second call would duplicate them),
   // then render at whatever register the caller finally picks — the band's height is fixed
@@ -571,7 +605,7 @@ function columnsShared(
       vocab.renderPhotoBand({
         items: bannerCards,
         register,
-        bandHeight: vocab.landscapeBannerHeight,
+        bandHeight: vocab.landscapeBannerHeight + bannerBonus,
         bandWidth: bodyWidth,
         mode: photoMode,
         uid: "banner",
@@ -587,7 +621,7 @@ function columnsShared(
     ...(banner ? [banner] : []),
     ...flowSecs.map((s) => sectionBlock(s.title)),
   ];
-  return { f, renderBanner, flowSecs, finalBlocks };
+  return { f, renderBanner, flowSecs, finalBlocks, bannerBonus };
 }
 
 /**
@@ -613,7 +647,7 @@ async function renderColumns(
 }> {
   const { vocab, colorTokens, fontFamilies } = input;
   const fontFaces = input.fontFaces ?? [];
-  const { f, renderBanner, flowSecs, finalBlocks } = columnsShared(
+  const { f, renderBanner, flowSecs, finalBlocks, bannerBonus } = columnsShared(
     blocks,
     input,
     sectionsByTitle,
@@ -621,8 +655,9 @@ async function renderColumns(
     warnings,
   );
   const { gap } = f.layout;
-  // Body height available to the columns — bodyHeight minus the (register-independent) banner.
-  const avail = f.contentHeight - f.bannerHeight;
+  // Body height available to the columns — bodyHeight minus the (register-independent) banner,
+  // including any sparse-board growth the banner absorbed.
+  const avail = f.contentHeight - f.bannerHeight - bannerBonus;
 
   // ── CSS-balance fallback (no measurer): original behaviour, no continuation cues ──
   if (!measure) {

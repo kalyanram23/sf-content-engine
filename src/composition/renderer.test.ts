@@ -489,3 +489,75 @@ describe("renderComposed — landscape measured-overflow guard (re-fit vs measur
     expect(res.html).toContain('data-reg="BIG"');
   });
 });
+
+describe("renderComposed — sparse-board photo growth (both orientations)", () => {
+  const sparseComp: CompositionResponse = {
+    title: "Street & Sweets",
+    blocks: [
+      { kind: "section", section: "Chaat", sections: [], itemIds: [] },
+      { kind: "photoBand", section: "", sections: [], itemIds: ["Chaat-0", "Chaat-1"] },
+    ],
+  };
+  const sparse = {
+    ...base,
+    sections: secs([["Chaat", 3, true]]),
+    photoCandidates: secs([["Chaat", 3, true]])[0]!.items,
+  };
+  const bandHeightIn = (html: string): number =>
+    Number(/data-image-slot="shared" style="height:([\d.]+)px/.exec(html)?.[1]);
+  const baseBandH = dhabaVocabulary.metrics("L").photoBandHeight();
+
+  it("portrait: a sparse board's band grows above its base height, capped at 1.8×", async () => {
+    const res = await renderComposed({ ...sparse, composition: sparseComp });
+    const h = bandHeightIn(res.html);
+    expect(h).toBeGreaterThan(baseBandH);
+    expect(h).toBeLessThanOrEqual(Math.ceil(baseBandH * 1.8));
+  });
+
+  it("portrait: a packed board's band does NOT grow", async () => {
+    const packed = {
+      ...base,
+      sections: secs([
+        ["Dosa", 60, true],
+        ["Desserts", 40],
+        ["Chaat", 30],
+      ]),
+      photoCandidates: secs([["Dosa", 20, true]])[0]!.items,
+    };
+    const res = await renderComposed({
+      ...packed,
+      composition: {
+        title: "Street & Sweets",
+        blocks: [
+          { kind: "section", section: "Dosa", sections: [], itemIds: [] },
+          { kind: "photoBand", section: "", sections: [], itemIds: ["Dosa-0"] },
+        ],
+      },
+    });
+    const h = bandHeightIn(res.html);
+    const fitted = dhabaVocabulary.metrics(res.fit.register).photoBandHeight();
+    expect(h).toBe(fitted);
+  });
+
+  it("landscape: a sparse board's banner grows and the measured guard sees the reduced space", async () => {
+    const res = await renderComposed({
+      ...sparse,
+      canvas: { width: 1920, height: 1080 },
+      composition: sparseComp,
+      measure: async ({ html }) => {
+        const keys = [...html.matchAll(/data-mk="([^"]+)"/g)].map((m) => m[1]!);
+        return Object.fromEntries(keys.map((k) => [k, k === "__cue__" ? 24 : 30]));
+      },
+    });
+    const h = bandHeightIn(res.html);
+    expect(h).toBeGreaterThan(dhabaVocabulary.landscapeBannerHeight);
+    expect(h).toBeLessThanOrEqual(Math.ceil(dhabaVocabulary.landscapeBannerHeight * 1.8));
+    expect(res.columnPlan?.overflow).toBe(false);
+    // avail shrank by exactly the banner growth: avail + growth + base banner + gap = body height
+    const growth = h - dhabaVocabulary.landscapeBannerHeight;
+    const box = dhabaVocabulary.contentBox({ width: 1920, height: 1080 });
+    expect(res.columnPlan!.avail).toBe(
+      Math.round(box.height - dhabaVocabulary.landscapeBannerHeight - 24 - growth),
+    );
+  });
+});

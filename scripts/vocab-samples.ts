@@ -105,7 +105,7 @@ function buildFixture(count: number): Fixture {
       const id = `it-${itemIdx}`;
       const name = NAMES[itemIdx % NAMES.length]!;
       const price = itemIdx % 9 === 8 ? null : 6.5 + ((itemIdx * 7) % 25) * 0.5;
-      const hasImage = itemIdx % 5 === 0; // ~20% of the menu photographed
+      const hasImage = itemIdx % 3 === 0; // ~a third of the menu photographed
       // Per-section slots on the first two photo-carrying sections (exercises D75 slot cards).
       const slot = hasImage && s < 2 ? title : undefined;
       items.push({ id, name, price, hasImage, ...(slot !== undefined ? { slot } : {}) });
