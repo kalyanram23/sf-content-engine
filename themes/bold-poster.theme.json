@@ -1,5 +1,6 @@
 {
   "id": "bold-poster",
+  "vocabulary": "bold-poster",
   "name": "Bold Poster",
   "design": {
     "identity": "Visual identity for this theme: BOLD POSTER — a magazine cover turned menu: cream paper stock, one loud editorial red, and huge juicy Shrikhand display type set at a slight tilt, like a newsstand poster you can't walk past. The screen title is the masthead — enormous Shrikhand, tilted a degree or two (rotate-1 / -rotate-2), in ink or deep red; sections open with a letterspaced all-caps kicker (small, red, tracking-widest) above a big headline; thin ink rules and column separators organize the page like editorial layout. Body copy, names and prices are set in Archivo. Prices read as bold red editorial numerals directly after the name. When the plan includes photos, treat them as cover shots: large, framed by a thin ink rule or set in a tan panel, caption on solid paper below. DECORATION: there is no pre-supplied background image — author your own editorial furniture as part of the design, drawn as inline SVG in the theme palette: masthead rules above/below the title, corner crop marks, an oversized index numeral or issue-badge circle by section headers, and a tilted red starburst sticker for a highlight. Keep every tilted element padded well inside the canvas edge so nothing clips.",
