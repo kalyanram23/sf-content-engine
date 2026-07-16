@@ -1,4 +1,5 @@
 import type { ComponentVocabulary, VocabularyRegistry } from "../ports/vocabulary-registry";
+import { blockframeVocabulary } from "./blockframe/index";
 import { boldPosterVocabulary } from "./bold-poster/index";
 import { dhabaVocabulary } from "./dhaba/index";
 
@@ -6,5 +7,7 @@ import { dhabaVocabulary } from "./dhaba/index";
 export function builtinVocabularies(
   extra: readonly ComponentVocabulary[] = [],
 ): VocabularyRegistry {
-  return new Map([dhabaVocabulary, boldPosterVocabulary, ...extra].map((v) => [v.id, v]));
+  return new Map(
+    [dhabaVocabulary, boldPosterVocabulary, blockframeVocabulary, ...extra].map((v) => [v.id, v]),
+  );
 }
