@@ -28,7 +28,7 @@ const MATRIX_SKELETON = `<div data-matrix>
   </div>
   <!-- ONE data-matrix-row per base dish; its value is the row label -->
   <div data-matrix-row="Chicken Dum">
-    <div><!-- row label --> Chicken Dum</div>
+    <div><span data-bind="name">Chicken Dum</span></div>
     <!-- a FILLED cell: the item's id + availability + EXACTLY ONE price span tagged with the column -->
     <div data-matrix-cell="Biryani" data-item-id="ITEM_ID" data-available="true">
       <span data-bind="price" data-size="Biryani">$0.00</span>

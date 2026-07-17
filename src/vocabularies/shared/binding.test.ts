@@ -15,6 +15,7 @@ import { checkImageSlots, type StructuralContext } from "../../qa/structural-che
 import { botanicalPreset } from "../../theme/presets/index";
 import { dhabaVocabulary } from "../dhaba/index";
 import {
+  bindName,
   bindPrice,
   bindPrices,
   bindRow,
@@ -81,6 +82,9 @@ describe("shared binding toolbox — sync pins", () => {
     expect(money(null)).toBe("");
     expect(bindRow({ id: "x1" }, "p:1", "IN")).toBe('<div data-item-id="x1" style="p:1">IN</div>');
     expect(bindPrice("MP", "s")).toBe('<span data-bind="price" style="s">MP</span>');
+    expect(bindName('Chik "65"', "s")).toBe(
+      '<span data-bind="name" style="s">Chik &quot;65&quot;</span>',
+    );
     expect(imgPlaceholder({ id: "x1", name: 'A"B' }, "w:1")).toBe(
       '<img data-img-item="x1" data-img-index="0" alt="A&quot;B" style="w:1">',
     );

@@ -63,19 +63,19 @@ const VALID_HTML = `
 <main>
   <section data-motion="stagger-in">
     <article class="menu-item" data-item-id="id4" data-available="true">
-      <h3>Margherita</h3>
+      <h3>Margherita</h3><span data-bind="name">Margherita</span>
       <table>
         <tr><td>8"</td><td data-bind="price" data-size="8&quot;">$8.99</td></tr>
         <tr><td>10"</td><td data-bind="price" data-size="10&quot;">$11.99</td></tr>
       </table>
     </article>
     <article class="menu-item p-4" data-item-id="id7" data-available="true">
-      <h3>Pepperoni</h3><span data-bind="price">$13.50</span>
+      <h3>Pepperoni</h3><span data-bind="name">Pepperoni</span><span data-bind="price">$13.50</span>
     </article>
   </section>
   <section>
     <article data-item-id="id9" data-available="true">
-      <h3>Curry</h3>
+      <h3>Curry</h3><span data-bind="name">Curry</span>
       <div>Veg <span data-bind="price">$0.00</span></div>
       <div>Paneer <span data-bind="price">$2.00</span></div>
       <div>Chicken <span data-bind="price">$3.00</span></div>
@@ -99,12 +99,19 @@ const kinds = (html: string, overrides?: Partial<StructuralContext>) =>
   runStructuralChecks(ctx(html, overrides)).map((f) => f.kind);
 
 /** Drive `checkBindings` in isolation with a one-section list plan over the given ids/items. */
-const runCheckBindings = (html: string, opts: { items: CanonicalItem[]; plannedIds: string[] }) => {
+const runCheckBindings = (
+  html: string,
+  opts: { items: CanonicalItem[]; plannedIds: string[]; requiredBindings?: string[] },
+) => {
   const plan: PlanScreen = {
     id: "s",
     sections: [{ title: "S", representation: "list", items: opts.plannedIds }],
   };
-  return checkBindings(parse(html), ctx(html, { items: opts.items, planScreen: plan }));
+  const qa =
+    opts.requiredBindings !== undefined
+      ? { ...defaultQaConfig(), requiredBindings: opts.requiredBindings }
+      : defaultQaConfig();
+  return checkBindings(parse(html), ctx(html, { items: opts.items, planScreen: plan, qa }));
 };
 
 describe("runStructuralChecks — valid screen", () => {
@@ -135,7 +142,7 @@ describe("binding integrity (§5.5)", () => {
   });
 
   it("flags a sized item whose size span is missing or mistagged", () => {
-    const html = `<div data-item-id="sz1">
+    const html = `<div data-item-id="sz1"><span data-bind="name">X</span>
     <span data-bind="price" data-size="Half">Half $6.50</span>
     <span data-bind="price">$11.00</span></div>`; // Full untagged
     const findings = runCheckBindings(html, {
@@ -156,8 +163,32 @@ describe("binding integrity (§5.5)", () => {
     expect(findings.find((f) => f.kind === "binding-mismatch")!.message).toContain('"Full"');
   });
 
+  it("flags an item missing its data-bind=name hook", () => {
+    const html = `<div data-item-id="n1"><b>Dosa</b>
+    <span data-bind="price">$5.00</span></div>`;
+    const findings = runCheckBindings(html, {
+      items: [{ id: "n1", name: "Dosa", available: true, price: 5 }],
+      plannedIds: ["n1"],
+      requiredBindings: ["price", "name"],
+    });
+    expect(findings.map((f) => f.kind)).toContain("binding-hook-missing");
+  });
+
+  it("accepts a matrix item whose name lives on the row label", () => {
+    const html = `<div data-matrix><div data-matrix-row="Chicken Dum">
+    <div><span data-bind="name">Chicken Dum</span></div>
+    <div data-matrix-cell="Biryani" data-item-id="m1" data-available="true">
+      <span data-bind="price" data-size="Biryani">$9.00</span></div></div></div>`;
+    const findings = runCheckBindings(html, {
+      items: [{ id: "m1", name: "Chicken Dum Biryani", available: true, price: 9 }],
+      plannedIds: ["m1"],
+      requiredBindings: ["price", "name"],
+    });
+    expect(findings).toEqual([]);
+  });
+
   it("passes a sized item with one correctly tagged span per size", () => {
-    const html = `<div data-item-id="sz1">
+    const html = `<div data-item-id="sz1"><span data-bind="name">X</span>
     <span data-bind="price" data-size="Half">Half $6.50</span>
     <span data-bind="price" data-size="Full">Full $11.00</span></div>`;
     const findings = runCheckBindings(html, {

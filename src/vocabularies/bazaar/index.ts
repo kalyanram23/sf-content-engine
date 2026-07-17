@@ -28,6 +28,7 @@ import type {
   VocabSection,
 } from "../../ports/vocabulary-registry";
 import {
+  bindName,
   bindPrices,
   bindRow,
   brandLogoPlaceholder,
@@ -232,7 +233,7 @@ function priceRow(item: VocabItem, r: Register, small: boolean): string {
     item,
     `display:flex;align-items:baseline;gap:10px;padding:${pad}px 0;line-height:${ROW_LINE};` +
       `font-family:'Archivo',sans-serif`,
-    `<span style="font-size:${nameSize}px;font-weight:500">${esc(item.name)}</span>` +
+    bindName(item.name, `font-size:${nameSize}px;font-weight:500`) +
       `<span style="flex:1;border-bottom:2px dotted ${LEADER};transform:translateY(-4px)"></span>` +
       priceHtml,
   );

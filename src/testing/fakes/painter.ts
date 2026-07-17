@@ -53,7 +53,7 @@ function esc(s: string): string {
 }
 
 function renderItem(item: CanonicalItem, representation: Representation): string {
-  const head = `<h3 class="text-lg text-text">${escapeHtml(item.name)}</h3>`;
+  const head = `<h3 class="text-lg text-text"><span data-bind="name">${escapeHtml(item.name)}</span></h3>`;
   let body = "";
 
   if (representation === "matrix" && item.sizes && item.sizes.length > 0) {
@@ -171,7 +171,7 @@ function renderMatrixSection(
         .join("");
       return (
         `<div class="row flex gap-2" data-matrix-row="${escapeHtml(row.label)}">` +
-        `<span class="text-text">${escapeHtml(row.label)}</span>${cells}</div>`
+        `<span class="text-text" data-bind="name">${escapeHtml(row.label)}</span>${cells}</div>`
       );
     })
     .join("");

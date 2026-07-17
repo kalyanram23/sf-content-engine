@@ -11,7 +11,7 @@ describe("loadEngineConfig", () => {
     expect(config.loop.maxIterations).toBe(3);
     expect(config.qa.viewport).toEqual({ width: 1920, height: 1080, dpr: 1 });
     expect(config.qa.contrast.minNormal).toBe(4.5);
-    expect(config.qa.requiredBindings).toEqual(["price"]);
+    expect(config.qa.requiredBindings).toEqual(["price", "name"]);
     expect(config.routing.rules.map((r) => r.id)).toContain("mechanical-fix-to-repair");
     expect(config.rubric.dimensions.length).toBeGreaterThanOrEqual(5);
   });

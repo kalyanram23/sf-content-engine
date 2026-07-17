@@ -47,6 +47,10 @@ export const bindRow = (item: Pick<VocabItem, "id">, style: string, inner: strin
 export const bindPrice = (text: string, style: string): string =>
   `<span data-bind="price" style="${style}">${text}</span>`;
 
+/** The item-name element carrying the engine's `data-bind="name"` marker (rename patch target, §4). */
+export const bindName = (name: string, style: string): string =>
+  `<span data-bind="name" style="${style}">${esc(name)}</span>`;
+
 /**
  * Price markup for an item: a single data-bind="price" span, or — for a sized item — one span per
  * size, each stamped `data-size="<label>"` (the serve-time patcher's per-size selector, spec §4).

@@ -148,6 +148,32 @@ export function checkBindings(root: HTMLElement, ctx: StructuralContext): QaFind
     const prices = item ? expectedPrices(item) : [];
 
     for (const binding of ctx.qa.requiredBindings) {
+      // NAME (rename-overlay patch target, §4): every item node must expose a non-empty
+      // data-bind="name" hook — OR, for a matrix-represented item, its `data-matrix-row` label
+      // must (the name lives on the row, not the per-column cell). NO text-equality against
+      // item.name: a theme may legitimately truncate its caption; the hook must merely exist and be
+      // non-empty. (getAttribute returns undefined for a missing attr; closest returns null.)
+      if (binding === "name") {
+        const inMatrixCell =
+          node.getAttribute("data-matrix-cell") !== undefined ||
+          node.closest("[data-matrix-cell]") !== null;
+        const scope = inMatrixCell ? (node.closest("[data-matrix-row]") ?? node) : node;
+        const hook = scope.querySelector('[data-bind="name"]');
+        if (hook === null || hook.text.trim() === "") {
+          findings.push(
+            makeFinding({
+              kind: FindingKind.BindingHookMissing,
+              source: "deterministic",
+              severity: "critical",
+              tag: "content",
+              itemId: id,
+              message: `Item "${id}" is missing a non-empty data-bind="name" hook (patcher contract).`,
+              data: { binding },
+            }),
+          );
+        }
+        continue;
+      }
       // "price" is only required for items that actually carry price data.
       if (binding === "price" && prices.length === 0) continue;
       const hooks = node.querySelectorAll(`[data-bind="${binding}"]`);

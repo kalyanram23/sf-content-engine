@@ -154,8 +154,10 @@ export const qaConfigSchema = z.object({
    * blocked iterations (the legacy hard-gate-only skip).
    */
   skipVisionWhenBlocking: z.boolean().default(true),
-  /** Dynamic bindings every item node must expose (§5.5, D8 — data-driven). */
-  requiredBindings: z.array(z.string().min(1)).default(["price"]),
+  /** Dynamic bindings every item node must expose (§5.5, D8 — data-driven). `name` is the
+   * rename-overlay patch target (§4): a matrix-represented item is exempt (its name lives on the
+   * `data-matrix-row` label, checked via the row ancestor). */
+  requiredBindings: z.array(z.string().min(1)).default(["price", "name"]),
   /** Max items a representation can hold per section before re-plan escalation (§5.6, S1). */
   capacities: z
     .record(z.string(), z.number().int().positive())

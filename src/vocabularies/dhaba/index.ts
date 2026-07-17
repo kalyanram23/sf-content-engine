@@ -157,6 +157,11 @@ const esc = (s: string): string =>
 const cardSlotAttr = (c: VocabItem): string =>
   c.slot !== undefined ? ` data-image-slot="${esc(c.slot)}"` : "";
 
+/** The item-name element carrying the engine's `data-bind="name"` marker (rename patch target, §4).
+ * Private copy of the shared toolbox's `bindName` (D78) — identical body, dhaba's own `esc`. */
+const bindName = (name: string, style: string): string =>
+  `<span data-bind="name" style="${style}">${esc(name)}</span>`;
+
 // ── metric helpers (px height estimates the layout engine fits on) ───────────────────────────────────
 function rowH(r: Register, small: boolean): number {
   const name = small ? r.smRowName : r.rowName;
@@ -234,7 +239,7 @@ function priceRow(item: VocabItem, r: Register, small: boolean): string {
         : `<span data-bind="price" style="${priceStyle}">${money(item.price)}</span>`;
   return (
     `<div data-item-id="${item.id}" style="display:flex;align-items:baseline;gap:10px;padding:${pad}px 0">` +
-    `<span style="font-size:${nameSize}px;font-weight:600">${esc(item.name)}</span>` +
+    bindName(item.name, `font-size:${nameSize}px;font-weight:600`) +
     `<span style="flex:1;border-bottom:2px dotted ${LEADER};transform:translateY(-4px)"></span>` +
     priceHtml +
     `</div>`

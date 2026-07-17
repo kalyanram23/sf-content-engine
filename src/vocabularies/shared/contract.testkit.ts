@@ -131,6 +131,9 @@ export function describeVocabularyContract(vocab: ComponentVocabulary): void {
       expect(binds.length).toBeGreaterThanOrEqual(6);
       for (const m of binds) expect((m[1] ?? "").trim().length).toBeGreaterThan(0);
       expect(html).toContain("9.99");
+      // Every row also carries the rename-overlay's data-bind="name" hook (§4, A4).
+      const nameBinds = [...html.matchAll(/data-bind="name"[^>]*>([^<]*)</g)];
+      expect(nameBinds.length).toBeGreaterThanOrEqual(6);
     });
 
     it("renders per-size tagged price spans for sized items (patcher contract, spec §4)", () => {
@@ -219,6 +222,7 @@ export function describeVocabularyContract(vocab: ComponentVocabulary): void {
       const row = vocab.renderFlowRow({ item: sec.items[1]!, register: mid });
       expect(row).toContain('data-item-id="i1"');
       expect(row).toContain('data-bind="price"');
+      expect(row).toContain('data-bind="name"');
       const cue = vocab.renderContinuationCue({ sectionTitle: "Tandoor Mains", register: mid });
       expect(cue).toContain("Tandoor Mains");
     });
