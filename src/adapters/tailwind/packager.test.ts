@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { CanonicalItem } from "../../domain/types";
+import type { CanonicalItem, ThemePreset } from "../../domain/types";
+import { parseOrThrow } from "../../domain/parse";
+import { themePresetSchema } from "../../domain/schemas";
 import { resolveTheme } from "../../theme/resolve";
 import { botanicalPreset } from "../../theme/presets/botanical";
 import { ICON_GLYPHS } from "../../theme/icon-glyphs";
@@ -9,8 +11,37 @@ import { PACKAGED_BASE_LINE_HEIGHT } from "../../composition/renderer";
 import { PLACEHOLDER_IMAGE_DATA_URI } from "../../util/placeholder-image";
 import { parse } from "node-html-parser";
 import { TailwindPackager } from "./packager";
+import bazaarThemeJson from "../../../themes/bazaar.theme.json";
+import blockframeThemeJson from "../../../themes/blockframe.theme.json";
+import boldPosterThemeJson from "../../../themes/bold-poster.theme.json";
+import bubblegumThemeJson from "../../../themes/bubblegum.theme.json";
+import dhabaThemeJson from "../../../themes/dhaba.theme.json";
 
 const theme = resolveTheme(botanicalPreset, { presetId: "botanical" });
+
+/**
+ * Only `botanical` ships a bundled TS preset (src/theme/presets/botanical.ts); the other five
+ * bundled themes (D71/D78/D79) live ONLY as `themes/<id>.theme.json`, loaded at runtime by the
+ * Node `FileThemeRepository`. Load + validate them here the same way, so this pin exercises the
+ * exact theme data a real deployment compiles from.
+ */
+const BUNDLED_THEME_PRESETS: Record<string, ThemePreset> = {
+  botanical: botanicalPreset,
+  dhaba: parseOrThrow(themePresetSchema, dhabaThemeJson, "dhaba theme file"),
+  bubblegum: parseOrThrow(themePresetSchema, bubblegumThemeJson, "bubblegum theme file"),
+  bazaar: parseOrThrow(themePresetSchema, bazaarThemeJson, "bazaar theme file"),
+  blockframe: parseOrThrow(themePresetSchema, blockframeThemeJson, "blockframe theme file"),
+  "bold-poster": parseOrThrow(themePresetSchema, boldPosterThemeJson, "bold-poster theme file"),
+};
+
+/** Packages a minimal board through the real compiler for one bundled theme id. */
+function packageFixture(presetId: string): Promise<string> {
+  const preset = BUNDLED_THEME_PRESETS[presetId];
+  if (!preset) throw new Error(`no bundled theme preset registered for "${presetId}"`);
+  const resolved = resolveTheme(preset, { presetId });
+  const html = `<main class="flex gap-4 p-6 rounded-md"><h2 class="text-text">Hi</h2><span class="text-price">$1.00</span></main>`;
+  return new TailwindPackager().package({ html, theme: resolved, items: [] });
+}
 
 describe("TailwindPackager (real compile, hermetic)", () => {
   it("compiles utilities, injects token vars, and emits a self-contained document", async () => {
@@ -185,5 +216,17 @@ describe("TailwindPackager (real compile, hermetic)", () => {
     expect(packaged).toMatch(/readyState/);
     // And the runtime marker still sits in <head> (so the guard is what makes it correct).
     expect(packaged.indexOf("data-motion-runtime")).toBeLessThan(packaged.indexOf("<body"));
+  }, 60_000);
+
+  it("defines --color-sold in the packaged stylesheet for every bundled theme", async () => {
+    // menu-cast's serve-time strike transform grays out sold-out items with
+    // `var(--color-sold)` (menucast-integration I6). `@theme static` (D67) forces every declared
+    // colour token into the packaged CSS regardless of whether the board's markup happens to use
+    // it, so this holds for a MINIMAL board too — pin it so a theme edit or a packager change
+    // can't silently drop the token menu-cast depends on.
+    for (const presetId of Object.keys(BUNDLED_THEME_PRESETS)) {
+      const html = await packageFixture(presetId);
+      expect(html, presetId).toContain("--color-sold");
+    }
   }, 60_000);
 });

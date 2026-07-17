@@ -1,3 +1,4 @@
+import { parse } from "node-html-parser";
 import { describe, expect, it } from "vitest";
 
 import type { CritiqueResponse, PlanLayout } from "../domain/contracts";
@@ -1082,6 +1083,33 @@ describe("composition paint path (D71)", () => {
     expect(plannedIds.length).toBeGreaterThan(0);
     for (const id of plannedIds) {
       expect(screen.html).toContain(`data-item-id="${id}"`);
+    }
+  });
+
+  it("ships the full patch surface on a composed board: id, name hook, price hook per planned item", async () => {
+    // Spec §4 patch contract, sharpened by the menu-cast integration (I6, open question "how the
+    // strike interacts with composed boards"): the serve-time overlay strikes sold-out rows and
+    // rewrites names/prices via these exact hooks. Composed rendering is deterministic (render.ts,
+    // not an LLM), so it SHOULD guarantee the full surface by construction — pin that guarantee
+    // directly against the SHIPPED (packaged) board, not just the renderer's own unit tests, so a
+    // regression anywhere in compose → package → freeze shows up here.
+    const engine = createFakeEngine({
+      observations: [cleanObservation()],
+      ports: { themeRepository: dhabaThemeRepository() },
+    });
+    const out = await engine.generate(dhabaInput);
+    const screen = out.screens[0]!;
+    const root = parse(screen.html);
+
+    expect(screen.itemIds.length).toBeGreaterThan(0);
+    for (const id of screen.itemIds) {
+      const node = root.querySelector(`[data-item-id="${id}"]`);
+      expect(node, id).not.toBeNull();
+      // Name hook lives on the row (or, for a matrix item, the row-label ancestor — D71/A4).
+      const scope = node!.closest("[data-matrix-row]") ?? node!;
+      expect(scope.querySelector('[data-bind="name"]'), id).not.toBeNull();
+      // Price hook lives inside the same item-id node (checkBindings' own contract).
+      expect(node!.querySelector('[data-bind="price"]'), id).not.toBeNull();
     }
   });
 
