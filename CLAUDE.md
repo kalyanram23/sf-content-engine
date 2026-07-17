@@ -9,14 +9,15 @@ digital-signage screens: `generate({ items, brief, constraints }) → { screens,
 An LLM **planner** allocates the whole menu across the requested screen count (deterministic
 coverage code guarantees nothing is dropped); each screen is then painted freely by an LLM "on
 rails", corrected by a generator–critic QA loop until it passes (or the iteration budget trips),
-then frozen. Themes (`botanical`, `bubblegum`) are externalized JSON bundles; item photos are
-inlined as `data:` URIs before paint so the whole pipeline is offline-safe. Optional `brand` input
+then frozen. Themes are externalized JSON bundles — six ship: five composed (`dhaba`,
+`bold-poster`, `blockframe`, `bazaar`, `bubblegum` — D71/D78) plus free-paint `botanical`; item
+photos are inlined as `data:` URIs before paint so the whole pipeline is offline-safe. Optional `brand` input
 (`{ logo?: { src, alt? }, name?, tagline? }`) renders a logo header band on every screen; the logo
 `src` may be a URL, a local fs path, or a data-URI (resolved to a data-URI at the Node root — D18).
 
 The behaviour spec is the source of truth:
 `docs/superpowers/specs/2026-06-22-display-content-generation-engine-design.md`.
-`ARCHITECTURE.md` documents structure; `DECISIONS.md` logs every interpretation as **D1–D77**
+`ARCHITECTURE.md` documents structure; `DECISIONS.md` logs every interpretation as **D1–D79**
 (cite these when changing a load-bearing decision). Read those before non-trivial changes.
 
 ## Commands
@@ -30,6 +31,7 @@ npm run build           # prebuild bakes the motion bundle, then tsup → ESM + 
 npm run playground      # run the engine on fixtures → ./playground-output (all acceptance scenarios)
 npm run try             # scripts/try.ts — drive the real node engine on a menu end-to-end (needs a key)
 npm run regen:samples   # regenerate the samples/ fixtures from source menus
+npm run vocab:samples -- <id>   # density-proof renders for one vocabulary (5/20/50 items × portrait/landscape; needs playwright chromium)
 npm run test:live       # gated adapter tests; needs OPENROUTER_API_KEY and/or RUN_BROWSER_TESTS=1 (+ npx playwright install chromium)
 ```
 
@@ -91,7 +93,11 @@ forced `composition` fails loud. The renderer emits engine-legal markup with a `
 so the graph/packager/QA are unchanged — QA just **trusts** composed HTML against the checks that
 assume hand-authored markup (token-lint + matrix-structure, plus the composed-board trust extensions —
 D73/D76). The theme's render package is a `ComponentVocabulary` under `src/vocabularies/` (code, not
-JSON), resolved via the `VocabularyRegistry` port.
+JSON), resolved via the `VocabularyRegistry` port. New vocabularies are built on the shared toolbox
+`src/vocabularies/shared/` — the engine-coupled mechanics once (QA-exact binding/escaping, carousels
+with the reduced-motion settled frame, register math) plus the reusable `describeVocabularyContract`
+suite in `contract.testkit.ts`; `dhaba` keeps private copies as the untouched reference, pinned by
+the toolbox's sync tests (D78). Add a theme with the `add-theme` skill (`.claude/skills/add-theme/`).
 
 **The router owns termination; `best` is preserved.** `route()` (`src/pipeline/router.ts`) is pure
 and the **sole** authority: it returns `"freeze"` the instant `iteration >= loop.maxIterations`.

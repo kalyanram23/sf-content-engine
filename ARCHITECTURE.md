@@ -257,16 +257,30 @@ Landscape boards flow into **measured columns** via `BrowserPort.measure` (real 
 a `"(cont.)"` continuation cue where a section spills across a column boundary (D72); the measure
 document reproduces the packaged ship environment so columns don't clip (D77).
 
+Five of the six shipped themes compose — `dhaba`, `bold-poster`, `blockframe`, `bazaar`, `bubblegum` —
+while `botanical` deliberately stays free-paint so §2.3 keeps real coverage (D78). The engine-coupled
+mechanics every vocabulary must get byte-exact live **once** in `src/vocabularies/shared/`: QA-exact
+escaping + binding markers (`binding.ts`), crossfade/filmstrip/static photo bands with the
+reduced-motion settled frame (`carousels.ts`), register-table → metrics arithmetic (`registers.ts`),
+masthead shrink-to-fit (`masthead.ts`), and a reusable contract suite every vocabulary's tests run
+(`contract.testkit.ts`). `dhaba` keeps private copies of the mechanics on purpose — it is the
+untouched reference; sync tests in `shared/` pin the toolbox to dhaba's rendered output and to the QA
+matcher so the copies can't drift silently. When a fitted board leaves slack, the renderer grows the
+photo bands by a capped, **computed px** bonus (never CSS flex — themes derive card width from band
+height), decided before the landscape measured pass so growth can never introduce clipping (D79).
+
 ```
 src/composition/
   layout.ts        # generic layout engine: aspect planning, register search, measured-column partition
-  renderer.ts      # generic renderer: normalize → coverage guarantee → stack/columns → continuation cues → measure doc
+  renderer.ts      # generic renderer: normalize → coverage guarantee → stack/columns → continuation cues → measure doc + sparse-board photo growth (D79)
   digest.ts        # PlanScreen + items → composer digest + photo-candidate library (board-level ∪ per-section slots, D75)
   painter.ts       # CompositionPainter implements Painter (compose → measure → render)
   auto-painter.ts  # AutoPainter: per-board composition|free selection (+ free-paint rescue in auto mode, D71)
 src/vocabularies/
   index.ts         # builtinVocabularies() registry
-  dhaba/index.ts   # dhaba ComponentVocabulary: registers, components (section/group/photoBand), theme shell
+  shared/          # vocabulary toolbox: binding/escaping, carousels, register math, masthead, contract testkit (D78)
+  dhaba/index.ts   # dhaba ComponentVocabulary — untouched reference, private mechanics pinned by shared/ sync tests (D78)
+  bold-poster/ blockframe/ bazaar/ bubblegum/   # toolbox-built vocabularies (D78)
 src/ports/
   composer.ts              # Composer port (LLM, judgment only)
   vocabulary-registry.ts   # ComponentVocabulary + VocabularyRegistry interfaces
@@ -333,7 +347,9 @@ src/
 
   vocabularies/             # theme-owned ComponentVocabulary packages (code, not JSON; §2.4, D71)
     index.ts                # builtinVocabularies() registry
-    dhaba/index.ts          # dhaba vocabulary: registers, components (section/group/photoBand), theme shell
+    shared/                 # toolbox: binding/escaping (QA-exact), carousels + settled frame, register math, masthead, contract testkit (D78)
+    dhaba/index.ts          # dhaba vocabulary — untouched reference; private mechanics pinned by shared/ sync tests (D78)
+    bold-poster/ blockframe/ bazaar/ bubblegum/   # toolbox-built vocabularies (D78)
 
   qa/
     contrast.ts             # WCAG relative luminance + ratio (pure math over rgba)

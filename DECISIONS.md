@@ -1655,3 +1655,73 @@ the densest honest board. The common no-overflow case measures exactly once (byt
 are untouched. Adding headroom to `fit` was rejected: it would blunt-force shrink boards that
 legitimately fill, without fixing the cause. Coupling the measure doc to the packaged base is correct
 BECAUSE the packager is the single ship path.
+
+## D78 — Theme migration to the composition path via a shared vocabulary toolbox (2026-07-16)
+
+**Open.** D71 shipped with one vocabulary (`dhaba`); every other theme still free-paints boards whose
+look is settled — paying minutes of generation and critic iterations per board. Migrating them means
+several modules re-implementing the same engine-coupled mechanics (QA-exact escaping, binding
+markers, carousel/settled-frame markup) that QA punishes silently the moment a copy drifts by a byte.
+(Design: `docs/superpowers/specs/2026-07-13-theme-vocabulary-migration-design.md`.)
+
+**Decision.** Migrate `bold-poster`, `blockframe`, `bazaar`, and `bubblegum` to the composition path
+(each `themes/<id>.theme.json` now declares `vocabulary`); **botanical deliberately stays free-paint**
+so the §2.3 path keeps real coverage. The engine-coupled mechanics live ONCE in a shared toolbox,
+`src/vocabularies/shared/`:
+
+- `binding.ts` — QA-exact escaping (the same `& < > "` set as `escapeSlotTitle` in
+  `src/qa/structural-checks.ts`), the `data-item-id`/`data-bind` row markers, and the src-less
+  `<img data-img-item>` + brand-logo placeholders.
+- `carousels.ts` — crossfade/filmstrip/static photo bands with the reduced-motion settled frame,
+  parameterized by a theme `renderCard` callback.
+- `registers.ts` (register table → `VocabularyMetrics`) and `masthead.ts` (shrink-to-fit).
+- `contract.testkit.ts` — `describeVocabularyContract`, one reusable vitest suite every vocabulary's
+  tests call.
+
+**B-lite: dhaba stays untouched.** The known-good reference keeps its private copies of the mechanics
+ON PURPOSE. `shared/binding.test.ts` pins the toolbox's escaping to dhaba's rendered output AND to
+the QA matcher (a `checkImageSlots` round-trip), and `shared/reference.test.ts` runs the full
+contract suite against dhaba — so the copies can't drift silently, and a testkit bug fails against
+known-good code instead of a new theme.
+
+**Process.** Every migrated theme passed two user sign-off gates: a browser MOCKUP direction gate
+before any vocabulary code, then a rendered-SCREENSHOT gate — real `renderComposed` + Tailwind
+packager + headless Chromium at 5/20/50 items × portrait/landscape via `npm run vocab:samples -- <id>`
+(`scripts/vocab-samples.ts`) — before the theme JSON was wired. The whole authoring workflow is the
+`add-theme` project skill (`.claude/skills/add-theme/SKILL.md`). One shared calibration: the four new
+vocabularies declare `minStreamWidth: 420` (dhaba keeps 430), so a packed 50-item landscape board
+escalates to a 4th column instead of overflowing at 3 — found when bold-poster's densest board
+overflowed by 65px at 3 columns, and the 4-column re-fit even bought a LARGER register.
+
+**Known v1 limits (deliberate).** (a) The landscape newspaper-column DIVIDERS are engine-drawn 2px
+rules (`src/composition/renderer.ts`); bubblegum's "no hairlines" identity would prefer chunky
+rounded bars, but a theme cannot restyle them yet. (b) bazaar's identity says dense boards should
+DROP photo stickers before shrinking text, but the renderer's slot-coverage guarantee (D75) keeps a
+(compact) band whenever the plan carries photo slots — true drop-before-shrink is a composer/renderer
+policy change, not a vocabulary tweak.
+
+**Why.** The toolbox keeps the invariants QA enforces in one place, so a theme module contains only
+visual decisions; B-lite gets that safety without risking the one vocabulary already proven in
+production runs. The eslint hermetic boundary is untouched — vocabularies are pure core code.
+
+## D79 — Sparse-board photo growth (2026-07-13)
+
+**Open.** A sparse composed board fits at the top register and still leaves visible slack — a small
+photo band floating in air under a handful of dishes. The fitter's register search maximizes TYPE
+size (D71/D76), but band heights were fixed per register, so the slack had nowhere to go.
+
+**Decision.** When the fitted board leaves slack, photo bands absorb a capped share of it
+(`src/composition/renderer.ts`): per band, `slack × BAND_GROWTH_SHARE (0.65) / bands`, capped at
+`BAND_GROWTH_MAX (0.8) × base height` (band ≤ 1.8× base). Two invariants:
+
+- **Growth is a COMPUTED px bonus, never CSS flex.** Themes derive card width from band height at a
+  fixed per-register ratio (photos are `object-fit:cover`), so scaled cards keep their aspect; a
+  flex-grown band would break that derivation. Portrait passes the bonus into `renderBlockList`.
+- **Landscape decides the banner bonus ONCE, from the initial fit's estimate, BEFORE the measured
+  column pass** — the D77 measured-overflow guard then balances the columns against the reduced
+  space, so growth can never introduce clipping.
+
+**Why.** "Few dishes, big appetizing photos" instead of a strip in dead space. Taking a share (not
+all) of the slack keeps a margin for the fit's estimate error; the multiple cap keeps photos from
+dominating a near-empty board; and the QA overflow check remains the backstop. Regression tests:
+`src/composition/renderer.test.ts` ("sparse-board photo growth").
