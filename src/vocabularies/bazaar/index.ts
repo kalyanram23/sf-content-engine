@@ -28,13 +28,12 @@ import type {
   VocabSection,
 } from "../../ports/vocabulary-registry";
 import {
-  bindPrice,
+  bindPrices,
   bindRow,
   brandLogoPlaceholder,
   cardSlotAttr,
   esc,
   imgPlaceholder,
-  money,
 } from "../shared/binding";
 import { crossfadeBand, filmstripBand, staticBand } from "../shared/carousels";
 import { shrinkToFitPx } from "../shared/masthead";
@@ -225,7 +224,8 @@ function priceRow(item: VocabItem, r: Register, small: boolean): string {
   const pad = small ? r.smRowPad : r.rowPad;
   const font = priceFont(nameSize);
   // Null price → the SAME chip, marked "MP" (market price), so every chip reads as a price tag.
-  const priceHtml = bindPrice(item.price === null ? "MP" : money(item.price), chipStyle(font));
+  // Sized items → one chip per size, each data-size tagged (spec §4).
+  const priceHtml = bindPrices(item, chipStyle(font));
   // line-height is declared HERE (inherited by the name/price spans) so the rendered row height is
   // exactly the metric estimate — independent of the packaged root's preflight line-height.
   return bindRow(

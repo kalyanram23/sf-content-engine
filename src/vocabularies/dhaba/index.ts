@@ -218,10 +218,20 @@ function continuationCue(title: string, r: Register): string {
 function priceRow(item: VocabItem, r: Register, small: boolean): string {
   const nameSize = small ? r.smRowName : r.rowName;
   const pad = small ? r.smRowPad : r.rowPad;
+  const priceStyle = `font-size:${nameSize}px;font-weight:800;color:var(--color-price);font-variant-numeric:tabular-nums`;
+  // Sized items → one span per size, each data-size tagged (spec §4). Private esc/money (D78).
   const priceHtml =
-    item.price === null
-      ? `<span data-bind="price" style="font-size:${Math.round(nameSize * 0.7)}px;font-weight:800;color:var(--color-price);border:2px solid var(--color-price);padding:0 6px">MP</span>`
-      : `<span data-bind="price" style="font-size:${nameSize}px;font-weight:800;color:var(--color-price);font-variant-numeric:tabular-nums">${money(item.price)}</span>`;
+    item.sizes !== undefined && item.sizes.length > 0
+      ? item.sizes
+          .map(
+            (s) =>
+              `<span data-bind="price" data-size="${esc(s.label)}" style="${priceStyle}">` +
+              `${esc(s.label)} ${money(s.price)}</span>`,
+          )
+          .join(`<span style="${priceStyle}" aria-hidden="true"> · </span>`)
+      : item.price === null
+        ? `<span data-bind="price" style="font-size:${Math.round(nameSize * 0.7)}px;font-weight:800;color:var(--color-price);border:2px solid var(--color-price);padding:0 6px">MP</span>`
+        : `<span data-bind="price" style="${priceStyle}">${money(item.price)}</span>`;
   return (
     `<div data-item-id="${item.id}" style="display:flex;align-items:baseline;gap:10px;padding:${pad}px 0">` +
     `<span style="font-size:${nameSize}px;font-weight:600">${esc(item.name)}</span>` +

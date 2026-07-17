@@ -21,6 +21,7 @@ import type {
 } from "../../ports/vocabulary-registry";
 import {
   bindPrice,
+  bindPrices,
   bindRow,
   brandLogoPlaceholder,
   cardSlotAttr,
@@ -164,17 +165,18 @@ function continuationCue(title: string, r: Register): string {
 function priceRow(item: VocabItem, r: Register, small: boolean): string {
   const nameSize = small ? r.smRowName : r.rowName;
   const pad = small ? r.smRowPad : r.rowPad;
+  const priceStyle = `font-size:${nameSize}px;font-weight:800;color:var(--color-price);font-variant-numeric:tabular-nums`;
+  // Sized items → one span per size, each data-size tagged (spec §4); the MP chip stays distinct.
   const priceHtml =
-    item.price === null
-      ? bindPrice(
-          "MP",
-          `font-size:${Math.round(nameSize * 0.7)}px;font-weight:800;color:var(--color-price);` +
-            `border:2px solid var(--color-price);padding:0 6px`,
-        )
-      : bindPrice(
-          money(item.price),
-          `font-size:${nameSize}px;font-weight:800;color:var(--color-price);font-variant-numeric:tabular-nums`,
-        );
+    item.sizes !== undefined && item.sizes.length > 0
+      ? bindPrices(item, priceStyle)
+      : item.price === null
+        ? bindPrice(
+            "MP",
+            `font-size:${Math.round(nameSize * 0.7)}px;font-weight:800;color:var(--color-price);` +
+              `border:2px solid var(--color-price);padding:0 6px`,
+          )
+        : bindPrice(money(item.price), priceStyle);
   return bindRow(
     item,
     `display:flex;align-items:baseline;gap:10px;padding:${pad}px 0`,

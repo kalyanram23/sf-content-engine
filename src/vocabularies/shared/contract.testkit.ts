@@ -133,6 +133,39 @@ export function describeVocabularyContract(vocab: ComponentVocabulary): void {
       expect(html).toContain("9.99");
     });
 
+    it("renders per-size tagged price spans for sized items (patcher contract, spec §4)", () => {
+      const sized: VocabItem[] = [
+        {
+          id: "sz0",
+          name: "Paneer Tikka",
+          price: null,
+          sizes: [
+            { label: "Half", price: 6.5 },
+            { label: "Full", price: 11 },
+          ],
+          hasImage: false,
+        },
+      ];
+      const outputs = [
+        vocab.renderSection({
+          number: 1,
+          section: { title: "Grill", items: sized },
+          internalCols: 1,
+          register: mid,
+        }),
+        vocab.renderFlowRow({ item: sized[0]!, register: mid }),
+      ];
+      for (const html of outputs) {
+        expect(html).toContain('data-size="Half"');
+        expect(html).toContain('data-size="Full"');
+        expect(html).toContain("$6.50");
+        expect(html).toContain("$11.00");
+        // exactly one data-bind="price" span per size, none unlabelled
+        const spans = [...html.matchAll(/data-bind="price"(?: data-size="([^"]*)")?/g)];
+        expect(spans.every((m) => m[1] !== undefined)).toBe(true);
+      }
+    });
+
     it("renderGroup covers every member section's rows", () => {
       const a = { title: "Chaat", items: items(3) };
       const b = {
