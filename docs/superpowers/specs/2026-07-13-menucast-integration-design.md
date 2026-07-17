@@ -255,3 +255,19 @@ That plan (menu-cast `.claude/handoffs/vertical-agnostic-rearch.md`, unstarted) 
 generic across verticals. This integration advances it: the food-specific renderer dies, and the
 engine seam is already vertical-neutral (`items + brief`). No renames or registry work are pulled
 into this design; the two tracks stay independent.
+
+## Addendum (2026-07-16, Plan A)
+
+- Since approval, `blockframe`, `bold-poster`, and `bubblegum` gained composition vocabularies —
+  five composed themes now exist. The launch default stays `dhaba`; the restaurant theme field may
+  offer any composed theme without cost/reliability change.
+- Plan A added one feature beyond §9: `VocabItem.sizes` + per-size tagged price spans on composed
+  boards (sized items previously rendered as "MP" there), because sized items are core menu-cast
+  content. QA now verifies per-size tags (`data-size`), which §4's overlay may rely on.
+- Task A6 verified the single-screen calling convention (`plan: { screens: [slice] }`, `screens: 1`)
+  works as-is, and pinned the actual static-plan contract: the engine trusts a caller-supplied plan
+  (D5) — there is NO item-coverage cross-check on that path. Items passed but not referenced by the
+  plan's sections are silently ignored; a plan-referenced id missing from `items` is silently
+  dropped. Consequence for Plan B's worker (§5): a tier-2 single-screen re-bake MUST reconcile the
+  stored plan slice's section item ids against the current category membership (append added items,
+  drop removed ones) before calling `generate` — the engine will not error on a stale slice.
