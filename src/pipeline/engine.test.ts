@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import type { CritiqueResponse, PlanLayout } from "../domain/contracts";
 import { UnsupportedConstraintError } from "../domain/errors";
-import type { CanonicalItem } from "../domain/types";
+import type { CanonicalItem, ThinPlan } from "../domain/types";
 import { expandLayoutToPlan } from "../planning/coverage";
 import type { Painter, PaintRequest } from "../ports/painter";
 import type { CritiqueRequest, VisionCritic } from "../ports/vision-critic";
@@ -1152,5 +1152,80 @@ describe("composition paint path (D71)", () => {
     const reCompose = composer.requests[1]!;
     expect(reCompose.findingsNote).toBeDefined();
     expect(reCompose.findingsNote).toContain("dead space");
+  });
+});
+
+/**
+ * A hand-authored two-screen plan over `fixtures.menu` (pizzas on screen-1, sides+curries on
+ * screen-2) — `fixtures` carries no multi-screen plan (only the single-screen `samplePlan`), so
+ * this is built inline per the sample menu's categories.
+ */
+const menuCastTwoScreenPlan: ThinPlan = {
+  screens: [
+    {
+      id: "screen-1",
+      sections: [
+        { title: "PIZZAS", representation: "matrix", items: ["p-margherita", "p-pepperoni"] },
+      ],
+    },
+    {
+      id: "screen-2",
+      sections: [
+        { title: "SIDES", representation: "list", items: ["s-garlic-bread"] },
+        { title: "CURRIES", representation: "variant-rows", items: ["c-curry"] },
+      ],
+    },
+  ],
+};
+
+describe("single-screen re-bake via sliced static plan (menu-cast worker contract)", () => {
+  it("renders exactly the sliced screen with its items", async () => {
+    const slice = menuCastTwoScreenPlan.screens[1]!;
+    const items = fixtures.menu.filter((i) => slice.sections.some((s) => s.items.includes(i.id)));
+    const engine = createFakeEngine();
+    const out = await engine.generate({
+      items,
+      brief: fixtures.brief,
+      constraints: { aspect: "16:9", screens: 1 },
+      plan: { screens: [slice] },
+    });
+
+    expect(out.screens).toHaveLength(1);
+    expect(out.screens[0]!.id).toBe(slice.id);
+    const bound = new Set(out.screens[0]!.itemIds);
+    for (const s of slice.sections) for (const id of s.items) expect(bound.has(id), id).toBe(true);
+  });
+
+  // A6 finding (documented in task-A6-report.md): the brief expected passing items outside the
+  // sliced plan to reject with a "PlanCoverageError"-shaped error. No such class/code exists —
+  // `src/domain/errors.ts` has only `MatrixCoverageError` (`MATRIX_COVERAGE`), which guards a
+  // different invariant (a computed cross-category comparison matrix), not this path. Empirically
+  // (verified via a live run before writing this assertion), a caller-supplied plan is trusted
+  // as-is: `resolvePlan` (engine.ts) only validates `parsed.plan`'s SCREEN COUNT against
+  // `constraints.screens` (engine.ts:206, `UnsupportedConstraintError`) — there is no cross-check
+  // between the plan's referenced item ids and the full `items` array. `resolveScreenItems`
+  // (pipeline/nodes/shared.ts) derives each screen's item set purely from that screen's sections,
+  // silently ignoring anything in `items` it doesn't reference. So passing the FULL menu instead of
+  // the sliced subset is harmless, not an error: the sliced screen still renders correctly, bound
+  // to exactly its own planned items. This is a test-only task (verification-only per the A6
+  // brief); adding a real coverage cross-check for caller-supplied plans would be a non-trivial,
+  // cross-cutting engine change (affects the primary multi-screen caller-supplied-plan path too)
+  // left for the controller to decide, not improvised here.
+  it("ignores items outside the sliced plan — the plan's sections define coverage, not the item list", async () => {
+    const slice = menuCastTwoScreenPlan.screens[1]!;
+    const engine = createFakeEngine();
+    const out = await engine.generate({
+      items: fixtures.menu, // the FULL menu — screen-1's items are unplaced by the sliced plan
+      brief: fixtures.brief,
+      constraints: { aspect: "16:9", screens: 1 },
+      plan: { screens: [slice] },
+    });
+
+    expect(out.screens).toHaveLength(1);
+    expect(out.screens[0]!.id).toBe(slice.id);
+    // Only the sliced screen's own items are bound — the unplaced pizzas never appear, even though
+    // they were present in `items`.
+    const bound = new Set(out.screens[0]!.itemIds);
+    expect(bound).toEqual(new Set(["s-garlic-bread", "c-curry"]));
   });
 });
