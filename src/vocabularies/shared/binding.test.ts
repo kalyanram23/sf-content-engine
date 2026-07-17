@@ -14,7 +14,15 @@ import type { ResolvedTheme } from "../../domain/types";
 import { checkImageSlots, type StructuralContext } from "../../qa/structural-checks";
 import { botanicalPreset } from "../../theme/presets/index";
 import { dhabaVocabulary } from "../dhaba/index";
-import { bindPrice, bindRow, cardSlotAttr, esc, imgPlaceholder, money } from "./binding";
+import {
+  bindPrice,
+  bindPrices,
+  bindRow,
+  cardSlotAttr,
+  esc,
+  imgPlaceholder,
+  money,
+} from "./binding";
 
 const SLOT = 'The "Big" & <Best> Board';
 
@@ -80,5 +88,39 @@ describe("shared binding toolbox — sync pins", () => {
       ` data-image-slot="${esc(SLOT)}"`,
     );
     expect(cardSlotAttr({ id: "x", name: "n", price: 1, hasImage: true })).toBe("");
+  });
+});
+
+describe("bindPrices", () => {
+  it("renders a single tagged span for a flat-priced item", () => {
+    const html = bindPrices({ price: 9.5 }, "color:var(--color-price)");
+    expect(html).toBe('<span data-bind="price" style="color:var(--color-price)">$9.50</span>');
+  });
+
+  it("renders MP for a null price (market price)", () => {
+    expect(bindPrices({ price: null }, "x")).toContain(">MP<");
+  });
+
+  it("renders one span per size, tagged data-size with QA-exact escaping", () => {
+    const html = bindPrices(
+      {
+        price: null,
+        sizes: [
+          { label: 'Sm "cup"', price: 5 },
+          { label: "Lg", price: 7.25 },
+        ],
+      },
+      "s",
+    );
+    const spans = [...html.matchAll(/<span data-bind="price" data-size="([^"]*)"[^>]*>([^<]*)</g)];
+    expect(spans.map((m) => m[1])).toEqual(["Sm &quot;cup&quot;", "Lg"]);
+    expect(spans[0]![2]).toBe('Sm "cup" $5.00'.replace(/"/g, "&quot;"));
+    expect(spans[1]![2]).toBe("Lg $7.25");
+  });
+
+  it("prefers sizes over a base price when both exist", () => {
+    const html = bindPrices({ price: 4, sizes: [{ label: "S", price: 5 }] }, "s");
+    expect(html).not.toContain(">$4.00<");
+    expect(html).toContain('data-size="S"');
   });
 });

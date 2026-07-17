@@ -105,3 +105,32 @@ describe("buildComposerContent — a comfortable board (per-section slots only)"
     expect(photoCandidates.map((c) => c.slot)).toEqual(["Snacks", "Snacks", "Sweets"]);
   });
 });
+
+describe("buildComposerContent — sized prices", () => {
+  it("maps CanonicalItem.sizes onto VocabItem.sizes and prices the digest per size", () => {
+    const content = buildComposerContent({
+      planScreen: {
+        id: "s1",
+        sections: [{ title: "Chai", representation: "list", items: ["c1"] }],
+      },
+      items: [
+        {
+          id: "c1",
+          name: "Masala Chai",
+          available: true,
+          sizes: [
+            { label: "Cutting", price: 2 },
+            { label: "Full", price: 3.5 },
+          ],
+        },
+      ],
+      vocab: dhabaVocabulary,
+    });
+    expect(content.sections[0]!.items[0]!.sizes).toEqual([
+      { label: "Cutting", price: 2 },
+      { label: "Full", price: 3.5 },
+    ]);
+    expect(content.digest).toContain("Cutting $2.00");
+    expect(content.digest).not.toContain("MP");
+  });
+});

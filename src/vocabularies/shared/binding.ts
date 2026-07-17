@@ -48,6 +48,24 @@ export const bindPrice = (text: string, style: string): string =>
   `<span data-bind="price" style="${style}">${text}</span>`;
 
 /**
+ * Price markup for an item: a single data-bind="price" span, or — for a sized item — one span per
+ * size, each stamped `data-size="<label>"` (the serve-time patcher's per-size selector, spec §4).
+ * Sizes win over a base price. Labels are escaped with the QA-exact `esc`.
+ */
+export const bindPrices = (item: Pick<VocabItem, "price" | "sizes">, style: string): string => {
+  if (item.sizes !== undefined && item.sizes.length > 0) {
+    return item.sizes
+      .map(
+        (s) =>
+          `<span data-bind="price" data-size="${esc(s.label)}" style="${style}">` +
+          `${esc(s.label)} ${money(s.price)}</span>`,
+      )
+      .join(`<span style="${style}" aria-hidden="true"> · </span>`);
+  }
+  return bindPrice(item.price === null ? "MP" : money(item.price), style);
+};
+
+/**
  * A src-less photo placeholder the packager inlines to the item's offline data-URI. `style` is the
  * theme's (object-fit etc.); the alt is the escaped item name.
  */

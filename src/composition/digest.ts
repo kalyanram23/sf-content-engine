@@ -32,6 +32,15 @@ const cleanName = (s: string): string => s.replace(/\s*\*+\s*$/, "").trim();
 const money = (price: number | null): string => (price === null ? "MP" : `$${price.toFixed(2)}`);
 
 /**
+ * Digest price for one item: per-size prices (`S $5.00 / M $7.00`) when the item is priced per size,
+ * else its flat/market price. Keeps the composer LLM looking at real prices instead of "MP".
+ */
+const sizedMoney = (it: Pick<VocabItem, "price" | "sizes">): string =>
+  it.sizes !== undefined && it.sizes.length > 0
+    ? it.sizes.map((s) => `${s.label} ${money(s.price)}`).join(" / ")
+    : money(it.price);
+
+/**
  * Build the composer's content: resolve the plan screen's sections + photo slot against the
  * canonical items, then render the digest + vocabulary-prompt strings.
  */
@@ -48,6 +57,7 @@ export function buildComposerContent(args: {
     id: it.id,
     name: cleanName(it.name),
     price: it.price ?? null,
+    ...(it.sizes !== undefined && it.sizes.length > 0 ? { sizes: it.sizes } : {}),
     hasImage: hasImage(it),
   });
 
@@ -85,7 +95,7 @@ export function buildComposerContent(args: {
     .map(
       (s) =>
         `Section "${s.title}" (${s.items.length}): ` +
-        s.items.map((it) => `${it.name} ${money(it.price)}`).join("; "),
+        s.items.map((it) => `${it.name} ${sizedMoney(it)}`).join("; "),
     )
     .join("\n");
   const photoLines = photoCandidates.map((c) => `  ${c.id} = ${c.name}`).join("\n");

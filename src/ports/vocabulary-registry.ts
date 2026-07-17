@@ -8,8 +8,10 @@ export interface VocabSection {
 export interface VocabItem {
   id: string;
   name: string;
-  /** null = market price (vocabulary renders its MP treatment). */
+  /** null = market price (vocabulary renders its MP treatment). Ignored when `sizes` is set. */
   price: number | null;
+  /** Per-size prices (e.g. S/M/L). When present, vocabularies render one tagged span per size. */
+  sizes?: { label: string; price: number }[];
   /** True when the item has a photo (renderer emits a data-img-item placeholder for it). */
   hasImage: boolean;
   /**
