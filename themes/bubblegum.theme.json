@@ -1,5 +1,6 @@
 {
   "id": "bubblegum",
+  "vocabulary": "bubblegum",
   "name": "Bubblegum",
   "design": {
     "identity": "Visual identity for this theme: BUBBLEGUM — bold, playful, candy-pop, with the loud energy of a fresh toy drop or a Saturday-morning cartoon. Lean on a deep grape 'stage' background and a candy accent set (coral, mint, sunny yellow); pair the heavy condensed Cooper-grotesque Anton display face (used for the screen title) with Inter for body text; keep text crisp near-white, and let the saturated colour and a fine film grain feel intentional and characterful rather than loud for its own sake. Cards read as large, rounded, glossy stickers; use the full rounded radius on tags and controls. When a photo carousel cycles, cross-fade the photos and let the accent and background hue drift through the candy palette (coral → mint → pink → sky → yellow) so the screen changes mood as it rotates. DECORATION: there is no pre-supplied background image — author your own pop decoration as part of the design, drawn as inline SVG in the candy palette. Give the screen a very subtle film-grain overlay (inline SVG fractalNoise) sitting over everything, AND integrated accents that earn their place: a small starburst or sparkle flourish by the screen title, slim sparkle / dot / squiggle dividers between sections, and a sticker-dot or star motif beside section headers. Keep it restrained and tasteful so it frames and elevates the menu rather than competing with the names and prices.",
@@ -74,19 +75,28 @@
     {
       "id": "price-pill",
       "role": "glossy price sticker",
-      "binds": { "text": "text", "bg": "accent-strong", "radius": "full" },
+      "binds": {
+        "text": "text",
+        "bg": "accent-strong",
+        "radius": "full"
+      },
       "rule": "Price on a fully-rounded candy sticker beside the name, on a solid surface (never on a photo). Keep prices in tabular-nums."
     },
     {
       "id": "section-header",
       "role": "section header with sticker mark",
-      "binds": { "text": "accent-strong", "rule": "accent" },
+      "binds": {
+        "text": "accent-strong",
+        "rule": "accent"
+      },
       "rule": "One per section — Anton display with a sparkle/dot divider; clearly larger than item names."
     },
     {
       "id": "sold-tag",
       "role": "sold-out sticker",
-      "binds": { "text": "sold" },
+      "binds": {
+        "text": "sold"
+      },
       "rule": "Only on unavailable items; muted despite the loud theme, never competing with available items."
     }
   ],
