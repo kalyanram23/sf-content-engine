@@ -181,6 +181,28 @@ export function checkBindings(root: HTMLElement, ctx: StructuralContext): QaFind
             }),
           );
         }
+        // Per-size verification (menu-cast overlay contract): a sized item's every size price must
+        // sit in a `data-bind="price"` span tagged with that size's `data-size="<label>"` — so a bake
+        // is patchable per size, not just "the number appears somewhere". Fires per missing/mistagged
+        // size (variants are unaffected — they carry no per-size overlay contract).
+        const sizes = item?.sizes ?? [];
+        for (const size of sizes) {
+          const span = hooks.find((h) => h.getAttribute("data-size") === size.label);
+          const ok = span !== undefined && approxIncludes(numbersIn(span.text), size.price);
+          if (!ok) {
+            findings.push(
+              makeFinding({
+                kind: FindingKind.BindingMismatch,
+                source: "deterministic",
+                severity: "major",
+                tag: "content",
+                itemId: id,
+                message: `Item "${id}" size "${size.label}" has no data-bind="price" span tagged data-size="${size.label}" carrying ${size.price}.`,
+                data: { size: size.label, expected: size.price },
+              }),
+            );
+          }
+        }
       }
     }
   }

@@ -68,7 +68,7 @@ function engineContract(isRepaint: boolean): string {
   const finalSelfCheck = isRepaint ? FINAL_SELF_CHECK_REPAINT : FINAL_SELF_CHECK_PAINT;
   return `NON-NEGOTIABLE TECHNICAL CONTRACT (always applies, in addition to the theme direction above):
 - Use Tailwind utility classes only; colours/spacing/radius MUST come from the theme tokens (e.g. text-text, bg-surface, text-price). NEVER use raw hex or px arbitrary values (no text-[#fff], no p-[7px], never hardcode the canvas size in a class). For full-bleed sizing use w-full / h-full / min-h-screen and flex/grid. EXCEPTION: box-shadow has no token utility — a hard offset shadow may use a rem-based arbitrary value with a theme var (e.g. shadow-[0.5rem_0.5rem_0_var(--color-text)]), still never px or hex inside the brackets.
-- Every menu item element MUST have data-item-id="<id>" and data-available, and every dynamic price MUST be in a <span data-bind="price">.
+- Every menu item element MUST have data-item-id="<id>" and data-available, and every dynamic price MUST be in a <span data-bind="price">. Sized items: one <span data-bind="price" data-size="<size label>"> per size (label text verbatim).
 - Use motion ONLY via data-motion="<name>" from the provided motion vocabulary. No hand-rolled requestAnimationFrame.
 - Fully self-contained: no external URLs, no <script> navigation (no location/history/window.open/meta refresh).
 - NO WINDOW CHROME: this is a TV sign, not an app window — NEVER render a close button or "X" close glyph, window/title-bar controls, a scrollbar, a cursor, or any UI-chrome glyph; signage has no controls to click.
@@ -242,10 +242,11 @@ function matrixDirectiveLines(request: PaintRequest): string[] {
   if (skeleton !== undefined) {
     lines.push(
       "MATRIX DOM SKELETON — the element/attribute SHAPE below is FIXED: keep every data-* attribute " +
-        "(data-matrix, data-matrix-row, data-matrix-cell, data-item-id, data-available, data-bind) " +
+        "(data-matrix, data-matrix-row, data-matrix-cell, data-item-id, data-available, data-bind, data-size) " +
         "exactly as shown. Styling is yours (add Tailwind theme-token classes, sizing, colour). Emit " +
         "ONE data-matrix-row per MATRIX DATA row above, one data-matrix-cell per column, the item's real " +
-        "price in its <span data-bind=\"price\">, and an em-dash with NO price span for a '—' cell:\n" +
+        'price in its <span data-bind="price" data-size="<column label>"> (data-size = the cell\'s ' +
+        "data-matrix-cell value), and an em-dash with NO price span for a '—' cell:\n" +
         skeleton,
     );
   }

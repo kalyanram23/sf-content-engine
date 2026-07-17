@@ -46,6 +46,12 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+/** Attribute-safe escape (adds `"` to escapeHtml's set) — mirrors `esc` in
+ * src/vocabularies/shared/binding.ts, the QA-exact set the `data-size` matcher expects. */
+function esc(s: string): string {
+  return escapeHtml(s).replace(/"/g, "&quot;");
+}
+
 function renderItem(item: CanonicalItem, representation: Representation): string {
   const head = `<h3 class="text-lg text-text">${escapeHtml(item.name)}</h3>`;
   let body = "";
@@ -55,7 +61,7 @@ function renderItem(item: CanonicalItem, representation: Representation): string
       .map(
         (s) =>
           `<div class="cell flex gap-2"><span class="text-muted">${escapeHtml(s.label)}</span>` +
-          `<span class="text-price" data-bind="price">${money(s.price)}</span></div>`,
+          `<span class="text-price" data-bind="price" data-size="${esc(s.label)}">${money(s.price)}</span></div>`,
       )
       .join("");
     body = `<div class="matrix grid gap-2">${cells}</div>`;

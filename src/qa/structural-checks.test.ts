@@ -5,6 +5,7 @@ import { defaultQaConfig } from "../config/qa";
 import { defaultTokenLintRules } from "../config/token-lint";
 import type { CanonicalItem, PlanScreen, ResolvedTheme } from "../domain/types";
 import {
+  checkBindings,
   checkBrandBinding,
   checkImageSlots,
   checkMotion,
@@ -64,8 +65,8 @@ const VALID_HTML = `
     <article class="menu-item" data-item-id="id4" data-available="true">
       <h3>Margherita</h3>
       <table>
-        <tr><td>8"</td><td data-bind="price">$8.99</td></tr>
-        <tr><td>10"</td><td data-bind="price">$11.99</td></tr>
+        <tr><td>8"</td><td data-bind="price" data-size="8&quot;">$8.99</td></tr>
+        <tr><td>10"</td><td data-bind="price" data-size="10&quot;">$11.99</td></tr>
       </table>
     </article>
     <article class="menu-item p-4" data-item-id="id7" data-available="true">
@@ -97,6 +98,15 @@ function ctx(html: string, overrides: Partial<StructuralContext> = {}): Structur
 const kinds = (html: string, overrides?: Partial<StructuralContext>) =>
   runStructuralChecks(ctx(html, overrides)).map((f) => f.kind);
 
+/** Drive `checkBindings` in isolation with a one-section list plan over the given ids/items. */
+const runCheckBindings = (html: string, opts: { items: CanonicalItem[]; plannedIds: string[] }) => {
+  const plan: PlanScreen = {
+    id: "s",
+    sections: [{ title: "S", representation: "list", items: opts.plannedIds }],
+  };
+  return checkBindings(parse(html), ctx(html, { items: opts.items, planScreen: plan }));
+};
+
 describe("runStructuralChecks — valid screen", () => {
   it("produces no findings for a correct, self-contained screen", () => {
     expect(runStructuralChecks(ctx(VALID_HTML))).toEqual([]);
@@ -122,6 +132,49 @@ describe("binding integrity (§5.5)", () => {
   it("flags a price that does not match source", () => {
     const html = VALID_HTML.replace('data-bind="price">$13.50', 'data-bind="price">$99.00');
     expect(kinds(html)).toContain("binding-mismatch");
+  });
+
+  it("flags a sized item whose size span is missing or mistagged", () => {
+    const html = `<div data-item-id="sz1">
+    <span data-bind="price" data-size="Half">Half $6.50</span>
+    <span data-bind="price">$11.00</span></div>`; // Full untagged
+    const findings = runCheckBindings(html, {
+      items: [
+        {
+          id: "sz1",
+          name: "X",
+          available: true,
+          sizes: [
+            { label: "Half", price: 6.5 },
+            { label: "Full", price: 11 },
+          ],
+        },
+      ],
+      plannedIds: ["sz1"],
+    });
+    expect(findings.map((f) => f.kind)).toContain("binding-mismatch");
+    expect(findings.find((f) => f.kind === "binding-mismatch")!.message).toContain('"Full"');
+  });
+
+  it("passes a sized item with one correctly tagged span per size", () => {
+    const html = `<div data-item-id="sz1">
+    <span data-bind="price" data-size="Half">Half $6.50</span>
+    <span data-bind="price" data-size="Full">Full $11.00</span></div>`;
+    const findings = runCheckBindings(html, {
+      items: [
+        {
+          id: "sz1",
+          name: "X",
+          available: true,
+          sizes: [
+            { label: "Half", price: 6.5 },
+            { label: "Full", price: 11 },
+          ],
+        },
+      ],
+      plannedIds: ["sz1"],
+    });
+    expect(findings).toEqual([]);
   });
 });
 
@@ -305,7 +358,10 @@ describe("capacity → re-plan signal (§5.6/S1)", () => {
 
 describe("representation oracle (acceptance #3, §7)", () => {
   it("flags a matrix missing a size cell", () => {
-    const html = VALID_HTML.replace('<tr><td>10"</td><td data-bind="price">$11.99</td></tr>', "");
+    const html = VALID_HTML.replace(
+      '<tr><td>10"</td><td data-bind="price" data-size="10&quot;">$11.99</td></tr>',
+      "",
+    );
     // now only 1 price hook for id4 which has 2 sizes; also a price-mismatch is expected
     expect(kinds(html)).toContain("representation");
   });
