@@ -759,3 +759,10 @@ At the bottom of `docs/superpowers/specs/2026-07-13-menucast-integration-design.
 git add docs/superpowers/specs/2026-07-13-menucast-integration-design.md
 git commit -m "docs(spec): addendum — composed-theme expansion + sized-price contract from Plan A"
 ```
+
+- [ ] **Step 4: Tag for the worker dependency** (Plan B's `worker/package.json` pins this):
+
+```bash
+git tag -a menucast-a-complete -m "engine surface for the menu-cast integration (Plan A done)"
+git push origin menucast-a-complete
+```
