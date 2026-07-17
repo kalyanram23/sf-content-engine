@@ -226,7 +226,10 @@ describe("TailwindPackager (real compile, hermetic)", () => {
     // can't silently drop the token menu-cast depends on.
     for (const presetId of Object.keys(BUNDLED_THEME_PRESETS)) {
       const html = await packageFixture(presetId);
-      expect(html, presetId).toContain("--color-sold");
+      // Colon-suffix pins the token's own DEFINITION: every theme except dhaba also defines
+      // `sold-tag` → `--color-sold-tag`, so a bare `--color-sold` prefix would still match even if
+      // the real `sold` token were dropped. `--color-sold:` can only be the `sold` declaration.
+      expect(html, presetId).toContain("--color-sold:");
     }
   }, 60_000);
 });

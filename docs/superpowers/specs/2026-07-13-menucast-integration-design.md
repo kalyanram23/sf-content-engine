@@ -266,8 +266,15 @@ into this design; the two tracks stay independent.
   content. QA now verifies per-size tags (`data-size`), which §4's overlay may rely on.
 - Task A6 verified the single-screen calling convention (`plan: { screens: [slice] }`, `screens: 1`)
   works as-is, and pinned the actual static-plan contract: the engine trusts a caller-supplied plan
-  (D5) — there is NO item-coverage cross-check on that path. Items passed but not referenced by the
-  plan's sections are silently ignored; a plan-referenced id missing from `items` is silently
-  dropped. Consequence for Plan B's worker (§5): a tier-2 single-screen re-bake MUST reconcile the
+  (D5) — there is NO item-coverage cross-check on that path. The two stale-slice directions are NOT
+  symmetric: items passed but not referenced by the plan's sections are silently ignored (harmless,
+  and pinned). A plan-referenced id MISSING from `items` is **not** silent — the engine does not
+  throw, but QA cannot find the ghost row in the rendered DOM, so it fires a `critical`
+  `binding-missing` finding; the board ships **flagged** (`passed: false`), and because
+  binding-missing is unfixable by re-paint it burns the full `loop.maxIterations` budget before
+  freezing. (`screen.itemIds` still reports the ghost id — itemIds reflects the plan, not the
+  render.) Consequence for Plan B's worker (§5): a tier-2 single-screen re-bake MUST reconcile the
   stored plan slice's section item ids against the current category membership (append added items,
-  drop removed ones) before calling `generate` — the engine will not error on a stale slice.
+  drop removed ones) before calling `generate` — the engine will not error on a stale slice, but a
+  dangling id costs a flagged board and a wasted iteration budget. Both directions are pinned in the
+  A6 `describe` block of `src/pipeline/engine.test.ts`.

@@ -1113,6 +1113,54 @@ describe("composition paint path (D71)", () => {
     }
   });
 
+  it("tags per-size price spans for a sized item on a composed board, and still passes QA (A2 e2e)", async () => {
+    // Composed per-size coverage END-TO-END. Elsewhere the launch theme proves sized tagging only
+    // piecewise (the vocabulary contract testkit + the digest unit tests); free-paint has an e2e but
+    // composed did not. Here a sized item flows plan → composer → renderComposed → dhaba priceRow
+    // (the A2 sized spans) → package → freeze, and the SHIPPED board must carry one
+    // `data-bind="price"` `data-size="<label>"` span per size — the exact per-size hook §4's
+    // serve-time overlay patches. The renderer is deterministic, so this needs no production change;
+    // a failure here is a real compose→package integration bug, not a theme gap.
+    const sizedInput = {
+      ...dhabaInput,
+      items: dhabaInput.items.map((it) =>
+        it.id === "d-dal"
+          ? {
+              id: it.id,
+              name: it.name,
+              category: it.category,
+              available: true,
+              // Sizes ONLY (no base price) — priceRow renders one tagged span per size.
+              sizes: [
+                { label: "Half", price: 8 },
+                { label: "Full", price: 12 },
+              ],
+            }
+          : it,
+      ),
+    };
+    const engine = createFakeEngine({
+      observations: [cleanObservation()],
+      ports: { themeRepository: dhabaThemeRepository() },
+    });
+    const out = await engine.generate(sizedInput);
+
+    const screen = out.screens[0]!;
+    const node = parse(screen.html).querySelector('[data-item-id="d-dal"]');
+    expect(node, "d-dal row").not.toBeNull();
+    // One data-bind="price" span PER size, each tagged with its own size label.
+    for (const label of ["Half", "Full"]) {
+      expect(
+        node!.querySelector(`[data-bind="price"][data-size="${label}"]`),
+        label,
+      ).not.toBeNull();
+    }
+    // Exactly two price spans (one per size) — no scalar/MP span leaked in for this sized item.
+    expect(node!.querySelectorAll('[data-bind="price"]')).toHaveLength(2);
+    // The composed board still passes QA — including the per-size binding check (no binding-mismatch).
+    expect(out.qaReport.screens[0]!.passed).toBe(true);
+  });
+
   it("a theme WITHOUT a vocabulary still free-paints (fallback intact)", async () => {
     // The default botanical theme has no vocabulary → AutoPainter falls back to the free painter.
     const painterSpy = new SpyPainter();
@@ -1227,5 +1275,38 @@ describe("single-screen re-bake via sliced static plan (menu-cast worker contrac
     // they were present in `items`.
     const bound = new Set(out.screens[0]!.itemIds);
     expect(bound).toEqual(new Set(["s-garlic-bread", "c-curry"]));
+  });
+
+  // The OTHER stale-slice direction is NOT symmetric with the one above (final-review correction to
+  // the §Addendum bullet, which previously claimed it was "silently dropped"). A plan section that
+  // references an id ABSENT from `items` does NOT throw and is NOT silently dropped: the ghost id
+  // has no rendered `[data-item-id]` row, so checkBindings (structural-checks.ts) fires a `critical`
+  // `binding-missing` for it, the board ships FLAGGED (`passed: false`), and — binding-missing being
+  // unfixable by re-paint — the loop burns its whole budget before freezing. `screen.itemIds` still
+  // lists the ghost id (itemIds mirrors the plan's sections, not the DOM). This is exactly why a
+  // Plan B tier-2 re-bake must reconcile a stored slice's ids against current membership first.
+  it("a plan-referenced id missing from items ships a FLAGGED board with a binding-missing finding (no throw)", async () => {
+    const slice = menuCastTwoScreenPlan.screens[1]!; // SIDES(s-garlic-bread) + CURRIES(c-curry)
+    // Pass every planned item EXCEPT c-curry — the plan still references it: a stale dangling id.
+    const items = fixtures.menu.filter(
+      (i) => i.id !== "c-curry" && slice.sections.some((s) => s.items.includes(i.id)),
+    );
+    const engine = createFakeEngine();
+    const out = await engine.generate({
+      items,
+      brief: fixtures.brief,
+      constraints: { aspect: "16:9", screens: 1 },
+      plan: { screens: [slice] },
+    });
+
+    // It resolves (no throw) and still ships the board…
+    expect(out.screens).toHaveLength(1);
+    expect(out.screens[0]!.id).toBe(slice.id);
+    // …but itemIds mirrors the plan, so the ghost id is reported even though its row never rendered.
+    expect(out.screens[0]!.itemIds).toContain("c-curry");
+    // …and the ghost id is NOT silent: QA can't bind it, so the board ships flagged.
+    const report = out.qaReport.screens[0]!;
+    expect(report.passed).toBe(false);
+    expect(report.findings.map((f) => f.kind)).toContain("binding-missing");
   });
 });
