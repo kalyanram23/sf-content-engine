@@ -34,6 +34,7 @@
     "embed:fonts": "tsx scripts/embed-fonts.ts",
     "prebuild": "tsx scripts/build-motion-bundle.ts",
     "build": "tsup",
+    "prepare": "npm run build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
