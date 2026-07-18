@@ -8,6 +8,7 @@
  */
 
 export { createNodeEngine, type NodeEngineOptions } from "./adapters/node-engine";
+export { bundledThemesDir } from "./adapters/bundled-themes";
 
 export {
   createOpenRouterClient,

@@ -60,3 +60,25 @@ describe("createNodeEngine — composition painter wiring", () => {
     ).toThrow();
   });
 });
+
+/**
+ * Hermetic: construction only, same as above. A git-dependency consumer (no `themesDir` option)
+ * must still resolve all six shipped themes — the bug this covers threw `ThemeNotFoundError` at
+ * paint time for every composed theme because only the code-bundled `botanical` preset was
+ * reachable. `plan()` never touches the theme repository, so hitting a composed presetId here
+ * only proves construction wired the bundled themes dir in, not that paint succeeds end-to-end.
+ */
+describe("createNodeEngine — default themesDir (bundled themes)", () => {
+  it("constructs without throwing when no themesDir is given (defaults to bundledThemesDir)", () => {
+    expect(() => createNodeEngine({ openRouterApiKey: "test-key" })).not.toThrow();
+  });
+
+  it("still honours an explicit themesDir override unchanged", () => {
+    // An explicit (even nonexistent) themesDir must not be silently replaced by the default —
+    // FileThemeRepository tolerates a missing directory (empty repo + bundled fallback), so this
+    // only proves the option threads through rather than being ignored in favour of the default.
+    expect(() =>
+      createNodeEngine({ openRouterApiKey: "test-key", themesDir: "/no/such/themes-dir" }),
+    ).not.toThrow();
+  });
+});

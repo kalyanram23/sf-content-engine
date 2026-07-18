@@ -25,7 +25,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "themes"
   ],
   "scripts": {
     "build:motion": "tsx scripts/build-motion-bundle.ts",

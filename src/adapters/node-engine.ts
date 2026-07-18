@@ -7,6 +7,7 @@ import { CompositionPainter } from "../composition/painter";
 import { loadEngineConfig } from "../config/index";
 import type { GenerateOutput, ThinPlan } from "../domain/types";
 import { createEngine, type ContentEngine } from "../pipeline/engine";
+import { bundledThemesDir } from "./bundled-themes";
 import { normalizeBrandLogo } from "./image/asset-resolver";
 import type { EnginePorts } from "../ports/index";
 import type { Planner } from "../ports/planner";
@@ -54,7 +55,10 @@ export interface NodeEngineOptions {
   /**
    * Directory of externalized theme files (`<id>.theme.json`) to load at runtime. Loaded themes
    * override the bundled presets by id; ids not found on disk fall back to the bundled defaults.
-   * Ignored if an explicit `themeRepository` is given.
+   * Ignored if an explicit `themeRepository` is given. Defaults to {@link bundledThemesDir} (this
+   * package's own shipped `themes/`) when omitted and that directory can be resolved — so a bare
+   * `createNodeEngine({ openRouterApiKey })` still gets all six shipped themes, not just the one
+   * code-bundled preset (`botanical`). Pass an explicit `themesDir` to override with your own.
    */
   themesDir?: string;
   browser?: PlaywrightBrowserOptions;
@@ -122,10 +126,24 @@ export function createNodeEngine(options: NodeEngineOptions): ContentEngine {
     };
   };
 
+  // No explicit `themesDir`: fall back to this package's OWN shipped themes/ (resolved relative
+  // to the emitted adapter file, so it works both packed — `dist/node.js` — and from source —
+  // tests, `npm run try`). If that can't be resolved either (an unexpected install layout), the
+  // engine still runs with just the code-bundled preset rather than throwing at construction.
+  const resolvedThemesDir =
+    options.themesDir ??
+    (() => {
+      try {
+        return bundledThemesDir();
+      } catch {
+        return undefined;
+      }
+    })();
+
   const themeRepository =
     options.themeRepository ??
-    (options.themesDir !== undefined
-      ? createFileThemeRepository(options.themesDir, createDefaultThemeRepository())
+    (resolvedThemesDir !== undefined
+      ? createFileThemeRepository(resolvedThemesDir, createDefaultThemeRepository())
       : createDefaultThemeRepository());
 
   // The QA browser, constructed ONCE. The composition painter's `measure` reuses this SAME instance
