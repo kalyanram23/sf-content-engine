@@ -62,9 +62,11 @@ test for the OpenRouter client and a real-compile test for the Tailwind packager
 | `npm run format`        | `prettier --write .` (fix). `format:check` is the read-only variant.       |
 | `npm run build`         | `prebuild` bakes the motion bundle, then `tsup` → ESM + `.d.ts` for the 3 entries. |
 | `npm run playground`    | Run the engine on fixtures → `./playground-output` (all acceptance scenarios). |
-| `npm run try`           | Drive the real Node engine on a menu end-to-end (needs a key). `try:debug` / `try:claude` variants. |
+| `npm run try`           | Drive the real Node engine on a menu end-to-end (needs a key). `try:debug` is the inspector variant. |
+| `npm run try:claude`    | **Local-only.** Drives the Claude-Agent-SDK backend. Its adapter (`src/adapters/claudecode/**`) and script are **gitignored** — a fresh clone does not have them, so this script will not run. |
 | `npm run eval`          | Run the eval harness (`scripts/evals/`) → `eval-output/scorecard.md`.       |
 | `npm run regen:samples` | Regenerate the `samples/` fixtures from source menus.                       |
+| `npm run vocab:samples` | Density-proof renders for one vocabulary (`-- <id>`): 5/20/50 items × portrait/landscape (needs Playwright chromium). |
 | `npm run build:motion`  | Bake the motion bundle (also runs automatically as `prebuild`).            |
 | `npm run build:full-plan` | Build a hand-authored full plan (`scripts/build-full-plan.ts`).          |
 | `npm run embed:fonts`   | Embed fonts as data-URIs (`scripts/embed-fonts.ts`).                        |

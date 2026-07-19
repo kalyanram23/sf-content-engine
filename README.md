@@ -2,7 +2,8 @@
 
 A **stateless content-generation engine** that turns a normalized menu into finished
 digital-signage screens. Each screen is a **self-contained, animated, data-bound HTML+JS
-artifact** sized for a TV. The engine paints each screen with full layout freedom, runs an
+artifact** sized for a TV. The engine paints each screen — with full layout freedom, or from a
+theme's component vocabulary ([two paint paths](#two-ways-a-screen-gets-painted)) — runs an
 internal **generator–critic QA correction loop** until it passes (or the budget trips), then
 **freezes** it — binding inventory state by canonical item ID so a downstream runtime can
 patch availability/price later without regenerating layout.
@@ -89,9 +90,11 @@ import { botanicalPreset } from "content-engine";
 
 const engine = createNodeEngine({
   openRouterApiKey: process.env.OPENROUTER_API_KEY!,
-  // Models are config-as-data — swap any role without code changes:
+  // Models are config-as-data — swap any role without code changes. The structured roles
+  // (plan/critique/repair/compose) are checked against an allowlist at load, so an id that
+  // can't do strict JSON fails loudly rather than silently shipping junk (D11).
   config: {
-    models: { paint: "anthropic/claude-sonnet-4.5", critique: "openai/gpt-4o-mini" },
+    models: { paint: "anthropic/claude-sonnet-5", critique: "openai/gpt-5.4-mini" },
     loop: { maxIterations: 3 },
   },
   // Optional: pass a hand-authored `plan` to bypass the LLM planner (wires StaticPlanner).
@@ -105,6 +108,13 @@ export async function POST(req: Request) {
     items,
     brief: { presetId: botanicalPreset.id, density: "balanced" },
     constraints: { aspect: "16:9", screens: 2, locale: "en-US", currency: "USD" },
+    // Optional: a logo header band on every screen. `src` may be a URL, an fs path, or a
+    // data-URI — the Node root resolves it to a data-URI so the artifact stays offline-safe (D18).
+    brand: {
+      logo: { src: "./logo.png", alt: "Verdant" },
+      name: "Verdant",
+      tagline: "Garden kitchen",
+    },
   });
   return Response.json(output);
 }
@@ -112,6 +122,24 @@ export async function POST(req: Request) {
 
 For type-only use in RSC code, `import type { GenerateOutput } from "content-engine"` is
 erased at compile time and pulls in nothing at runtime.
+
+## Two ways a screen gets painted
+
+Painting a screen has **two paths behind one interface**, chosen per screen — so the pipeline,
+packaging, and QA below are identical either way.
+
+- **Free paint** (the default, and the reason for the design above): the LLM writes arbitrary
+  HTML on rails — theme tokens, a motion vocabulary, deterministic packaging. Maximum layout
+  freedom; the QA loop is what makes it converge.
+- **Composition** (D71): a theme can ship a **component vocabulary** — a small closed set of
+  pre-built blocks. The LLM then only fills a tiny structured order (`section` / `group` /
+  `photoBand`) and deterministic code renders it. It's cheaper, far lower-variance, and
+  correct-by-construction — but only as expressive as the vocabulary the theme ships.
+
+A theme opts into composition by declaring a `vocabulary` in its JSON; `dhaba` is the first one.
+Everything else free-paints. `config.painter.mode` (`auto` | `free` | `composition`) overrides
+this: `auto` (default) routes per theme and falls back to free paint if composing fails, while
+`composition` forces it and fails loud — a CI/debug lever.
 
 ## The QA correction loop
 
@@ -158,15 +186,18 @@ is a correct offline fallback on its own.
 
 <!-- AUTO-GENERATED:scripts (from package.json — regenerate, don't hand-edit) -->
 
-| Command                 | What                                                                |
-| ----------------------- | ------------------------------------------------------------------- |
-| `npm run verify`        | format-check → lint → typecheck → test (CI gate, hermetic)          |
-| `npm test`              | unit + e2e suite (fakes; no network/browser)                        |
-| `npm run test:live`     | gated adapter tests (needs `OPENROUTER_API_KEY` and/or a browser)   |
-| `npm run build`         | bake motion bundle (prebuild), then ESM + `.d.ts` for the 3 entries |
-| `npm run playground`    | run the engine on fixtures → `./playground-output`                  |
-| `npm run try`           | drive the real Node engine on a menu end-to-end (needs a key)       |
-| `npm run regen:samples` | regenerate the `samples/` fixtures from source menus                |
+| Command                 | What                                                                  |
+| ----------------------- | --------------------------------------------------------------------- |
+| `npm run verify`        | format-check → lint → typecheck → test (CI gate, hermetic)            |
+| `npm test`              | unit + e2e suite (fakes; no network/browser)                          |
+| `npm run test:live`     | gated adapter tests (needs `OPENROUTER_API_KEY` and/or a browser)     |
+| `npm run build`         | bake motion bundle (prebuild), then ESM + `.d.ts` for the 3 entries   |
+| `npm run playground`    | run the engine on fixtures → `./playground-output`                    |
+| `npm run try`           | drive the real Node engine on a menu end-to-end (needs a key)         |
+| `npm run eval`          | run the eval harness on frozen scenarios → `eval-output/scorecard.md` |
+| `npm run regen:samples` | regenerate the `samples/` fixtures from source menus                  |
+
+Full script reference: [`docs/CONTRIBUTING.md`](./docs/CONTRIBUTING.md#scripts).
 
 <!-- /AUTO-GENERATED:scripts -->
 
@@ -178,9 +209,17 @@ stages, or LLM vendors implement a small interface and wire in at the compositio
 
 ## Status / scope
 
-The walking skeleton (spec §7) plus several §8 slices now ship: the **LLM coverage planner**
-distributing the whole menu across **multiple screens** (hand-authored `plan` still bypasses it),
-**externalized JSON themes** (`botanical`, `bubblegum`), and an **item-photo carousel** (photos
-fetched and inlined as offline `data:` URIs). Still deferred (§8): brief-driven theme generation,
-image-model-generated backgrounds, hide+reflow out-of-stock, and the runtime gray-out patcher (a
-downstream service — the binding it relies on already ships).
+The walking skeleton (spec §7) plus several §8 slices now ship:
+
+- the **LLM coverage planner** distributing the whole menu across **multiple screens**
+  (a hand-authored `plan` still bypasses it);
+- **externalized JSON themes** in `themes/` — `botanical`, `bubblegum`, `bazaar`, `blockframe`,
+  `bold-poster`, `dhaba`;
+- the **composition paint path** (above) — `dhaba` is the first theme to ship a component
+  vocabulary;
+- an **optional brand header band** (logo + name/tagline, resolved to an offline `data:` URI);
+- an **item-photo carousel** (photos fetched and inlined as offline `data:` URIs).
+
+Still deferred (§8): brief-driven theme generation, image-model-generated backgrounds,
+hide+reflow out-of-stock, and the runtime gray-out patcher (a downstream service — the binding it
+relies on already ships).
