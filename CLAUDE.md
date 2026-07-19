@@ -18,7 +18,10 @@ photos are inlined as `data:` URIs before paint so the whole pipeline is offline
 The behaviour spec is the source of truth:
 `docs/superpowers/specs/2026-06-22-display-content-generation-engine-design.md`.
 `ARCHITECTURE.md` documents structure; `DECISIONS.md` logs every interpretation as **D1–D79**
-(cite these when changing a load-bearing decision). Read those before non-trivial changes.
+(cite these when changing a load-bearing decision); `docs/INTEGRATION.md` is the contract for the
+downstream **menu-cast** service (the public output shape, `data-bind` keys, the overlay patch
+protocol) — read it before touching anything a consumer depends on. Read those before non-trivial
+changes.
 
 ## Commands
 
@@ -50,8 +53,9 @@ every external concern is a port interface (`src/ports/`) injected at one compos
 optional `DebugSink` (`capture()` is invoked per scored candidate to dump HTML/screenshot/findings
 for inspection — off by default, never affects output, D15). Tests inject fakes via
 `createFakeEngine` (`src/testing/fakes/`). Models are config-as-data: `config.models` routes the
-`plan`/`paint`/`critique`/`repair` roles to OpenRouter ids (validated against the allowlist at load,
-D11). If you add a dependency on time/IO, add a port — don't reach for a global.
+`plan`/`paint`/`critique`/`repair`/`compose` roles to OpenRouter ids (the structured roles — all but
+`paint` — validated against the allowlist at load, D11). If you add a dependency on time/IO, add a
+port — don't reach for a global.
 
 **The pipeline is a LangGraph `StateGraph`, isolated to one file.** `src/pipeline/graph.ts` is the
 **only** file that imports `@langchain/langgraph`. Nodes (`src/pipeline/nodes/index.ts`) are plain
@@ -75,9 +79,11 @@ bypass the LLM (wires `StaticPlanner` instead).
 **Themes are externalized JSON bundles.** A `ThemePreset` (a structured `design` block — `identity`
 
 - `do`/`dont` — plus tokens + motion vocab + components + assets) lives in `themes/<id>.theme.json`,
-  resolved through the `ThemeRepository` port. `createNodeEngine` with `themesDir` wires
-  `FileThemeRepository`, which loads those files at runtime and **overrides the bundled presets**
-  (`src/theme/presets/`) by id, falling back to the bundle for ids not on disk. The painter prompt is
+  resolved through the `ThemeRepository` port. `createNodeEngine` wires `FileThemeRepository` from
+  `themesDir`, which **defaults to the package's own shipped `themes/`** (`bundledThemesDir()`, D78 —
+  so a git-dependency consumer loads every theme with no build step and no explicit path); it loads
+  those files at runtime and **overrides the code presets** (`src/theme/presets/`, only `botanical`) by
+  id, falling back to a code preset for ids not on disk. The painter prompt is
   composed in `buildSystem` (`src/adapters/openrouter/painter.ts`): role + the theme's
   `design.identity` (+ its `do`/`dont` lists) + shared engine design goals + the engine's fixed
   contract. The structured `design` block supersedes the legacy single `prompt` blob (still an
