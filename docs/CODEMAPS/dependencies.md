@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-12 | Files scanned: package.json + .env.example + eslint/vitest/tsup configs + src/adapters/** + src/config/models.ts | Token estimate: ~780 -->
+<!-- Generated: 2026-07-19 | Files scanned: package.json + .env.example + eslint/vitest/tsup configs + src/adapters/** + src/config/models.ts | Token estimate: ~800 -->
 
 # Dependencies
 
@@ -75,6 +75,15 @@ vitest ^4.1.9  default (vitest.config.ts): src/**/*.test.ts, EXCLUDES *.live.tes
                timeouts, process.loadEnvFile() reads .env → `npm run test:live`
 eslint · prettier · typescript ^6 (strict: verbatimModuleSyntax, exactOptionalPropertyTypes,
                                    noPropertyAccessFromIndexSignature)
+```
+
+## Packaging (what a consumer gets)
+
+```
+package.json files:  dist + themes            → a git-tag/git-dep consumer (e.g. the menu-cast worker)
+prepare: npm run build                           gets compiled ESM/.d.ts AND the theme JSON bundles
+createNodeEngine themesDir defaults to bundledThemesDir() → the shipped themes/ load with no build step
+                                                 (D78); pass an explicit themesDir to override.
 ```
 
 ## Env surface (.env.example — 4 vars, none needed by the hermetic suite)

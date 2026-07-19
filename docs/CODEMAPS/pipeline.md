@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-12 | Files scanned: src/pipeline/** (+ composition seam) | Token estimate: ~1000 -->
+<!-- Generated: 2026-07-19 | Files scanned: src/pipeline/** (+ composition seam) | Token estimate: ~1000 -->
 
 # Pipeline (LangGraph StateGraph)
 
@@ -38,7 +38,7 @@ repair           repairNode        repairs.applyDeterministicRepairs (pure) → 
 freeze           freezeNode        emits FrozenScreen { screen, poster, report } from `best`
 ```
 
-## Composition seam (D71–D77) — graph, nodes and state are UNCHANGED
+## Composition seam (D71–D79) — graph, nodes and state are UNCHANGED
 
 ```
 paint node    calls the ONE Painter port. AutoPainter (src/composition/auto-painter.ts, wired at the

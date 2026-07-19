@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-12 | Files scanned: src/qa/** src/repairs/** src/config/** src/planning/** | Token estimate: ~1150 -->
+<!-- Generated: 2026-07-19 | Files scanned: src/qa/** src/repairs/** src/config/** src/planning/** | Token estimate: ~1170 -->
 
 # QA, Gate, Scoring, Repair & Planning
 
@@ -7,8 +7,10 @@
 ```
 Structural (pure, node-html-parser)   src/qa/structural-checks.ts — runStructuralChecks()
   checkCapacity        plan slots vs planned items → kind "overflow-capacity"  (src/qa/representation.ts)
-  checkBindings        data-item-id present+unique · data-bind hooks · price numbers match source
+  checkBindings        data-item-id present+unique · required data-bind hooks (default price+name — the
+                       §4 overlay-rename target) · per-size prices tagged data-size · numbers match source
   checkPricePresent    item with a source price renders a NON-EMPTY [data-bind="price"]
+                       (one per data-size tag for sized items)
   checkRepresentations planned representation actually rendered (matrix/variant-rows/grid/list oracle)
   checkMatrixStructure fixed data-matrix table DOM (row×column, one price span per filled cell)
   checkImageSlots      plan's imageSlots ⇒ data-image-slot="<section title>" / "shared" (regex over ctx.html)
@@ -38,7 +40,8 @@ NOT grant trust.
 ```
 SKIPPED on a data-composed root            WHY
   checkTokenLint       → []                D73  renderer emits its own CSS/px; lint targets LLM-typed markup
-  checkMatrixStructure → []                D73  vocab v1 renders matrix sections as dotted-leader price lists
+  checkMatrixStructure → []                D73  vocabularies render their own price layouts (dotted-leader
+                                                lists, chips, tagged sizes), not the fixed matrix table
   checkImageSlots: section slots kind:"icon" only   D76.1  no v1 icon-panel component
   density UNDER-fill finding (data.kind==="under")  D76.2  fitter's register search already maximized type
                                                     — filtered post-hoc in the deterministicQA node
@@ -52,7 +55,8 @@ Critic brief (buildCritiqueRequest, src/pipeline/nodes/index.ts) — composed on
 free-paint brief byte-identical:
   – DROPS the free-paint rem-target size directive (D73); densityTier is kept (content, not instruction)
   – TITLE NOTE (D74): the masthead title is sanctioned model-authored copy; item names/prices stay data-bound
-  – IDIOM NOTES (D73/D76.3): masthead logo box, repeated polaroid filmstrip, dotted-leader price lists
+  – IDIOM NOTES (D73/D76.3): per-vocabulary idioms (e.g. masthead logo box, repeated filmstrip,
+    dotted-leader or chip prices) so the critic doesn't flag the vocabulary's own render language
 ```
 
 A finding carries `kind`, `source` (deterministic|vision), `severity`, `tag`, `hardGate`,
@@ -117,7 +121,7 @@ ids). Pass a hand-authored `plan` to bypass entirely (StaticPlanner).
 `loadEngineConfig(partial)` deep-merges over defaults → **11 blocks**: `routing`, `tokenLint`
 (allowRawHex/allowRawPx/allowedPxValues), `rubric`, `qa` (viewport · contrast · density · deadBand ·
 legibility · image · overflowRepair · itemCutoff · overflowTolerancePx · blockingSeverity ·
-skipVisionWhenBlocking · requiredBindings · capacities), `loop` (maxIterations 3), `models` (+ `compose`
+skipVisionWhenBlocking · requiredBindings (price+name) · capacities), `loop` (maxIterations 3), `models` (+ `compose`
 role, structured-output allowlist), `painter` (`mode: auto|free|composition` — D71 — + antiPatterns),
 `planning` (legibilityBudget / minItemsPerBoard / screensMode / packedMultiplier — D26/D30/D70),
 `layouts` (blueprint catalog — D17), `execution` (boardConcurrency), `menuLint` (mode / zeroPriceRender —

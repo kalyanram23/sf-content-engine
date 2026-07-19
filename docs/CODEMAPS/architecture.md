@@ -1,10 +1,10 @@
-<!-- Generated: 2026-07-12 | Files scanned: 103 non-test src .ts | Token estimate: ~1000 -->
+<!-- Generated: 2026-07-19 | Files scanned: 113 non-test src .ts | Token estimate: ~1020 -->
 
 # Architecture
 
 **Type:** stateless TypeScript (ESM) **library** — no server, no DB, no UI. Published with 3
 entry points; consumed by a Next.js service. Authoritative prose: `ARCHITECTURE.md`, `DECISIONS.md`
-(D1–D77), spec `docs/superpowers/specs/2026-06-22-…-design.md`.
+(D1–D79), spec `docs/superpowers/specs/2026-06-22-…-design.md`.
 
 ## What it does
 
@@ -31,7 +31,9 @@ createEngine(ports, config)      src/pipeline/engine.ts          PURE root — i
   ├─ createNodeEngine(opts)      src/adapters/node-engine.ts     PROD: OpenRouter/Playwright/Tailwind;
   │                                                              painter = AutoPainter{free,composition};
   │                                                              +usage telemetry, opt-in Braintrust,
-  │                                                              brand-logo → data-URI (D18)
+  │                                                              brand-logo → data-URI (D18);
+  │                                                              themesDir defaults to bundledThemesDir()
+  │                                                              — package ships themes/ for git-dep consumers
   ├─ createClaudeCodeEngine(opts) src/adapters/claudecode/engine.ts  GITIGNORED / not in a fresh clone:
   │                                                              shelved Claude-Agent-SDK adapters
   │                                                              (subscription auth, no OpenRouter
@@ -56,9 +58,11 @@ COMPOSE = LLM Composer port fills a 3-kind structured order (section | group | p
 
 new ports:    src/ports/composer.ts · src/ports/vocabulary-registry.ts (ComponentVocabulary)
 new adapter:  src/adapters/openrouter/composer.ts (OpenRouterComposer, `compose` model role)
-vocabularies: src/vocabularies/index.ts (builtinVocabularies) · dhaba/index.ts
+vocabularies: src/vocabularies/index.ts (builtinVocabularies → 5) · dhaba · bold-poster · blockframe ·
+              bazaar · bubblegum — all built on src/vocabularies/shared/ (binding · carousels · registers ·
+              masthead · contract testkit; D78). dhaba keeps private copies as the pinned reference (D78)
 themes/:      bazaar · blockframe · bold-poster · botanical · bubblegum · dhaba
-              (only `dhaba` declares a `vocabulary` → only dhaba composes)
+              (5 declare a `vocabulary` → all but `botanical` compose)
 ```
 
 ## Layering (dependency direction ↓)

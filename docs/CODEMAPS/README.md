@@ -1,10 +1,10 @@
-<!-- Generated: 2026-07-12 | Files scanned: 103 non-test src .ts (152 incl. tests) | Token estimate: ~310 -->
+<!-- Generated: 2026-07-19 | Files scanned: 113 non-test src .ts (169 incl. tests) | Token estimate: ~320 -->
 
 # Codemaps
 
 Token-lean architecture maps for AI context loading. Generated from source — **regenerate, don't
 hand-edit** (`/update-codemaps`). For prose rationale read `ARCHITECTURE.md` + `DECISIONS.md`
-(now D1–D77).
+(now D1–D79).
 
 | Map                                | Covers                                                             |
 | ---------------------------------- | ------------------------------------------------------------------ |
@@ -20,9 +20,12 @@ hand-edit** (`/update-codemaps`). For prose rationale read `ARCHITECTURE.md` + `
 
 **Two paint paths** behind the one `Painter` port (D71): a theme declaring a `vocabulary` **composes**
 (an LLM fills a small structured order; deterministic code renders it), everything else **free-paints**.
-Graph, packager, and QA are structurally unchanged — QA narrowly **trusts** composed markup, keyed on a
-derived `data-composed` marker (D73/D76). See architecture.md (paths + roots), ports.md (`Composer`,
-`VocabularyRegistry`, `BrowserPort.measure`), qa.md (what the trust does and does not skip).
+**5 of the 6 themes now compose** — `dhaba`, `bold-poster`, `blockframe`, `bazaar`, `bubblegum` — all built
+on a shared toolbox (`src/vocabularies/shared/`: binding, carousels, registers, masthead, contract testkit;
+D78); only `botanical` free-paints. Graph, packager, and QA are structurally unchanged — QA narrowly
+**trusts** composed markup, keyed on a derived `data-composed` marker (D73/D76). See architecture.md (paths
++ roots), ports.md (`Composer`, `VocabularyRegistry`, `BrowserPort.measure`), qa.md (what the trust does and
+does not skip).
 
 **LLM backend:** `createNodeEngine` (OpenRouter) is the only one in the repo. A second backend,
 `createClaudeCodeEngine` (Claude-Agent-SDK subscription auth), exists **only as untracked local files**

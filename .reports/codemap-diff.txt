@@ -1,113 +1,98 @@
 Codemap Analysis Report
-Generated: 2026-07-12
+Generated: 2026-07-19
 Project: content-engine (stateless TypeScript ESM library)
-Scan: 103 src .ts (non-test), 49 test files, 152 total src .ts
-Previous scan: 2026-07-11 (86 non-test, 128 total)
+Scan: 113 src .ts (non-test), 56 test files, 169 total src .ts
+Previous scan: 2026-07-12 (103 non-test, 152 total)
 
-=== STATUS: REGENERATION (3rd scan) — MAPS ALREADY REWRITTEN THIS SESSION ===
-The six maps in docs/CODEMAPS/ were regenerated from source earlier in this session (under
-/update-docs) and already carry the 2026-07-12 header. This run re-verified them against a
-clean working tree — no src/ file has changed since — and produced this report, which was the
-only missing artifact.
+=== STATUS: REGENERATION (4th scan) — UPDATE IN PLACE, no approval gate ===
+The six maps in docs/CODEMAPS/ were last written on 2026-07-12 (D77-era) but sat UNCOMMITTED
+in the working tree while the code moved on. Since then the theme-migration wave (D78) and
+sparse-board photo growth (D79) landed. This run refreshed the maps against the current tree.
 
-Content change EXCEEDS the 30% "request approval" threshold in 4 of 6 maps (architecture,
-ports, qa, dependencies). The rewrite was NOT gated on approval. That is a deviation worth
-naming: the maps had been flagged stale, the user invoked the doc-sync command on them, and
-the full before/after is recoverable — the changes are UNSTAGED in the working tree
-(`git diff docs/CODEMAPS/` shows every line; `git checkout -- docs/CODEMAPS/` reverts).
+Change is TARGETED (freshness headers + a handful of lines per map — the composition surface
+went from 1 composed theme to 5-on-a-shared-toolbox); it does NOT exceed the 30% "request
+approval" threshold in any map, so all six were updated in place. Full before/after is
+recoverable in the working tree (`git diff docs/CODEMAPS/`).
 
-Prior maps were generated at commit a9284f1 ("codemap refresh — pre-integration snapshot"),
-i.e. BEFORE the composition paint path landed. They described an engine that no longer exists.
+=== WHAT DROVE THE DIFF: composition went from 1 theme to 5 (D78) + sized prices + D79 ===
+The prior maps described an engine where ONLY `dhaba` composed and everything else free-painted.
+Now FIVE of the six themes compose, all on a shared toolbox.
 
-=== WHAT DROVE THE DIFF: the composition paint path (D71-D77) ===
-17 commits (0e0f5e3..ab11391) added a second way to paint a board, behind the existing
-Painter port. The prior maps had ZERO coverage of it.
+  builtinVocabularies() (src/vocabularies/index.ts) registers 5:
+    dhaba · bold-poster · blockframe · bazaar · bubblegum   (only `botanical` free-paints)
+  All but dhaba are built on src/vocabularies/shared/ (D78):
+    binding.ts        QA-exact data-item-id / data-bind escaping + bindPrices (per-size tagging)
+    carousels.ts      crossfade + filmstrip bands with the reduced-motion settled frame
+    registers.ts      register/type-scale math (metricsFromNumbers)
+    masthead.ts       logo-box / title masthead
+    contract.testkit.ts  describeVocabularyContract — the reusable per-vocabulary contract suite
+  dhaba keeps PRIVATE copies of the toolbox mechanics as the untouched reference, pinned by the
+  toolbox's sync tests (D78) — so a shared-kit regression is caught against a known-good baseline.
 
-  AutoPainter picks per board from config.painter.mode (auto | free | composition):
-    - theme declares a `vocabulary`  -> COMPOSE: an LLM Composer fills a small structured
-      order (section/group/photoBand); deterministic code in src/composition/ renders it
-    - plain theme                    -> FREE-PAINT (the original path)
-    - auto mode rescues to free paint if composing fails; `composition` mode fails loud
+  Graph, nodes, state channels, routing and termination are STRUCTURALLY UNCHANGED. Composedness
+  is still DERIVED (isComposedHtml(state.html) via the data-composed marker), never stored. The
+  composed-board QA trust is unchanged in shape; only its examples generalized (dhaba's dotted-
+  leader idiom is now one of several per-vocabulary price layouts).
 
-  Graph, packager, and QA are STRUCTURALLY UNCHANGED. Composedness is derived, never stored
-  (isComposedHtml(state.html) via a data-composed marker). QA narrowly TRUSTS composed markup.
+=== FILES ADDED since last scan (17: 10 impl + 7 test) ===
+  src/vocabularies/shared/{binding,carousels,contract.testkit,masthead,registers}.ts   shared toolbox
+  src/vocabularies/{bold-poster,blockframe,bazaar,bubblegum}/index.ts                   4 new vocabularies
+  src/adapters/bundled-themes.ts        bundledThemesDir() — package ships its own themes/ bundle
+  (+ bundled-themes.test.ts, 4 per-vocabulary .test.ts, shared/binding.test.ts, shared/reference.test.ts)
 
-=== FILES ADDED since last scan (18: 9 impl + 9 test) ===
-  src/composition/{layout,renderer,digest,painter,auto-painter}.ts   the composition path
-  src/vocabularies/{index,dhaba/index}.ts                            first component vocabulary
-  src/ports/composer.ts                    Composer port (LLM, judgment only)
-  src/ports/vocabulary-registry.ts         ComponentVocabulary + VocabularyRegistry
-  src/adapters/openrouter/composer.ts      OpenRouterComposer (strict structured outputs)
-  src/testing/fakes/composer.ts            FakeComposer
-
-=== FILES MODIFIED since last scan (22) ===
-  src/ports/{index,browser,services}.ts    +composer?/vocabularies?; BrowserPort.measure (D72)
-  src/config/{models,painter,index}.ts     +compose model role; painter.mode; allowlist
-  src/qa/structural-checks.ts              composed-board trust (token-lint + matrix skip, D73)
-  src/pipeline/nodes/index.ts              composed density/critique-brief handling (D73/D76)
-  src/adapters/{node-engine,playwright/browser}.ts   AutoPainter wiring; measure()
-  src/domain/{contracts,schemas}.ts        composition order form; theme `vocabulary` field
-  (+ 10 test/fixture files)
+=== FILES MODIFIED since last scan (impl) ===
+  src/config/qa.ts                 requiredBindings default price → ["price","name"] (§4 rename target)
+  src/config/layouts.ts            packed-landscape column escalation for composed boards
+  src/qa/structural-checks.ts      per-size price binding verified per data-size tag
+  src/ports/vocabulary-registry.ts VocabItem.sizes — sized items reach the vocabularies
+  src/composition/{digest,renderer}.ts  sized-price digest + sparse-board photo growth render (D79)
+  src/adapters/node-engine.ts      themesDir defaults to bundledThemesDir(); src/node.ts re-exports it
+  src/adapters/openrouter/painter.ts    sized-price prompt notes
+  src/vocabularies/{dhaba,bold-poster,blockframe,bazaar,bubblegum}/index.ts · shared/binding.ts
 
 === FILES DELETED === none
 
-=== SNAPSHOT DIFF (vs 2026-07-11 baseline) ===
+=== SNAPSHOT DIFF (vs 2026-07-12 baseline) ===
 Pipeline nodes:        10 -> 10   UNCHANGED (planContent..freeze); routing/termination unchanged
-State channels:        no change  (composedness is DERIVED from html, not a channel)
-EnginePorts:           13 -> 15   +composer?, +vocabularies?  [but see DEAD CODE below]
-Model roles:            4 -> 5    +compose (default anthropic/claude-sonnet-5, allowlist-checked)
-Config-as-data blocks: 11 -> 11   painter gained `mode`; models gained `compose`
+State channels:        no change  (composedness still DERIVED from html, not a channel)
+EnginePorts:           15 -> 15   composer? / vocabularies? still declared, still inert (see DEAD CODE)
+Model roles:            5 -> 5    UNCHANGED (plan/paint/critique/repair/compose)
+Config-as-data blocks: 11 -> 11   qa.requiredBindings default now price+name; layouts gained packed escalation
 Composition roots:      4 -> 4    UNCHANGED
-BrowserPort:           +measure() called ONLY by src/composition/painter.ts, never by a node
-Themes on disk:         2 -> 6    botanical, bubblegum, bazaar, blockframe, bold-poster, dhaba
-                                  (only `dhaba` declares a vocabulary)
+Composed vocabularies:  1 -> 5    +bold-poster, blockframe, bazaar, bubblegum (all on shared toolbox, D78)
+Themes on disk:         6 -> 6    UNCHANGED; but declaring a vocabulary went 1 -> 5 (all but botanical)
+Required data-bind:     price -> price + name   (D: overlay rename target, spec §4)
+Sized prices:           NEW       per-size prices carry data-size tags; verified per tag in QA
+Packaging:              NEW       files: dist + themes; themesDir defaults to bundledThemesDir() (D78)
 
-=== NEW DEPENDENCIES === none (package.json deps unchanged since a9284f1)
+=== NEW DEPENDENCIES === none (package.json deps unchanged since the prior scan)
 
 === EXTERNAL SERVICES ===
-Unchanged set: OpenRouter (LLM gateway), headless Chromium (Playwright), remote image hosts.
-OpenRouter now carries 5 roles (added `compose`). No database / cache / queue. Stateless (D15).
+Unchanged: OpenRouter (LLM gateway, 5 roles incl. compose), headless Chromium (Playwright),
+remote image hosts. No database / cache / queue. Stateless across calls (D15).
 
-=== ERRORS CORRECTED IN THE PRIOR MAPS (not just staleness) ===
-1. NONEXISTENT FILE. qa.md cited `src/qa/matrix-structure.ts` as a key file. It does not exist
-   and never has — only `matrix-structure.test.ts` does; the check lives in structural-checks.ts.
-   NOTE: the previous version of THIS report (2026-07-11, "NEW MODULES") repeated the same
-   phantom path. The error propagated report -> map. Fixed in both.
-2. MENU-LINT ORDERING. architecture.md and pipeline.md both showed menu-lint running AFTER
-   resolvePlan. src/pipeline/engine.ts lints BEFORE planning (D29). Two agents found this
-   independently.
-3. QA CHECK LISTS were badly incomplete (missing capacity, price-present, representations,
-   image-slots, brand-binding, legibility, item-cutoff, dead-band); rubric listed 6 dims, not 7
-   (`invented-copy` missing); repair claimed contrast-token-swap only (overflow shrink-to-fit
-   D31 + D65 honesty guard also exist).
-4. THEMES. ports.md claimed the theme set was `botanical, bubblegum`. Six exist on disk.
-5. FAKE IMAGE FETCHER described as "(inline/no-op)"; it maps every URL to a real data-URI.
-6. CONSTRAINTS.SCREENS assert applies only to CALLER-authored plans (planner plans are elastic).
-
-=== DEAD / DANGLING CODE SURFACED (not fixed — needs an owner decision) ===
+=== DEAD / DANGLING CODE (re-verified this scan; still open, needs an owner decision) ===
 1. EnginePorts.composer / .vocabularies are declared optional but NO composition root sets them
-   and NOTHING in the core reads them. Both roots inject the composer/registry straight into
-   AutoPainter/CompositionPainter, so the Painter port remains the sole composition seam.
-   The two port fields are inert.
-2. zod-to-json-schema is a direct dependency imported NOWHERE in src/ or scripts/. Zod 4's
-   built-in z.toJSONSchema replaced it. Still resolved transitively via @langchain/*, so
-   dropping the direct dep is safe.
-3. `npm run try:claude` is a dangling script: src/adapters/claudecode/** and
-   scripts/try-claude.ts are GITIGNORED + eslint-ignored, so a fresh clone has neither, while
-   package.json still ships the script and the @anthropic-ai/claude-agent-sdk devDependency.
-   No tracked file imports it, so build/verify are unaffected.
+   and NOTHING in the core reads them (only a doc comment in config/painter.ts mentions them).
+   Both roots inject Composer + VocabularyRegistry straight into AutoPainter/CompositionPainter,
+   so the Painter port remains the sole composition seam. The two port fields stay inert.
+2. zod-to-json-schema is a direct dependency imported NOWHERE in src/ or scripts/ (Zod 4's built-in
+   z.toJSONSchema replaced it). Still resolved transitively via @langchain/*, so dropping the direct
+   dep is safe.
+3. `npm run try:claude` is still a dangling script: src/adapters/claudecode/** and scripts/try-claude.ts
+   are GITIGNORED + eslint-ignored, so a fresh clone has neither, while package.json ships the script
+   and the @anthropic-ai/claude-agent-sdk devDependency. No tracked file imports it — build/verify unaffected.
 
 === STALENESS WARNINGS (docs not updated in 90+ days) ===
-None >90 days (repo is ~3 weeks old). Content-lag notes instead:
-  - CHANGES.md (2026-06-27) is a DATED ARCHIVE ("Change list - 2026-06-24") that predates
-    D28-D77. Not wrong, but no longer describes the engine; DECISIONS.md is the living log.
-    Candidate for retitling-as-archive or retirement.
-  - ARCHITECTURE.md / CLAUDE.md / DECISIONS.md are CURRENT (2026-07-12, through D77).
-  - README.md was 14 days stale and was corrected this session (it advertised a model id,
-    openai/gpt-4o-mini, that is NOT on the structured-output allowlist for the `critique`
-    role — pasting the documented example would have thrown at config load).
+None. The repo is ~4 weeks old; every doc dates from 2026-06 or 2026-07. Content-lag notes instead:
+  - CHANGES.md (2026-06-27) is a DATED ARCHIVE ("Change list - 2026-06-24") predating D28-D79.
+    Not wrong, but no longer describes the engine; DECISIONS.md is the living log. Candidate for
+    retitling-as-archive or retirement (carried over from the prior report — still unaddressed).
+  - ARCHITECTURE.md / CLAUDE.md / DECISIONS.md are CURRENT (through D79, 2026-07-16).
+  - README.md / docs/CONTRIBUTING.md were reconciled with package.json + .env.example in the same
+    session as this scan (scripts table gained vocab:samples; env table already in sync).
 
 === NOTES ===
-- docs/ is in .prettierignore; root README.md is NOT. README was prettier-formatted after edit.
-- Gate re-run after all doc changes: prettier + eslint + tsc + vitest => 697 tests, 47 files, green.
+- docs/ is in .prettierignore, so the CODEMAPS are NOT prettier-checked (free-form ASCII tables OK).
 - No src/ file was modified by this documentation work.
+- The maps + README/CONTRIBUTING doc edits are UNCOMMITTED in the working tree.

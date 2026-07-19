@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-12 | Files scanned: src/ports/** src/adapters/** src/testing/fakes/** src/composition/** src/vocabularies/** | Token estimate: ~950 -->
+<!-- Generated: 2026-07-19 | Files scanned: src/ports/** src/adapters/** src/testing/fakes/** src/composition/** src/vocabularies/** | Token estimate: ~980 -->
 
 # Ports & Adapters (the DI seam)
 
@@ -63,12 +63,17 @@ adapter turns it into provider `session_id` + `trace` (`adapters/openrouter/corr
 - **ComponentVocabulary** (`src/ports/vocabulary-registry.ts`) is a theme's render package — pure,
   code not JSON, emitting engine-legal markup (`renderShell`/`renderSection`/`renderGroup`/
   `renderPhotoBand`/flow pieces + `metrics()` + `promptNotes`). `builtinVocabularies(extra?)`
-  (`src/vocabularies/index.ts`) returns the registry Map; the only builtin is
-  `dhaba` (`src/vocabularies/dhaba/`).
+  (`src/vocabularies/index.ts`) returns the registry Map; **five builtins** ship —
+  `dhaba`, `bold-poster`, `blockframe`, `bazaar`, `bubblegum` — each `src/vocabularies/<id>/`. All but
+  `dhaba` are built on the shared toolbox `src/vocabularies/shared/` (binding/escaping, crossfade +
+  filmstrip carousels with the reduced-motion settled frame, register math, masthead, and the
+  `describeVocabularyContract` testkit); `dhaba` keeps private copies as the untouched reference, pinned
+  by the toolbox's sync tests (D78).
 - **FileThemeRepository** loads `themes/<id>.theme.json` at runtime, **overriding** bundled presets by
-  id; falls back to the bundle (`src/theme/presets/` — `botanical` only) for ids not on disk. Themes on
-  disk: `bazaar`, `blockframe`, `bold-poster`, `botanical`, `bubblegum`, `dhaba` — only `dhaba` declares
-  a `vocabulary`, so only it composes.
+  id; falls back to the bundle (`src/theme/presets/` — `botanical` only) for ids not on disk. The Node
+  root defaults `themesDir` to `bundledThemesDir()` so a git-dep consumer gets the shipped `themes/`
+  without a build (D78). Themes on disk: `bazaar`, `blockframe`, `bold-poster`, `botanical`, `bubblegum`,
+  `dhaba` — **five declare a `vocabulary`**, so all but `botanical` compose.
 - **NodeImageFetcher** resolves remote photo URLs → `data:` URIs; resilient (a failed URL is omitted,
   caller substitutes a placeholder) so generation never hard-fails on a flaky host.
 
